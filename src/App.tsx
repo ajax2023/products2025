@@ -33,7 +33,18 @@ function App() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        // Wait for Firebase to be fully initialized
+        setTimeout(() => {
+          setUser(currentUser);
+          setLoading(false);
+        }, 1000);
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error("Auth state change error:", error);
       setLoading(false);
     });
     return () => unsubscribe();
