@@ -23,10 +23,11 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { ViewState } from '../types/navigation';
 
 interface NavbarProps {
-  onTabChange: (tab: 'list' | 'add' | 'settings') => void;
-  activeTab: 'list' | 'add' | 'settings';
+  onTabChange: (tab: ViewState) => void;
+  activeTab: ViewState;
   user: any;
 }
 

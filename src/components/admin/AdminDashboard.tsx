@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
-import { AdminUser } from '../../types/admin';
+import { AdminUser, AdminRole, isAdmin } from '../../types/admin';
 import {
   Box,
-  Paper,
   Tabs,
   Tab,
-  Typography,
+  Paper,
   CircularProgress,
-  Alert,
+  Alert
 } from '@mui/material';
 import ProductModerationQueue from './ProductModerationQueue';
 import PriceModeration from './PriceModeration';
@@ -33,9 +32,20 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`admin-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
     </div>
   );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `admin-tab-${index}`,
+    'aria-controls': `admin-tabpanel-${index}`,
+  };
 }
 
 export default function AdminDashboard() {
@@ -47,33 +57,25 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchAdminStatus = async () => {
       if (!auth.currentUser) {
-        setError('Please log in to access admin dashboard');
+        setError('Please sign in to access the admin dashboard');
         setLoading(false);
         return;
       }
 
       try {
-        const adminDoc = await getDocs(
-          query(
-            collection(db, 'admins'),
-            where('user_id', '==', auth.currentUser.uid)
-          )
-        );
+        const adminRef = collection(db, 'admins');
+        const q = query(adminRef, where('uid', '==', auth.currentUser.uid));
+        const querySnapshot = await getDocs(q);
 
-        if (adminDoc.empty) {
-          setError('You do not have admin privileges');
-          setLoading(false);
-          return;
+        if (!querySnapshot.empty) {
+          const adminData = querySnapshot.docs[0].data() as AdminUser;
+          setCurrentAdmin(adminData);
+        } else {
+          setError('You do not have admin access');
         }
-
-        setCurrentAdmin({
-          ...adminDoc.docs[0].data(),
-          _id: adminDoc.docs[0].id
-        } as AdminUser);
-        
       } catch (err) {
         console.error('Error fetching admin status:', err);
-        setError('Error loading admin dashboard');
+        setError('An error occurred while loading the admin dashboard');
       } finally {
         setLoading(false);
       }
@@ -82,8 +84,13 @@ export default function AdminDashboard() {
     fetchAdminStatus();
   }, []);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const hasRole = (role: AdminRole): boolean => {
+    if (!currentAdmin) return false;
+    return isAdmin(currentAdmin, role);
   };
 
   if (loading) {
@@ -96,7 +103,7 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 4 }}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -104,61 +111,53 @@ export default function AdminDashboard() {
 
   if (!currentAdmin) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="warning">Access denied. Admin privileges required.</Alert>
+      <Box sx={{ p: 4 }}>
+        <Alert severity="warning">You do not have admin access.</Alert>
       </Box>
     );
   }
 
-  const hasRole = (role: string) => {
-    return currentAdmin.roles.includes('super_admin') || currentAdmin.roles.includes(role);
-  };
-
   return (
     <Box sx={{ width: '100%' }}>
-      <Paper elevation={0}>
+      <Paper elevation={3}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
-            aria-label="admin dashboard tabs"
+            aria-label="admin tabs"
             variant="scrollable"
             scrollButtons="auto"
           >
             {hasRole('product_admin') && (
-              <Tab label="Product Moderation" />
+              <Tab label="Product Moderation" {...a11yProps(0)} />
             )}
             {hasRole('price_admin') && (
-              <Tab label="Price Moderation" />
+              <Tab label="Price Moderation" {...a11yProps(1)} />
             )}
             {hasRole('company_admin') && (
-              <Tab label="Company Management" />
+              <Tab label="Company Management" {...a11yProps(2)} />
             )}
-            {currentAdmin.roles.includes('super_admin') && (
-              <Tab label="Admin Management" />
+            {hasRole('super_admin') && (
+              <Tab label="Admin Management" {...a11yProps(3)} />
             )}
           </Tabs>
         </Box>
-
         {hasRole('product_admin') && (
           <TabPanel value={tabValue} index={0}>
-            <ProductModerationQueue adminId={currentAdmin._id} />
+            <ProductModerationQueue adminId={currentAdmin.uid} />
           </TabPanel>
         )}
-
         {hasRole('price_admin') && (
           <TabPanel value={tabValue} index={1}>
-            <PriceModeration adminId={currentAdmin._id} />
+            <PriceModeration adminId={currentAdmin.uid} />
           </TabPanel>
         )}
-
         {hasRole('company_admin') && (
           <TabPanel value={tabValue} index={2}>
-            <CompanyManagement adminId={currentAdmin._id} />
+            <CompanyManagement adminId={currentAdmin.uid} />
           </TabPanel>
         )}
-
-        {currentAdmin.roles.includes('super_admin') && (
+        {hasRole('super_admin') && (
           <TabPanel value={tabValue} index={3}>
             <AdminManagement currentAdmin={currentAdmin} />
           </TabPanel>

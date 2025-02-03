@@ -13,6 +13,7 @@ import { ThemeProvider, createTheme } from '@mui/material';
 import './App.css';
 import './components/Login.css';
 import UserManagement from './components/admin/UserManagement';
+import { ViewState } from './types/navigation';
 
 const theme = createTheme({
   palette: {
@@ -28,7 +29,7 @@ const theme = createTheme({
 function App() {
   const [user, setUser] = useState(auth.currentUser);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'list' | 'add' | 'settings' | 'companies'>('list');
+  const [activeTab, setActiveTab] = useState<ViewState>('list');
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -38,40 +39,43 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  const handleTabChange = (tab: ViewState) => {
+    setActiveTab(tab);
+  };
+
   if (loading) {
     return <div className="loading">Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="login-container">
+        <h1>Product Finder 2025</h1>
+        <Login />
+      </div>
+    );
   }
 
   return (
     <BrowserRouter>
       <ThemeProvider theme={theme}>
         <div className="App">
-          {user ? (
-            <>
-              <Navbar
-                onTabChange={setActiveTab}
-                activeTab={activeTab}
-                user={user}
-              />
-              <main className="main-content">
-                <Routes>
-                  <Route path="/" element={<ProductList />} />
-                  <Route path="/add" element={<ProductForm />} />
-                    
-                  <Route path="/brands" element={<BrandList />} />
-                  <Route path="/companies" element={<CompanyList />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/company" element={<CompanyInfo />} />
-                  <Route path="/admin/users" element={<UserManagement />} />
-                </Routes>
-              </main>
-            </>
-          ) : (
-            <div className="login-container">
-              <h1>Product Finder 2025</h1>
-              <Login />
-            </div>
-          )}
+          <Navbar
+            onTabChange={handleTabChange}
+            activeTab={activeTab}
+            user={user}
+          />
+          <main className="main-content">
+            <Routes>
+              <Route path="/" element={<ProductList />} />
+              <Route path="/add" element={<ProductForm />} />
+              <Route path="/brands" element={<BrandList />} />
+              <Route path="/companies" element={<CompanyList />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/company" element={<CompanyInfo />} />
+              <Route path="/admin/users" element={<UserManagement />} />
+            </Routes>
+          </main>
         </div>
       </ThemeProvider>
     </BrowserRouter>
