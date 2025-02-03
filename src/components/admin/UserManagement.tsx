@@ -46,6 +46,8 @@ import {
   FilterList as FilterListIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
+import ProductImport from './ProductImport';
+import PriceImport from './PriceImport';
 
 const ROLES = ['super_admin', 'admin', 'contributor', 'viewer'] as const;
 const USER_STATUSES = ['active', 'inactive', 'pending'] as const;
@@ -62,6 +64,8 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [showProductImport, setShowProductImport] = useState(false);
+  const [showPriceImport, setShowPriceImport] = useState(false);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -246,10 +250,12 @@ export default function UserManagement() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        User Management
-      </Typography>
+    <Box sx={{ p: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5" component="h5">
+          User Management
+        </Typography>
+      </Box>
 
       {/* Search and Filters */}
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -390,7 +396,10 @@ export default function UserManagement() {
         />
       </Paper>
 
-      <Dialog open={!!editingUser} onClose={() => setEditingUser(null)}>
+      <Dialog 
+        open={!!editingUser} 
+        onClose={() => setEditingUser(null)}
+      >
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -448,6 +457,32 @@ export default function UserManagement() {
             Save Changes
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Product Import Dialog */}
+      <Dialog
+        open={showProductImport}
+        onClose={() => setShowProductImport(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Products</DialogTitle>
+        <DialogContent>
+          <ProductImport onClose={() => setShowProductImport(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Price Import Dialog */}
+      <Dialog
+        open={showPriceImport}
+        onClose={() => setShowPriceImport(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Prices</DialogTitle>
+        <DialogContent>
+          <PriceImport onClose={() => setShowPriceImport(false)} />
+        </DialogContent>
       </Dialog>
     </Box>
   );

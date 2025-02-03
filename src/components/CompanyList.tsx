@@ -331,7 +331,7 @@ export default function CompanyList() {
         <Box sx={{ p: 1 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" component="h5">
+              <Typography variant="h5" component="h5">
                 Companies
               </Typography>
               <Button

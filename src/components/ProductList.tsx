@@ -1,25 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, orderBy, onSnapshot, doc, updateDoc, getDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth';
-import { Product, ProductPrice, PRODUCT_UNITS, PRICE_SOURCES } from '../types/product';
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, Collapse, Box, Typography, TablePagination, Grid,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  TextField, Select, MenuItem, FormControl, InputLabel,
-  Chip, Tooltip, CircularProgress
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  TextField,
+  Grid,
+  IconButton,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
+  Alert,
+  Snackbar,
+  Autocomplete,
+  Collapse,
+  TablePagination,
+  Tooltip,
+  CircularProgress,
+  TableContainer,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Paper
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import InfoIcon from '@mui/icons-material/Info';
 import EditIcon from '@mui/icons-material/Edit';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import AddIcon from '@mui/icons-material/Add';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import InfoIcon from '@mui/icons-material/Info';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+
 import { useLocation } from 'react-router-dom';
 import { Company } from '../types/company';
+import ProductImport from './admin/ProductImport';
+import PriceImport from './admin/PriceImport';
+import { auth, db } from '../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { 
+  collection, 
+  doc, 
+  getDoc,
+  getDocs, 
+  query, 
+  where, 
+  setDoc, 
+  deleteDoc,
+  orderBy,
+  onSnapshot,
+  updateDoc,
+  arrayUnion,
+  arrayRemove
+} from 'firebase/firestore';
+import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from '../types/product';
 
 export default function ProductList() {
   const location = useLocation();
@@ -36,15 +79,17 @@ export default function ProductList() {
   const [newPrice, setNewPrice] = useState<Partial<ProductPrice>>({
     amount: 0,
     unit: 'each',
+    store: '',
     location: {
-      country: '',
-      state: '',
+      country: 'Canada',
+      province: '',
       city: ''
     },
     date: new Date().toISOString(),
     source: 'manual',
     notes: '',
-    sales_link: ''
+    sales_link: '',
+    attributes: {}
   });
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
   const [isAdmin, setIsAdmin] = useState(false);
@@ -52,16 +97,86 @@ export default function ProductList() {
   const [editingPrice, setEditingPrice] = useState<{productId: string, priceIndex: number} | null>(null);
   const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
   const [editedPrice, setEditedPrice] = useState<Partial<ProductPrice>>({
+    name: '',
     amount: 0,
     unit: 'each',
+    store: '',
     location: {
-      country: '',
-      state: '',
+      country: 'Canada',
+      province: '',
       city: ''
     },
+    attributes: {},
     notes: '',
     sales_link: ''
   });
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null);
+  const [showProductImport, setShowProductImport] = useState(false);
+  const [showPriceImport, setShowPriceImport] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({
+    name: '',
+    brand: '',
+    category: '',
+    origin: {
+      country: 'Canada',
+      province: '',
+      city: '',
+      manufacturer: ''
+    },
+    attributes: {},
+    prices: []
+  });
+
+  // Add filter states
+  const [filters, setFilters] = useState({
+    country: '',
+    province: '',
+    city: '',
+    category: ''
+  });
+
+  // Add unique location lists
+  const [uniqueLocations, setUniqueLocations] = useState<{
+    countries: string[];
+    provinces: string[];
+    cities: string[];
+  }>({
+    countries: [],
+    provinces: [],
+    cities: []
+  });
+
+  const attributeNameRef = React.createRef<HTMLInputElement>();
+  const attributeValueRef = React.createRef<HTMLInputElement>();
+
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
+  // Function to show snackbar
+  const showMessage = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  // Handle snackbar close
+  const handleSnackbarClose = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -72,11 +187,20 @@ export default function ProductList() {
         const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
         
+        console.log('User document:', userDoc.exists() ? userDoc.data() : 'No user doc');
+        
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const isUserAdmin = userData.role === 'admin' || userData.role === 'super_admin';
           const isUserSuperAdmin = userData.role === 'super_admin';
           const isUserContributor = userData.role === 'contributor' || isUserAdmin || isUserSuperAdmin;
+          
+          console.log('User roles:', {
+            role: userData.role,
+            isAdmin: isUserAdmin,
+            isSuperAdmin: isUserSuperAdmin,
+            isContributor: isUserContributor
+          });
           
           setIsAdmin(isUserAdmin);
           setIsSuperAdmin(isUserSuperAdmin);
@@ -92,8 +216,14 @@ export default function ProductList() {
             console.log('Role mismatch detected, forcing token refresh');
             await user.getIdToken(true);
           }
+        } else {
+          console.log('No user document found in Firestore');
+          setIsAdmin(false);
+          setIsSuperAdmin(false);
         }
         
+        // Always fetch data if user is logged in, regardless of role
+        console.log('Fetching data for logged in user');
         fetchData();
       } else {
         console.log('No user logged in');
@@ -114,6 +244,27 @@ export default function ProductList() {
     }
   }, [brandFilter]);
 
+  useEffect(() => {
+    const locations = {
+      countries: new Set<string>(),
+      provinces: new Set<string>(),
+      cities: new Set<string>()
+    };
+
+    products.forEach(product => {
+      // Add locations from origin
+      if (product.origin?.country) locations.countries.add(product.origin.country);
+      if (product.origin?.province) locations.provinces.add(product.origin.province);
+      if (product.origin?.city) locations.cities.add(product.origin.city);
+    });
+
+    setUniqueLocations({
+      countries: Array.from(locations.countries).sort(),
+      provinces: Array.from(locations.provinces).sort(),
+      cities: Array.from(locations.cities).sort()
+    });
+  }, [products]);
+
   const fetchData = async () => {
     try {
       console.log('Starting data fetch...');
@@ -128,19 +279,28 @@ export default function ProductList() {
 
       // Then fetch products
       console.log('Fetching products...');
-      const q = query(collection(db, 'products'), orderBy('created_at', 'desc'));
-      const querySnapshot = await getDocs(q);
+      const productsQuery = query(collection(db, 'products'));
+      const querySnapshot = await getDocs(productsQuery);
       console.log('Products fetched:', querySnapshot.size);
-      const productList = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        _id: doc.id
-      })) as Product[];
+      
+      const productList = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Product data:', data);
+        return {
+          ...data,
+          _id: doc.id
+        };
+      }) as Product[];
+
+      console.log('All products:', productList);
+      console.log('Brand filter:', brandFilter);
 
       // Apply brand filter if present
       const filteredList = brandFilter 
         ? productList.filter(product => product.brand === brandFilter)
         : productList;
 
+      console.log('Filtered products:', filteredList);
       setProducts(filteredList);
       setLoading(false);
     } catch (error) {
@@ -175,15 +335,17 @@ export default function ProductList() {
     setNewPrice({
       amount: 0,
       unit: 'each',
+      store: '',
       location: {
-        country: '',
-        state: '',
+        country: 'Canada',
+        province: '',
         city: ''
       },
       date: new Date().toISOString(),
       source: 'manual',
       notes: '',
-      sales_link: ''
+      sales_link: '',
+      attributes: {}
     });
     setError(null);
   };
@@ -279,8 +441,10 @@ export default function ProductList() {
 
     setEditingPrice({ productId, priceIndex });
     setEditedPrice({
+      name: price.name,
       amount: price.amount,
       unit: price.unit,
+      store: price.store,
       location: { ...price.location },
       notes: price.notes,
       sales_link: price.sales_link
@@ -292,11 +456,13 @@ export default function ProductList() {
     setEditPriceDialogOpen(false);
     setEditingPrice(null);
     setEditedPrice({
+      name: '',
       amount: 0,
       unit: 'each',
+      store: '',
       location: {
-        country: '',
-        state: '',
+        country: 'Canada',
+        province: '',
         city: ''
       },
       notes: '',
@@ -308,7 +474,7 @@ export default function ProductList() {
   const handleSaveEditedPrice = async () => {
     if (!editingPrice || !auth.currentUser) return;
     if (!editedPrice.amount || !editedPrice.unit || 
-        !editedPrice.location?.country || !editedPrice.location?.city) {
+        !editedPrice.location.country || !editedPrice.location.city) {
       setError('Please fill in all required price fields (amount, unit, country, and city)');
       return;
     }
@@ -335,8 +501,10 @@ export default function ProductList() {
       // Create the updated price object
       const updatedPrice = {
         ...originalPrice,
+        name: editedPrice.name,
         amount: editedPrice.amount,
         unit: editedPrice.unit,
+        store: editedPrice.store,
         location: editedPrice.location,
         notes: editedPrice.notes,
         sales_link: editedPrice.sales_link,
@@ -383,6 +551,68 @@ export default function ProductList() {
     }
   };
 
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    setDeleteConfirmProduct(product);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      if (!deleteConfirmProduct) {
+        showMessage('No product selected for deletion', 'error');
+        return;
+      }
+
+      // Get the document ID (which might be in id or _id)
+      const docId = deleteConfirmProduct.id || deleteConfirmProduct._id;
+      if (!docId) {
+        showMessage('Invalid product ID', 'error');
+        return;
+      }
+
+      console.log('Deleting product with ID:', docId);
+      const productRef = doc(db, 'products', docId);
+      await deleteDoc(productRef);
+
+      // Update the local state using the same ID field
+      setProducts(prevProducts => prevProducts.filter(p => (p.id || p._id) !== docId));
+      
+      setDeleteConfirmProduct(null);
+      showMessage('Product deleted successfully');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      showMessage(`Error deleting product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    if (!editingProduct) return;
+    
+    try {
+      const productRef = doc(db, 'products', editingProduct._id);
+      await updateDoc(productRef, {
+        ...updatedProduct,
+        updated_at: new Date(),
+        updated_by: auth.currentUser?.uid || ''
+      });
+      
+      setProducts(prevProducts => 
+        prevProducts.map(p => 
+          p._id === editingProduct._id
+            ? { ...updatedProduct, _id: editingProduct._id }
+            : p
+        )
+      );
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error updating product:', error);
+      setError('Failed to update product. Please try again.');
+    }
+  };
+
   const toggleRow = (productId: string) => {
     setExpandedRows(prev => ({
       ...prev,
@@ -401,6 +631,100 @@ export default function ProductList() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Add filter handler
+  const handleFilterChange = (type: keyof typeof filters, value: string | null) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: value || ''
+    }));
+  };
+
+  // Add filtered products computation
+  const filteredProducts = products.filter(product => {
+    const matchCountry = !filters.country || (product.origin?.country === filters.country);
+    const matchProvince = !filters.province || (product.origin?.province === filters.province);
+    const matchCity = !filters.city || (product.origin?.city === filters.city);
+    const matchCategory = !filters.category || product.category === filters.category;
+
+    return matchCountry && matchProvince && matchCity && matchCategory;
+  });
+
+  const handleAddProduct = async () => {
+    try {
+      if (!auth.currentUser) {
+        showMessage('No authenticated user found', 'error');
+        return;
+      }
+
+      console.log('Attempting to add product:', newProduct);
+
+      // Validate required fields
+      if (!newProduct.name?.trim()) {
+        showMessage('Please enter a product name', 'error');
+        return;
+      }
+      if (!newProduct.brand?.trim()) {
+        showMessage('Please enter a brand name', 'error');
+        return;
+      }
+
+      // Get the actual category value, whether it's from the list or new
+      const categoryValue = newProduct.category?.trim();
+      console.log('Category value:', categoryValue);
+
+      if (!categoryValue) {
+        showMessage('Please select or enter a category', 'error');
+        return;
+      }
+
+      const productRef = doc(collection(db, 'products'));
+      const productData = {
+        ...newProduct,
+        category: categoryValue,
+        created_by: auth.currentUser.uid,
+        created_by_name: auth.currentUser.displayName || auth.currentUser.email,
+        created_at: new Date().toISOString(),
+        modified_at: new Date().toISOString(),
+        modified_by: auth.currentUser.uid,
+        modified_by_name: auth.currentUser.displayName || auth.currentUser.email,
+        prices: [],
+        attributes: newProduct.attributes || {}
+      };
+
+      console.log('Saving product data:', productData);
+      await setDoc(productRef, productData);
+      
+      // Add new category to PRODUCT_CATEGORIES if it's not already there
+      if (categoryValue && !PRODUCT_CATEGORIES.includes(categoryValue)) {
+        console.log('Adding new category:', categoryValue);
+        PRODUCT_CATEGORIES.push(categoryValue);
+      }
+
+      // Update products list immediately
+      setProducts(prevProducts => [...prevProducts, { ...productData, id: productRef.id }]);
+
+      setAddDialogOpen(false);
+      setNewProduct({
+        name: '',
+        brand: '',
+        category: '',
+        origin: {
+          country: 'Canada',
+          province: '',
+          city: '',
+          manufacturer: ''
+        },
+        attributes: {},
+        prices: []
+      });
+
+      showMessage('Product added successfully!');
+    } catch (error) {
+      console.error('Error adding product:', error);
+      showMessage(`Error adding product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
   };
 
   if (!authChecked) {
@@ -428,170 +752,701 @@ export default function ProductList() {
   }
 
   return (
-    <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
-      <TableContainer>
-        <Typography variant="h5" gutterBottom>
-          Products
-        </Typography>
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox" />
-              <TableCell>Name</TableCell>
-              <TableCell>Brand</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Origin</TableCell>
-              <TableCell>Attributes</TableCell>
-              <TableCell>Company</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {products
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((product) => (
+    <Box sx={{ width: '100%', padding: 3 }}>
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5">Products</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {isAdmin && (
+            <>
+              <Button
+                variant="outlined"
+                onClick={() => setShowProductImport(true)}
+                startIcon={<AddIcon />}
+              >
+                Import Products
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setShowPriceImport(true)}
+                startIcon={<AddIcon />}
+              >
+                Import Prices
+              </Button>
+            </>
+          )}
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => setAddDialogOpen(true)}
+          >
+            Add Product
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Product Import Dialog */}
+      <Dialog
+        open={showProductImport}
+        onClose={() => setShowProductImport(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Products</DialogTitle>
+        <DialogContent>
+          <ProductImport onClose={() => setShowProductImport(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Price Import Dialog */}
+      <Dialog
+        open={showPriceImport}
+        onClose={() => setShowPriceImport(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Prices</DialogTitle>
+        <DialogContent>
+          <PriceImport onClose={() => setShowPriceImport(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Box sx={{ mb: 1, p: 1, backgroundColor: 'background.paper' }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Autocomplete
+              value={filters.country}
+              onChange={(_, newValue) => handleFilterChange('country', newValue)}
+              options={uniqueLocations.countries}
+              renderInput={(params) => (
+                <TextField {...params} label="Filter by Country" variant="outlined" size="small" />
+              )}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Autocomplete
+              value={filters.province}
+              onChange={(_, newValue) => handleFilterChange('province', newValue)}
+              options={uniqueLocations.provinces}
+              renderInput={(params) => (
+                <TextField {...params} label="Filter by Province" variant="outlined" size="small" />
+              )}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Autocomplete
+              value={filters.city}
+              onChange={(_, newValue) => handleFilterChange('city', newValue)}
+              options={uniqueLocations.cities}
+              renderInput={(params) => (
+                <TextField {...params} label="Filter by City" variant="outlined" size="small" />
+              )}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            {!showNewCategoryInput ? (
+              <FormControl fullWidth required>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={filters.category}
+                  label="Category"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'add_new') {
+                      setShowNewCategoryInput(true);
+                      setFilters(prev => ({ ...prev, category: '' }));
+                    } else {
+                      setFilters(prev => ({ ...prev, category: value }));
+                    }
+                  }}
+                >
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <MenuItem key={category} value={category}>{category}</MenuItem>
+                  ))}
+                  <MenuItem value="add_new"><em>+ Add New Category</em></MenuItem>
+                </Select>
+              </FormControl>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  fullWidth
+                  label="New Category"
+                  value={newCategoryInput}
+                  onChange={(e) => setNewCategoryInput(e.target.value)}
+                  required
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (newCategoryInput.trim()) {
+                      setFilters(prev => ({ ...prev, category: newCategoryInput.trim() }));
+                      if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                        PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                      }
+                      setShowNewCategoryInput(false);
+                      setNewCategoryInput('');
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setShowNewCategoryInput(false);
+                    setNewCategoryInput('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            )}
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={!!deleteConfirmProduct}
+        onClose={() => setDeleteConfirmProduct(null)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete "{deleteConfirmProduct?.name}"? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmProduct(null)}>Cancel</Button>
+          <Button onClick={confirmDelete} color="error">Delete</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit product dialog */}
+      <Dialog
+        open={!!editingProduct}
+        onClose={() => setEditingProduct(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Edit Product</DialogTitle>
+        <DialogContent>
+          {editingProduct && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <TextField
+                label="Name"
+                defaultValue={editingProduct.name}
+                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, name: e.target.value } : null)}
+              />
+              <TextField
+                label="Brand"
+                defaultValue={editingProduct.brand}
+                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, brand: e.target.value } : null)}
+              />
+              {!showNewCategoryInput ? (
+                <FormControl fullWidth required>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={editingProduct.category}
+                    label="Category"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'add_new') {
+                        setShowNewCategoryInput(true);
+                        setEditingProduct(prev => prev ? { ...prev, category: '' } : null);
+                      } else {
+                        setEditingProduct(prev => prev ? { ...prev, category: value } : null);
+                      }
+                    }}
+                  >
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <MenuItem key={category} value={category}>{category}</MenuItem>
+                    ))}
+                    <MenuItem value="add_new"><em>+ Add New Category</em></MenuItem>
+                  </Select>
+                </FormControl>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="New Category"
+                    value={newCategoryInput}
+                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                    required
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      if (newCategoryInput.trim()) {
+                        setEditingProduct(prev => prev ? { ...prev, category: newCategoryInput.trim() } : null);
+                        if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                          PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                        }
+                        setShowNewCategoryInput(false);
+                        setNewCategoryInput('');
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setShowNewCategoryInput(false);
+                      setNewCategoryInput('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              )}
+
+              <Typography variant="subtitle1" gutterBottom>
+                Origin
+              </Typography>
+              <TextField
+                label="Country"
+                defaultValue="Canada"
+                onChange={(e) => setEditingProduct(prev => prev ? { 
+                  ...prev, 
+                  origin: { ...prev.origin, country: e.target.value }
+                } : null)}
+              />
+              <TextField
+                label="Province"
+                defaultValue={editingProduct.origin.province}
+                onChange={(e) => setEditingProduct(prev => prev ? { 
+                  ...prev, 
+                  origin: { ...prev.origin, province: e.target.value }
+                } : null)}
+              />
+              <TextField
+                label="City"
+                defaultValue={editingProduct.origin.city}
+                onChange={(e) => setEditingProduct(prev => prev ? { 
+                  ...prev, 
+                  origin: { ...prev.origin, city: e.target.value }
+                } : null)}
+              />
+              <TextField
+                label="Manufacturer"
+                defaultValue={editingProduct.origin.manufacturer}
+                onChange={(e) => setEditingProduct(prev => prev ? { 
+                  ...prev, 
+                  origin: { ...prev.origin, manufacturer: e.target.value }
+                } : null)}
+              />
+
+              {/* Product Attributes Section */}
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Attributes
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
+                  {Object.entries(editingProduct.attributes || {}).map(([key, value]) => (
+                    <Chip
+                      key={key}
+                      label={`${key}: ${value}`}
+                      onDelete={() => {
+                        setEditingProduct(prev => {
+                          if (!prev) return null;
+                          const newAttributes = { ...prev.attributes };
+                          delete newAttributes[key];
+                          return { ...prev, attributes: newAttributes };
+                        });
+                      }}
+                      size="small"
+                    />
+                  ))}
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                  <TextField
+                    label="Attribute Name"
+                    size="small"
+                    inputRef={attributeNameRef}
+                  />
+                  <TextField
+                    label="Value"
+                    size="small"
+                    inputRef={attributeValueRef}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      const name = attributeNameRef.current?.value;
+                      const value = attributeValueRef.current?.value;
+                      if (name && value) {
+                        setEditingProduct(prev => {
+                          if (!prev) return null;
+                          return {
+                            ...prev,
+                            attributes: {
+                              ...prev.attributes,
+                              [name]: value
+                            }
+                          };
+                        });
+                        if (attributeNameRef.current) attributeNameRef.current.value = '';
+                        if (attributeValueRef.current) attributeValueRef.current.value = '';
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingProduct(null)}>Cancel</Button>
+          <Button onClick={() => editingProduct && handleUpdateProduct(editingProduct)} color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Product Dialog */}
+      <Dialog 
+        open={addDialogOpen} 
+        onClose={() => setAddDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add New Product</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Name"
+              value={newProduct.name}
+              onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              label="Brand"
+              value={newProduct.brand}
+              onChange={(e) => setNewProduct(prev => ({ ...prev, brand: e.target.value }))}
+            />
+            {!showNewCategoryInput ? (
+              <FormControl fullWidth required>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={newProduct.category}
+                  label="Category"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'add_new') {
+                      setShowNewCategoryInput(true);
+                      setNewProduct(prev => ({ ...prev, category: '' }));
+                    } else {
+                      setNewProduct(prev => ({ ...prev, category: value }));
+                    }
+                  }}
+                >
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <MenuItem key={category} value={category}>{category}</MenuItem>
+                  ))}
+                  <MenuItem value="add_new"><em>+ Add New Category</em></MenuItem>
+                </Select>
+              </FormControl>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  fullWidth
+                  label="New Category"
+                  value={newCategoryInput}
+                  onChange={(e) => setNewCategoryInput(e.target.value)}
+                  required
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (newCategoryInput.trim()) {
+                      setNewProduct(prev => ({ ...prev, category: newCategoryInput.trim() }));
+                      if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                        PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                      }
+                      setShowNewCategoryInput(false);
+                      setNewCategoryInput('');
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setShowNewCategoryInput(false);
+                    setNewCategoryInput('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            )}
+
+            <Typography variant="subtitle1" gutterBottom>
+              Origin
+            </Typography>
+            <TextField
+              label="Country"
+              defaultValue="Canada"
+              value={newProduct.origin.country}
+              onChange={(e) => setNewProduct(prev => ({ 
+                ...prev, 
+                origin: { ...prev.origin, country: e.target.value }
+              }))}
+            />
+            <TextField
+              label="Province"
+              value={newProduct.origin.province}
+              onChange={(e) => setNewProduct(prev => ({ 
+                ...prev, 
+                origin: { ...prev.origin, province: e.target.value }
+              }))}
+            />
+            <TextField
+              label="City"
+              value={newProduct.origin.city}
+              onChange={(e) => setNewProduct(prev => ({ 
+                ...prev, 
+                origin: { ...prev.origin, city: e.target.value }
+              }))}
+            />
+            <TextField
+              label="Manufacturer"
+              value={newProduct.origin.manufacturer}
+              onChange={(e) => setNewProduct(prev => ({ 
+                ...prev, 
+                origin: { ...prev.origin, manufacturer: e.target.value }
+              }))}
+            />
+
+            {/* Product Attributes Section */}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Attributes
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
+                {Object.entries(newProduct.attributes || {}).map(([key, value]) => (
+                  <Chip
+                    key={key}
+                    label={`${key}: ${value}`}
+                    onDelete={() => {
+                      setNewProduct(prev => {
+                        const newAttributes = { ...prev.attributes };
+                        delete newAttributes[key];
+                        return { ...prev, attributes: newAttributes };
+                      });
+                    }}
+                    size="small"
+                  />
+                ))}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Attribute Name"
+                  size="small"
+                  inputRef={attributeNameRef}
+                />
+                <TextField
+                  label="Value"
+                  size="small"
+                  inputRef={attributeValueRef}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const name = attributeNameRef.current?.value;
+                    const value = attributeValueRef.current?.value;
+                    if (name && value) {
+                      setNewProduct(prev => ({
+                        ...prev,
+                        attributes: {
+                          ...prev.attributes,
+                          [name]: value
+                        }
+                      }));
+                      if (attributeNameRef.current) attributeNameRef.current.value = '';
+                      if (attributeValueRef.current) attributeValueRef.current.value = '';
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddProduct} variant="contained" color="primary">
+            Add Product
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
+        <TableContainer>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell padding="none" sx={{ width: '48px' }} />
+                <TableCell>Name</TableCell>
+                <TableCell>Brand</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Origin</TableCell>
+                <TableCell>Attributes</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredProducts
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((product) => (
                 <React.Fragment key={product._id}>
                   <TableRow>
-                    <TableCell padding="checkbox">
+                    <TableCell padding="none" sx={{ width: '48px' }}>
                       <IconButton
+                        aria-label="expand row"
                         size="small"
                         onClick={() => toggleRow(product._id)}
                       >
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
-                    <TableCell>{product.name}</TableCell>
+                    <TableCell component="th" scope="row">{product.name}</TableCell>
                     <TableCell>{product.brand}</TableCell>
                     <TableCell>{product.category}</TableCell>
+                    <TableCell>{product.origin.city}, {product.origin.province}, {product.origin.country}</TableCell>
                     <TableCell>
-                      {`${product.origin.city}, ${product.origin.country}`}
+                      {Object.entries(product.attributes || {}).map(([key, value]) => (
+                        <Chip 
+                          key={key} 
+                          label={`${key}: ${value}`} 
+                          size="small" 
+                          sx={{ m: 0.5 }}
+                        />
+                      ))}
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {Object.entries(product.attributes).map(([key, value]) => (
-                          <Chip
-                            key={key}
-                            label={`${key}: ${value}`}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenPriceDialog(product)}
+                          color="primary"
+                        >
+                          <AttachMoneyIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditProduct(product)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteProduct(product)}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
                       </Box>
-                    </TableCell>
-                    <TableCell>
-                      {companies[product.company_id]?.name || product.company_id}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        onClick={() => handleOpenPriceDialog(product)}
-                        size="small"
-                        color="primary"
-                        title="Add Price"
-                      >
-                        <AttachMoneyIcon />
-                      </IconButton>
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
                       <Collapse in={expandedRows[product._id]} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 1 }}>
-                          <Typography variant="h6" gutterBottom component="div">
-                            Prices by region
-                          </Typography>
-                          <Table size="small">
+                          <Table size="small" aria-label="prices" sx={{ bgcolor: 'action.hover' }}>
                             <TableHead>
-                              <TableRow>
+                              <TableRow sx={{ bgcolor: 'action.hover' }}>
+                                <TableCell>Name</TableCell>
                                 <TableCell>Price</TableCell>
                                 <TableCell>Unit</TableCell>
+                                <TableCell>Store</TableCell>
                                 <TableCell>Location</TableCell>
                                 <TableCell>Date</TableCell>
                                 <TableCell>Added By</TableCell>
-                                <TableCell>Buy Online</TableCell>
-                                {(isAdmin || isSuperAdmin || (auth.currentUser && product.prices?.some(price => price.created_by === auth.currentUser.uid))) && (
-                                  <TableCell padding="checkbox">Actions</TableCell>
-                                )}
+                                <TableCell>Online</TableCell>
+                                <TableCell sx={{ width: '100px' }}>Actions</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {product.prices?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                .map((price, index) => (
-                                <TableRow key={`${product._id}-price-${index}`}>
+                              {(product.prices || []).map((price, index) => (
+                                <TableRow key={index}>
+                                  <TableCell>{price.name || '-'}</TableCell>
                                   <TableCell>${price.amount.toFixed(2)}</TableCell>
                                   <TableCell>{price.unit}</TableCell>
+                                  <TableCell>{price.store || '-'}</TableCell>
                                   <TableCell>
-                                    {`${price.location.city}${price.location.state ? `, ${price.location.state}` : ''}, ${price.location.country}`}
+                                    {price.location?.city && price.location?.province && price.location?.country
+                                      ? `${price.location.city}, ${price.location.province}, ${price.location.country}`
+                                      : price.location?.city && price.location?.country
+                                      ? `${price.location.city}, ${price.location.country}`
+                                      : price.location?.country || '-'}
                                   </TableCell>
-                                  <TableCell>{formatDate(price.date)}</TableCell>
+                                  <TableCell>{new Date(price.date).toLocaleString()}</TableCell>
                                   <TableCell>
-                                    {price.created_by_name || price.created_by_email?.split('@')[0] || 'Unknown'}
-                                    {price.modified_by_name && (
-                                      <Tooltip title={`Last edited by ${price.modified_by_name}`}>
-                                        <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
-                                          (edited)
-                                        </Typography>
-                                      </Tooltip>
-                                    )}
-                                    {price.notes && (
-                                      <Tooltip title={price.notes}>
-                                        <InfoIcon fontSize="small" sx={{ ml: 1, opacity: 0.7 }} />
+                                    {price.created_by_name}
+                                    {price.created_by === auth.currentUser?.uid && (
+                                      <Tooltip title="Added by you">
+                                        <InfoIcon color="primary" sx={{ ml: 1, fontSize: 16 }} />
                                       </Tooltip>
                                     )}
                                   </TableCell>
                                   <TableCell>
                                     {price.sales_link ? (
-                                      <Tooltip title="Buy Online">
-                                        <IconButton
-                                          size="small"
-                                          color="primary"
-                                          href={price.sales_link}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          <ShoppingCartIcon fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
+                                      <IconButton
+                                        size="small"
+                                        href={price.sales_link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <OpenInNewIcon />
+                                      </IconButton>
                                     ) : (
-                                      <Typography variant="caption" color="text.secondary">
-                                        Not available
+                                      <Typography variant="body2" color="text.secondary">
+                                        NA
                                       </Typography>
                                     )}
                                   </TableCell>
-                                  {(isAdmin || isSuperAdmin || (auth.currentUser && price.created_by === auth.currentUser.uid)) && (
-                                    <TableCell padding="checkbox" sx={{ whiteSpace: 'nowrap' }}>
-                                      <Box sx={{ display: 'flex', gap: 1 }}>
-                                        {(isAdmin || isSuperAdmin || (auth.currentUser && price.created_by === auth.currentUser.uid)) && (
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleOpenEditPriceDialog(product._id, index, price)}
-                                            color="primary"
-                                            title="Edit Price"
-                                          >
-                                            <EditIcon fontSize="small" />
-                                          </IconButton>
-                                        )}
-                                        {(isAdmin || isSuperAdmin) && (
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleDeletePrice(product._id, index)}
-                                            color="error"
-                                            title="Delete Price"
-                                          >
-                                            <DeleteIcon fontSize="small" />
-                                          </IconButton>
-                                        )}
-                                      </Box>
-                                    </TableCell>
-                                  )}
-                                </TableRow>
-                              ))}
-                              {(!product.prices || product.prices.length === 0) && (
-                                <TableRow>
-                                  <TableCell colSpan={(isAdmin || isSuperAdmin || (auth.currentUser && product.prices?.some(price => price.created_by === auth.currentUser.uid))) ? 7 : 6} align="center">
-                                    No prices available
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenEditPriceDialog(product._id, index, price)}
+                                        color="primary"
+                                      >
+                                        <EditIcon />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleDeletePrice(product._id, index)}
+                                        color="error"
+                                      >
+                                        <DeleteIcon />
+                                      </IconButton>
+                                    </Box>
                                   </TableCell>
                                 </TableRow>
-                              )}
+                              ))}
                             </TableBody>
                           </Table>
                         </Box>
@@ -600,257 +1455,375 @@ export default function ProductList() {
                   </TableRow>
                 </React.Fragment>
               ))}
-            {products.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} align="center">
-                  <Typography variant="body2" color="text.secondary">
-                    No products found
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              {filteredProducts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      No products found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={filteredProducts.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+
+        {/* Price Entry Dialog */}
+        <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
+          <DialogTitle>
+            Add Price for {selectedProduct?.name}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Name (e.g. Gala - Organic)"
+                  placeholder="Enter a specific name or variation"
+                  value={newPrice.name}
+                  onChange={(e) => setNewPrice(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Price"
+                  value={newPrice.amount}
+                  onChange={(e) => setNewPrice(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
+                  InputProps={{
+                    inputProps: { min: 0, step: 0.01 }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Unit</InputLabel>
+                  <Select
+                    value={newPrice.unit}
+                    label="Unit"
+                    onChange={(e) => setNewPrice(prev => ({ ...prev, unit: e.target.value }))}
+                  >
+                    {PRODUCT_UNITS.map((unit) => (
+                      <MenuItem key={unit} value={unit}>{unit}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Store"
+                  value={newPrice.store}
+                  onChange={(e) => setNewPrice(prev => ({ ...prev, store: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Country"
+                  defaultValue="Canada"
+                  value={newPrice.location.country}
+                  onChange={(e) => setNewPrice(prev => ({
+                    ...prev,
+                    location: { ...prev.location, country: e.target.value }
+                  }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Province"
+                  value={newPrice.location.province}
+                  onChange={(e) => setNewPrice(prev => ({
+                    ...prev,
+                    location: { ...prev.location, province: e.target.value }
+                  }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={newPrice.location.city}
+                  onChange={(e) => setNewPrice(prev => ({
+                    ...prev,
+                    location: { ...prev.location, city: e.target.value }
+                  }))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Notes"
+                  multiline
+                  rows={2}
+                  value={newPrice.notes}
+                  onChange={(e) => setNewPrice(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Sales Link"
+                  value={newPrice.sales_link}
+                  onChange={(e) => setNewPrice(prev => ({ ...prev, sales_link: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom>
+                  Attributes
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                  {Object.entries(newPrice.attributes || {}).map(([key, value]) => (
+                    <Chip
+                      key={key}
+                      label={`${key}: ${value}`}
+                      onDelete={() => {
+                        setNewPrice(prev => {
+                          const newAttributes = { ...prev.attributes };
+                          delete newAttributes[key];
+                          return { ...prev, attributes: newAttributes };
+                        });
+                      }}
+                      size="small"
+                    />
+                  ))}
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                  <TextField
+                    label="Attribute Name"
+                    size="small"
+                    inputRef={attributeNameRef}
+                  />
+                  <TextField
+                    label="Value"
+                    size="small"
+                    inputRef={attributeValueRef}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      const name = attributeNameRef.current?.value;
+                      const value = attributeValueRef.current?.value;
+                      if (name && value) {
+                        setNewPrice(prev => ({
+                          ...prev,
+                          attributes: {
+                            ...prev.attributes,
+                            [name]: value
+                          }
+                        }));
+                        if (attributeNameRef.current) attributeNameRef.current.value = '';
+                        if (attributeValueRef.current) attributeValueRef.current.value = '';
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+            {error && (
+              <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+                {error}
+              </Typography>
             )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25]}
-        component="div"
-        count={products.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClosePriceDialog}>Cancel</Button>
+            <Button onClick={handleAddPrice} variant="contained">
+              Add Price
+            </Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* Price Entry Dialog */}
-      <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
-        <DialogTitle>
-          Add Price for {selectedProduct?.name}
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Price"
-                value={newPrice.amount}
-                onChange={(e) => setNewPrice(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
-                InputProps={{
-                  inputProps: { min: 0, step: 0.01 }
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Unit</InputLabel>
-                <Select
-                  value={newPrice.unit}
-                  label="Unit"
-                  onChange={(e) => setNewPrice(prev => ({ ...prev, unit: e.target.value }))}
-                >
-                  {PRODUCT_UNITS.map((unit) => (
-                    <MenuItem key={unit} value={unit}>{unit}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                required
-                label="Country"
-                value={newPrice.location.country}
-                onChange={(e) => setNewPrice(prev => ({
-                  ...prev,
-                  location: { ...prev.location, country: e.target.value }
-                }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="State/Province"
-                value={newPrice.location.state}
-                onChange={(e) => setNewPrice(prev => ({
-                  ...prev,
-                  location: { ...prev.location, state: e.target.value }
-                }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="City"
-                value={newPrice.location.city}
-                onChange={(e) => setNewPrice(prev => ({
-                  ...prev,
-                  location: { ...prev.location, city: e.target.value }
-                }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Sales Link"
-                placeholder="Optional: Add a URL where this product can be purchased"
-                value={newPrice.sales_link}
-                onChange={(e) => setNewPrice(prev => ({ ...prev, sales_link: e.target.value }))}
-                InputProps={{
-                  endAdornment: newPrice.sales_link && (
-                    <IconButton
-                      size="small"
-                      href={newPrice.sales_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{ opacity: 0.7 }}
+        {/* Edit Price Dialog */}
+        <Dialog open={editPriceDialogOpen} onClose={handleCloseEditPriceDialog}>
+          <DialogTitle>Edit Price</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  value={editedPrice.name || ''}
+                  onChange={(e) => setEditedPrice(prev => ({ ...prev, name: e.target.value }))}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Price"
+                    type="number"
+                    value={editedPrice.amount || ''}
+                    onChange={(e) => setEditedPrice(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Unit</InputLabel>
+                    <Select
+                      value={editedPrice.unit || 'each'}
+                      label="Unit"
+                      onChange={(e) => setEditedPrice(prev => ({ ...prev, unit: e.target.value as typeof PRODUCT_UNITS[number] }))}
                     >
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  )
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label="Notes"
-                placeholder="Optional: Add any notes about this price entry"
-                value={newPrice.notes}
-                onChange={(e) => setNewPrice(prev => ({ ...prev, notes: e.target.value }))}
-              />
-            </Grid>
-          </Grid>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-              {error}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClosePriceDialog}>Cancel</Button>
-          <Button onClick={handleAddPrice} variant="contained">
-            Add Price
-          </Button>
-        </DialogActions>
-      </Dialog>
+                      {PRODUCT_UNITS.map((unit) => (
+                        <MenuItem key={unit} value={unit}>{unit}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Store"
+                  placeholder="Store Name - Address"
+                  value={editedPrice.store || ''}
+                  onChange={(e) => setEditedPrice(prev => ({ ...prev, store: e.target.value }))}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Country"
+                    value={editedPrice.location?.country || 'Canada'}
+                    onChange={(e) => setEditedPrice(prev => ({ 
+                      ...prev, 
+                      location: { ...(prev.location || {}), country: e.target.value }
+                    }))}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Province"
+                    value={editedPrice.location?.province || ''}
+                    onChange={(e) => setEditedPrice(prev => ({ 
+                      ...prev, 
+                      location: { ...(prev.location || {}), province: e.target.value }
+                    }))}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="City"
+                    value={editedPrice.location?.city || ''}
+                    onChange={(e) => setEditedPrice(prev => ({ 
+                      ...prev, 
+                      location: { ...(prev.location || {}), city: e.target.value }
+                    }))}
+                  />
+                </Grid>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Sales Link"
+                  value={editedPrice.sales_link || ''}
+                  onChange={(e) => setEditedPrice(prev => ({ ...prev, sales_link: e.target.value }))}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Notes"
+                  value={editedPrice.notes || ''}
+                  onChange={(e) => setEditedPrice(prev => ({ ...prev, notes: e.target.value }))}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
 
-      {/* Edit Price Dialog */}
-      <Dialog open={editPriceDialogOpen} onClose={handleCloseEditPriceDialog}>
-        <DialogTitle>Edit Price</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Price"
-                value={editedPrice.amount}
-                onChange={(e) => setEditedPrice(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
-                InputProps={{
-                  inputProps: { min: 0, step: 0.01 }
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Unit</InputLabel>
-                <Select
-                  value={editedPrice.unit}
-                  label="Unit"
-                  onChange={(e) => setEditedPrice(prev => ({ ...prev, unit: e.target.value }))}
+              {/* Product Attributes Section */}
+              <Typography variant="subtitle1" gutterBottom>
+                Attributes
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {Object.entries(editedPrice.attributes || {}).map(([key, value]) => (
+                  <Chip
+                    key={key}
+                    label={`${key}: ${value}`}
+                    onDelete={() => {
+                      setEditedPrice(prev => {
+                        const newAttributes = { ...prev.attributes };
+                        delete newAttributes[key];
+                        return { ...prev, attributes: newAttributes };
+                      });
+                    }}
+                    size="small"
+                  />
+                ))}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Attribute Name"
+                  size="small"
+                  inputRef={attributeNameRef}
+                />
+                <TextField
+                  label="Value"
+                  size="small"
+                  inputRef={attributeValueRef}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    const name = attributeNameRef.current?.value;
+                    const value = attributeValueRef.current?.value;
+                    if (name && value) {
+                      setEditedPrice(prev => ({
+                        ...prev,
+                        attributes: {
+                          ...(prev.attributes || {}),
+                          [name]: value
+                        }
+                      }));
+                      if (attributeNameRef.current) attributeNameRef.current.value = '';
+                      if (attributeValueRef.current) attributeValueRef.current.value = '';
+                    }
+                  }}
                 >
-                  {PRODUCT_UNITS.map((unit) => (
-                    <MenuItem key={unit} value={unit}>{unit}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  Add
+                </Button>
+              </Box>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                required
-                label="Country"
-                value={editedPrice.location?.country}
-                onChange={(e) => setEditedPrice(prev => ({
-                  ...prev,
-                  location: { ...prev.location, country: e.target.value }
-                }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="State/Province"
-                value={editedPrice.location?.state}
-                onChange={(e) => setEditedPrice(prev => ({
-                  ...prev,
-                  location: { ...prev.location, state: e.target.value }
-                }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="City"
-                value={editedPrice.location?.city}
-                onChange={(e) => setEditedPrice(prev => ({
-                  ...prev,
-                  location: { ...prev.location, city: e.target.value }
-                }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Sales Link"
-                placeholder="Optional: Add a URL where this product can be purchased"
-                value={editedPrice.sales_link}
-                onChange={(e) => setEditedPrice(prev => ({ ...prev, sales_link: e.target.value }))}
-                InputProps={{
-                  endAdornment: editedPrice.sales_link && (
-                    <IconButton
-                      size="small"
-                      href={editedPrice.sales_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{ opacity: 0.7 }}
-                    >
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  )
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label="Notes"
-                placeholder="Optional: Add any notes about this price entry"
-                value={editedPrice.notes}
-                onChange={(e) => setEditedPrice(prev => ({ ...prev, notes: e.target.value }))}
-              />
-            </Grid>
-          </Grid>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-              {error}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseEditPriceDialog}>Cancel</Button>
-          <Button onClick={handleSaveEditedPrice} variant="contained" color="primary">
-            Save Changes
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+            {error && (
+              <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+                {error}
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseEditPriceDialog}>Cancel</Button>
+            <Button onClick={handleSaveEditedPrice} variant="contained" color="primary">
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Paper>
+    </Box>
   );
 }

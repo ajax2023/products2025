@@ -28,20 +28,25 @@ export interface ProductAttributes {
 }
 
 export interface ProductPrice {
+  name: string;  // e.g. "Gala - Organic"
   amount: number;
-  unit: string;
-  location: Location;
+  unit: typeof PRODUCT_UNITS[number];
+  store: string;  // Store name and address (e.g., "Walmart - 123 Main St")
+  location: {
+    country: string;
+    province: string;
+    city: string;
+  };
   date: string;  // ISO string
+  source: typeof PRICE_SOURCES[number];
+  notes?: string;
+  sales_link?: string;  // URL to purchase the product
   created_by: string;  // User ID
-  created_by_email: string;
   created_by_name: string;  // Display name or username
   created_at: string;  // ISO string
   modified_by?: string;  // User ID of last editor
   modified_by_name?: string;  // Display name of last editor
   modified_at?: string;  // ISO string of last edit
-  source: 'manual' | 'import' | 'api';
-  notes?: string;
-  sales_link?: string;  // URL to purchase the product
 }
 
 export const PRICE_SOURCES = ['manual', 'import', 'api'] as const;
@@ -103,11 +108,11 @@ export const createProduct = (data: Partial<Product>): Product => {
     category: data.category || 'Miscellaneous',
     company_id: data.company_id || '',
     origin: {
-      country: data.origin?.country || '',
-      state: data.origin?.state || '',
+      country: data.origin?.country || 'Canada',
+      province: data.origin?.province || '',
       city: data.origin?.city || '',
-      manufacturer: data.origin?.manufacturer,
-      facility_id: data.origin?.facility_id
+      manufacturer: data.origin?.manufacturer || '',
+      facility_id: data.origin?.facility_id || ''
     },
     attributes: data.attributes || {},
     prices: data.prices || [],
@@ -133,7 +138,7 @@ export const validateProduct = (product: Partial<Product>): string[] => {
   if (!product.category) errors.push('Category is required');
   if (!product.company_id) errors.push('Company ID is required');
   if (!product.origin?.country) errors.push('Country is required');
-  if (!product.origin?.state) errors.push('State/Province is required');
+  if (!product.origin?.province) errors.push('Province is required');
   if (!product.origin?.city) errors.push('City is required');
 
   return errors;

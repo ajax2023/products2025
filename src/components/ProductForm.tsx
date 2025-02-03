@@ -30,8 +30,8 @@ export default function ProductForm() {
     category: 'Food & Beverage',
     company_id: '',
     origin: {
-      country: '',
-      state: '',
+      country: 'Canada',
+      province: '',
       city: ''
     },
     attributes: {},

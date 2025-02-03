@@ -29,6 +29,7 @@ import {
   Cancel as RejectIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
+import ProductImport from './ProductImport';
 
 interface ProductModerationQueueProps {
   adminId: string;
@@ -42,6 +43,7 @@ export default function ProductModerationQueue({ adminId }: ProductModerationQue
   const [actionDialog, setActionDialog] = useState<'approve' | 'reject' | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [detailsDialog, setDetailsDialog] = useState<Product | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   useEffect(() => {
     fetchPendingProducts();
@@ -118,15 +120,24 @@ export default function ProductModerationQueue({ adminId }: ProductModerationQue
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Product Moderation Queue
-        <Chip 
-          label={`${pendingProducts.length} Pending`}
-          color="warning"
-          size="small"
-          sx={{ ml: 1 }}
-        />
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          Product Moderation Queue
+          <Chip 
+            label={`${pendingProducts.length} Pending`}
+            color="warning"
+            size="small"
+            sx={{ ml: 1 }}
+          />
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => setShowImportDialog(true)}
+        >
+          Import Products
+        </Button>
+      </Box>
 
       <TableContainer component={Paper} elevation={0}>
         <Table size="small">
@@ -283,6 +294,19 @@ export default function ProductModerationQueue({ adminId }: ProductModerationQue
         <DialogActions>
           <Button onClick={() => setDetailsDialog(null)}>Close</Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog 
+        open={showImportDialog} 
+        onClose={() => setShowImportDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Import Products</DialogTitle>
+        <DialogContent>
+          <ProductImport onClose={() => setShowImportDialog(false)} />
+        </DialogContent>
       </Dialog>
     </Box>
   );

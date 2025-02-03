@@ -1,71 +1,25 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
+  Button,
+  Card,
+  CardContent,
+  FormControl,
+  FormControlLabel,
+  Grid,
+  Switch,
+  TextField,
   Typography,
   Paper,
-  TextField,
-  Grid,
-  Card,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Divider,
-  Button,
   Avatar,
-  Switch,
-  FormControlLabel,
-  FormGroup,
-  Alert
+  FormGroup
 } from '@mui/material';
 import { auth, db } from '../firebaseConfig';
-import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { 
-  updateProfile, 
-  deleteUser, 
-  GoogleAuthProvider,
-  reauthenticateWithPopup
-} from 'firebase/auth';
+import { getDoc, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { updateProfile, reauthenticateWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth';
+import { UserSettings } from '../types/user';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
-
-interface Location {
-  country: string;
-  state: string;
-  city: string;
-}
-
-interface Preferences {
-  language: string;
-  currency: string;
-}
-
-interface SharingPreferences {
-  showEmail: boolean;
-  showLocation: boolean;
-  showProducts: boolean;
-  allowMessages: boolean;
-}
-
-interface UserSettings {
-  name: string;
-  email: string;
-  role: 'contributor' | 'admin' | 'user';
-  location: Location;
-  preferences: Preferences;
-  sharing: SharingPreferences;
-  approved: boolean;
-  updatedAt: Date;
-}
-
-const LANGUAGES = ['English', 'French', 'Spanish'];
-const CURRENCIES = ['USD', 'CAD', 'EUR', 'GBP'];
-const COUNTRIES = ['United States', 'Canada', 'United Kingdom'];
-const STATES = {
-  'United States': ['California', 'New York', 'Texas'],
-  'Canada': ['Ontario', 'British Columbia', 'Quebec'],
-  'United Kingdom': ['England', 'Scotland', 'Wales']
-};
 
 const getGravatarUrl = (email: string) => {
   const hash = require('crypto').createHash('md5').update(email.toLowerCase()).digest('hex');
@@ -74,26 +28,20 @@ const getGravatarUrl = (email: string) => {
 
 export default function Settings() {
   const [userSettings, setUserSettings] = useState<UserSettings>({
-    name: auth.currentUser?.displayName || '',
-    email: auth.currentUser?.email || '',
-    role: 'contributor',
     location: {
-      country: '',
-      state: '',
+      country: 'Canada',
+      province: '',
       city: ''
     },
     preferences: {
       language: 'English',
-      currency: 'USD'
+      currency: 'CAD'
     },
     sharing: {
-      showEmail: false,
-      showLocation: true,
-      showProducts: true,
-      allowMessages: true
-    },
-    approved: false,
-    updatedAt: new Date()
+      showPicture: true,
+      showUsername: true,
+      showCountry: true
+    }
   });
 
   const [loading, setLoading] = useState(true);
@@ -110,8 +58,7 @@ export default function Settings() {
           const data = settingsDoc.data() as UserSettings;
           setUserSettings(prev => ({
             ...prev,
-            ...data,
-            email: auth.currentUser?.email || '', // Always use auth email
+            ...data
           }));
         }
         setLoading(false);
@@ -128,12 +75,6 @@ export default function Settings() {
     if (!auth.currentUser) return;
 
     try {
-      // Update auth profile
-      await updateProfile(auth.currentUser, {
-        displayName: userSettings.name
-      });
-
-      // Save to Firestore
       await setDoc(doc(db, 'userSettings', auth.currentUser.uid), {
         ...userSettings,
         updatedAt: new Date(),
@@ -143,22 +84,13 @@ export default function Settings() {
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
-      setSaveMessage('Error saving settings. Please try again.');
+      setError('Error saving settings. Please try again.');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
   const handleSignOut = () => {
     auth.signOut();
-  };
-
-  const handleSharingChange = (key: keyof SharingPreferences) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setUserSettings(prev => ({
-      ...prev,
-      sharing: {
-        ...prev.sharing,
-        [key]: event.target.checked
-      }
-    }));
   };
 
   const handleDeleteAccount = async () => {
@@ -178,7 +110,7 @@ export default function Settings() {
       await reauthenticateWithPopup(auth.currentUser, provider);
       
       // Delete user document from Firestore
-      await deleteDoc(doc(db, 'users', auth.currentUser.uid));
+      await deleteDoc(doc(db, 'userSettings', auth.currentUser.uid));
       
       // Delete user from Firebase Auth
       await deleteUser(auth.currentUser);
@@ -212,7 +144,7 @@ export default function Settings() {
                   <Box sx={{ textAlign: 'center' }}>
                     <Avatar
                       sx={{ width: 70, height: 70, mb: 0.5 }}
-                      src={auth.currentUser?.photoURL || getGravatarUrl(userSettings.email)}
+                      src={auth.currentUser?.photoURL || getGravatarUrl(auth.currentUser?.email || '')}
                     >
                       <PersonIcon />
                     </Avatar>
@@ -223,20 +155,20 @@ export default function Settings() {
                 </Grid>
                 <Grid item xs>
                   <Grid container spacing={1}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                       <TextField
                         fullWidth
-                        label="Name"
-                        value={userSettings.name}
-                        onChange={(e) => setUserSettings(prev => ({ ...prev, name: e.target.value }))}
+                        label="Display Name"
+                        value={auth.currentUser?.displayName || ''}
                         size="small"
+                        disabled
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                       <TextField
                         fullWidth
                         label="Email"
-                        value={userSettings.email}
+                        value={auth.currentUser?.email || ''}
                         size="small"
                         disabled
                       />
@@ -253,48 +185,35 @@ export default function Settings() {
               <Grid container spacing={2}>
                 {/* Location Fields */}
                 <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Country</InputLabel>
-                    <Select
-                      value={userSettings.location.country}
-                      label="Country"
-                      onChange={(e) => setUserSettings(prev => ({
-                        ...prev,
-                        location: {
-                          ...prev.location,
-                          country: e.target.value,
-                          state: ''
-                        }
-                      }))}
-                    >
-                      {COUNTRIES.map(country => (
-                        <MenuItem key={country} value={country}>{country}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Country"
+                    defaultValue="Canada"
+                    value={userSettings.location.country}
+                    onChange={(e) => setUserSettings(prev => ({
+                      ...prev,
+                      location: {
+                        ...prev.location,
+                        country: e.target.value
+                      }
+                    }))}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>State/Province</InputLabel>
-                    <Select
-                      value={userSettings.location.state}
-                      label="State/Province"
-                      onChange={(e) => setUserSettings(prev => ({
-                        ...prev,
-                        location: {
-                          ...prev.location,
-                          state: e.target.value
-                        }
-                      }))}
-                      disabled={!userSettings.location.country}
-                    >
-                      {userSettings.location.country && 
-                        STATES[userSettings.location.country as keyof typeof STATES].map(state => (
-                          <MenuItem key={state} value={state}>{state}</MenuItem>
-                        ))
+                  <TextField
+                    fullWidth
+                    required
+                    label="Province"
+                    value={userSettings.location.province}
+                    onChange={(e) => setUserSettings(prev => ({
+                      ...prev,
+                      location: {
+                        ...prev.location,
+                        province: e.target.value
                       }
-                    </Select>
-                  </FormControl>
+                    }))}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
@@ -308,50 +227,41 @@ export default function Settings() {
                         city: e.target.value
                       }
                     }))}
-                    size="small"
                   />
                 </Grid>
 
                 {/* Preferences Fields */}
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Language</InputLabel>
-                    <Select
-                      value={userSettings.preferences.language}
-                      label="Language"
-                      onChange={(e) => setUserSettings(prev => ({
-                        ...prev,
-                        preferences: {
-                          ...prev.preferences,
-                          language: e.target.value
-                        }
-                      }))}
-                    >
-                      {LANGUAGES.map(lang => (
-                        <MenuItem key={lang} value={lang}>{lang}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Language"
+                    defaultValue="English"
+                    value={userSettings.preferences.language}
+                    onChange={(e) => setUserSettings(prev => ({
+                      ...prev,
+                      preferences: {
+                        ...prev.preferences,
+                        language: e.target.value
+                      }
+                    }))}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Currency</InputLabel>
-                    <Select
-                      value={userSettings.preferences.currency}
-                      label="Currency"
-                      onChange={(e) => setUserSettings(prev => ({
-                        ...prev,
-                        preferences: {
-                          ...prev.preferences,
-                          currency: e.target.value
-                        }
-                      }))}
-                    >
-                      {CURRENCIES.map(currency => (
-                        <MenuItem key={currency} value={currency}>{currency}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Currency"
+                    defaultValue="CAD"
+                    value={userSettings.preferences.currency}
+                    onChange={(e) => setUserSettings(prev => ({
+                      ...prev,
+                      preferences: {
+                        ...prev.preferences,
+                        currency: e.target.value
+                      }
+                    }))}
+                  />
                 </Grid>
               </Grid>
             </Card>
@@ -362,57 +272,56 @@ export default function Settings() {
             <Card sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <LockIcon sx={{ fontSize: '1rem', mr: 1, color: 'text.secondary' }} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="h6" gutterBottom>
                   Privacy & Sharing
                 </Typography>
               </Box>
               <FormGroup>
-                <Grid container spacing={1}>
-                  <Grid item xs={12} sm={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={userSettings.sharing.showEmail}
-                          onChange={handleSharingChange('showEmail')}
-                        />
-                      }
-                      label={<Typography variant="body2">Show email to others</Typography>}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={userSettings.sharing.showPicture}
+                      onChange={(e) => setUserSettings(prev => ({
+                        ...prev,
+                        sharing: {
+                          ...prev.sharing,
+                          showPicture: e.target.checked
+                        }
+                      }))}
                     />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={userSettings.sharing.showLocation}
-                          onChange={handleSharingChange('showLocation')}
-                        />
-                      }
-                      label={<Typography variant="body2">Show location on profile</Typography>}
+                  }
+                  label="Show profile picture to others"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={userSettings.sharing.showUsername}
+                      onChange={(e) => setUserSettings(prev => ({
+                        ...prev,
+                        sharing: {
+                          ...prev.sharing,
+                          showUsername: e.target.checked
+                        }
+                      }))}
                     />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={userSettings.sharing.showProducts}
-                          onChange={handleSharingChange('showProducts')}
-                        />
-                      }
-                      label={<Typography variant="body2">Show my products publicly</Typography>}
+                  }
+                  label="Show username to others"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={userSettings.sharing.showCountry}
+                      onChange={(e) => setUserSettings(prev => ({
+                        ...prev,
+                        sharing: {
+                          ...prev.sharing,
+                          showCountry: e.target.checked
+                        }
+                      }))}
                     />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={userSettings.sharing.allowMessages}
-                          onChange={handleSharingChange('allowMessages')}
-                        />
-                      }
-                      label={<Typography variant="body2">Allow messages from others</Typography>}
-                    />
-                  </Grid>
-                </Grid>
+                  }
+                  label="Show country to others"
+                />
               </FormGroup>
             </Card>
           </Grid>
@@ -446,7 +355,6 @@ export default function Settings() {
                 color="error"
                 onClick={handleDeleteAccount}
                 disabled={loading}
-                sx={{ mt: 2 }}
               >
                 Delete Account
               </Button>

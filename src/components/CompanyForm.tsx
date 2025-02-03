@@ -148,7 +148,7 @@ export default function CompanyForm({ company, onSubmit, onCancel, isSubmitting 
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
-                  label="State/Province"
+                  label="Province"
                   value={formData.headquarters?.state}
                   onChange={(e) => setFormData(prev => ({
                     ...prev,

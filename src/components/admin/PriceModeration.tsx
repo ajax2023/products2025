@@ -205,7 +205,7 @@ export default function PriceModeration({ adminId }: PriceModerationProps) {
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: '1fr 1fr', pt: 2 }}>
               <Typography><strong>Product:</strong> {prices.find(p => p._id === detailsDialog._id)?.product?.name}</Typography>
               <Typography><strong>Price:</strong> ${detailsDialog.price.toFixed(2)}</Typography>
-              <Typography><strong>Currency:</strong> {detailsDialog.currency || 'USD'}</Typography>
+              <Typography><strong>Currency:</strong> {detailsDialog.currency || 'CAD'}</Typography>
               <Typography><strong>Location:</strong> {`${detailsDialog.location.city}, ${detailsDialog.location.state}, ${detailsDialog.location.country}`}</Typography>
               <Typography><strong>Submitted By:</strong> {detailsDialog.user_id}</Typography>
               <Typography><strong>Date:</strong> {detailsDialog.timestamp.toDate().toLocaleString()}</Typography>

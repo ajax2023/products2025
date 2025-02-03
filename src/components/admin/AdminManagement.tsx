@@ -36,6 +36,8 @@ import {
   Add as AddIcon,
   AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
+import ProductImport from './ProductImport';
+import PriceImport from './PriceImport';
 
 interface AdminManagementProps {
   currentAdmin: AdminUser;
@@ -60,6 +62,8 @@ export default function AdminManagement({ currentAdmin }: AdminManagementProps) 
     roles: [],
     status: 'active'
   });
+  const [showProductImport, setShowProductImport] = useState(false);
+  const [showPriceImport, setShowPriceImport] = useState(false);
 
   useEffect(() => {
     fetchAdmins();
@@ -205,20 +209,37 @@ export default function AdminManagement({ currentAdmin }: AdminManagementProps) 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">
+        <Typography variant="h5" component="h5">
           Admin Management
         </Typography>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          size="small"
-          onClick={() => {
-            resetForm();
-            setCreateDialog(true);
-          }}
-        >
-          Add Admin
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'nowrap' }}>
+          <Button
+            variant="contained"
+            onClick={() => setShowProductImport(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Import Products
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => setShowPriceImport(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Import Prices
+          </Button>
+          <Button
+            startIcon={<AddIcon />}
+            variant="contained"
+            size="small"
+            onClick={() => {
+              resetForm();
+              setCreateDialog(true);
+            }}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Add Admin
+          </Button>
+        </Box>
       </Box>
 
       <TableContainer component={Paper} elevation={0}>
@@ -364,6 +385,32 @@ export default function AdminManagement({ currentAdmin }: AdminManagementProps) 
             Remove Admin
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Product Import Dialog */}
+      <Dialog
+        open={showProductImport}
+        onClose={() => setShowProductImport(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Products</DialogTitle>
+        <DialogContent>
+          <ProductImport onClose={() => setShowProductImport(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Price Import Dialog */}
+      <Dialog
+        open={showPriceImport}
+        onClose={() => setShowPriceImport(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Prices</DialogTitle>
+        <DialogContent>
+          <PriceImport onClose={() => setShowPriceImport(false)} />
+        </DialogContent>
       </Dialog>
     </Box>
   );

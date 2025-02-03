@@ -49,3 +49,29 @@
   border-radius: 4px;
   font-size: 0.8rem;
 }
+}
+
+@media (min-width: 600px) {
+  .table-cell-mobile-hide {
+    display: table-cell;
+  }
+}
+
+.compact-table {
+  margin: 0;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 8px 12px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.action-buttons button {
+  padding: 4px;
+}
