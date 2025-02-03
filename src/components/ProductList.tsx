@@ -178,6 +178,19 @@ export default function ProductList() {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
+  const getAuthToken = async (user: any) => {
+    try {
+      // Force token refresh
+      await user.getIdToken(true);
+      // Get user claims without decoding locally
+      const token = await user.getIdToken();
+      return token;
+    } catch (error) {
+      console.error("Error getting auth token:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user?.uid);
@@ -206,15 +219,9 @@ export default function ProductList() {
           setIsSuperAdmin(isUserSuperAdmin);
           
           // Get token to check claims
-          const token = await user.getIdTokenResult(true);
-          console.log('Current token claims:', token.claims);
-          
-          // If claims don't match Firestore roles, we need to refresh
-          if (token.claims.admin !== isUserAdmin || 
-              token.claims.superAdmin !== isUserSuperAdmin || 
-              token.claims.contributor !== isUserContributor) {
-            console.log('Role mismatch detected, forcing token refresh');
-            await user.getIdToken(true);
+          const token = await getAuthToken(user);
+          if (token) {
+            // Use token for API calls
           }
         } else {
           console.log('No user document found in Firestore');
@@ -724,6 +731,29 @@ export default function ProductList() {
     } catch (error) {
       console.error('Error adding product:', error);
       showMessage(`Error adding product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      if (!auth.currentUser) {
+        console.error('No user logged in');
+        return;
+      }
+
+      const token = await getAuthToken(auth.currentUser);
+      if (!token) {
+        throw new Error('Failed to get auth token');
+      }
+
+      // Rest of your export logic...
+    } catch (error) {
+      console.error('Error during export:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error exporting data. Please try again.',
+        severity: 'error'
+      });
     }
   };
 
