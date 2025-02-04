@@ -1,21 +1,22 @@
 .product-list {
-  padding: 20px;
+  padding: 0px;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  overflow-x: hidden;
 }
-
 
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
+  gap: 0px;
   padding: 20px 0;
 }
 
 .product-card {
   background: white;
   border-radius: 8px;
-  padding: 15px;
+  padding: 0px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   transition: transform 0.2s;
 }
@@ -50,6 +51,104 @@
   border-radius: 4px;
   font-size: 0.8rem;
 }
+
+/* Responsive container for filters */
+.filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.filter-item {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Table container with horizontal scroll */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Make table header stick to top */
+.table-header {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
+
+/* Responsive buttons */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+  .product-list {
+    padding: 8px;
+  }
+
+  .filters-container {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .filter-item {
+    min-width: 100%;
+  }
+
+  /* Stack buttons on mobile */
+  .action-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* Hide less important columns on mobile */
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  /* Make dialog full width on mobile */
+  .dialog-mobile-full {
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+/* Dialog content scrolling */
+.dialog-content {
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  padding: 16px;
+}
+
+/* Form fields */
+.form-field {
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+/* Loading and error states */
+.loading-container,
+.error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  width: 100%;
 }
 
 @media (min-width: 600px) {
@@ -65,14 +164,4 @@
 .compact-table th,
 .compact-table td {
   padding: 8px 12px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.action-buttons button {
-  padding: 4px;
 }

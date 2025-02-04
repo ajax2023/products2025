@@ -88,7 +88,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             </Link>
 
             {/* Add Product */}
-            <Link to="/add" style={{ textDecoration: 'none', color: 'inherit' }}>
+            {/* <Link to="/add" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton
                 color="inherit"
                 sx={{ 
@@ -99,10 +99,10 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                   <AddCircleOutlineIcon />
                 </Tooltip>
               </IconButton>
-            </Link>
+            </Link> */}
 
             {/* Brands */}
-            <Link to="/brands" style={{ textDecoration: 'none', color: 'inherit' }}>
+            {/* <Link to="/brands" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton
                 color="inherit"
                 sx={{ 
@@ -113,7 +113,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                   <LabelIcon />
                 </Tooltip>
               </IconButton>
-            </Link>
+            </Link> */}
 
             {/* Companies */}
             <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -130,7 +130,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             </Link>
 
             {/* Company Info */}
-            <Link to="/company" style={{ textDecoration: 'none', color: 'inherit' }}>
+            {/* <Link to="/company" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton
                 color="inherit"
                 sx={{ 
@@ -141,7 +141,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                   <StorefrontIcon />
                 </Tooltip>
               </IconButton>
-            </Link>
+            </Link> */}
 
             {/* Admin Users - Only show if admin */}
             {isAdmin && (

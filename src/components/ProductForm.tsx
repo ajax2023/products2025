@@ -203,9 +203,9 @@ export default function ProductForm() {
   const selectedCompany = companies.find(c => c._id === formData.company_id);
 
   return (
-    <Paper elevation={0} sx={{ p: 2, maxWidth: 800, margin: '0 auto' }}>
+    <Paper elevation={0} sx={{ p: 1, ml: 0,maxWidth: 800, margin: '0 auto' }}>
       <form onSubmit={handleSubmit}>
-        <Grid container spacing={2}>
+        <Grid container spacing={1}>
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>Add New Product</Typography>
           </Grid>
@@ -405,7 +405,7 @@ export default function ProductForm() {
           {/* Attributes */}
           <Grid item xs={12}>
             <Typography variant="subtitle2" gutterBottom>Attributes</Typography>
-            <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+            <Box sx={{ mb: 1, display: 'flex', gap: 1 }}>
               <TextField
                 size="small"
                 label="Attribute Name"

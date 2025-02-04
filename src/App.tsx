@@ -14,6 +14,7 @@ import './App.css';
 import './components/Login.css';
 import UserManagement from './components/admin/UserManagement';
 import { ViewState } from './types/navigation';
+import BackgroundImage from './components/BackgroundImage';
 
 const theme = createTheme({
   palette: {
@@ -60,10 +61,14 @@ function App() {
 
   if (!user) {
     return (
-      <div className="login-container">
-        <h1>Product Finder 2025</h1>
-        <Login />
-      </div>
+      <>
+        <BackgroundImage />
+        <div className="login-container">
+          <h1>CanadianBuddy.ca</h1>
+          <Login />
+          <h1>Buy Canadian - eh!</h1>
+        </div>
+      </>
     );
   }
 

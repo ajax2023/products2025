@@ -31,13 +31,9 @@ import {
   TableRow,
   Paper
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Visibility, KeyboardArrowUp as KeyboardArrowUpIcon, KeyboardArrowDown as KeyboardArrowDownIcon, Clear as ClearIcon } from '@mui/icons-material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import AddIcon from '@mui/icons-material/Add';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import InfoIcon from '@mui/icons-material/Info';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 
@@ -131,13 +127,10 @@ export default function ProductList() {
 
   // Add filter states
   const [filters, setFilters] = useState({
-    country: '',
-    province: '',
-    city: '',
     category: ''
   });
 
-  // Add unique location lists
+  // Add unique location lists - removed location related lists
   const [uniqueLocations, setUniqueLocations] = useState<{
     countries: string[];
     provinces: string[];
@@ -649,14 +642,12 @@ export default function ProductList() {
   };
 
   // Add filtered products computation
-  const filteredProducts = products.filter(product => {
-    const matchCountry = !filters.country || (product.origin?.country === filters.country);
-    const matchProvince = !filters.province || (product.origin?.province === filters.province);
-    const matchCity = !filters.city || (product.origin?.city === filters.city);
-    const matchCategory = !filters.category || product.category === filters.category;
-
-    return matchCountry && matchProvince && matchCity && matchCategory;
-  });
+  const filteredProducts = products
+    .filter(product => {
+      const matchCategory = !filters.category || product.category === filters.category;
+      return matchCategory;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name)); // Sort by product name ascending
 
   const handleAddProduct = async () => {
     try {
@@ -759,7 +750,7 @@ export default function ProductList() {
 
   if (!authChecked) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
         <CircularProgress />
       </Box>
     );
@@ -767,7 +758,7 @@ export default function ProductList() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
         <CircularProgress />
       </Box>
     );
@@ -782,7 +773,7 @@ export default function ProductList() {
   }
 
   return (
-    <Box sx={{ width: '100%', padding: 3 }}>
+    <Box sx={{ width: '100%', padding: 1 }}>
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
@@ -795,7 +786,7 @@ export default function ProductList() {
         </Alert>
       </Snackbar>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h5">Products</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {isAdmin && (
@@ -853,39 +844,10 @@ export default function ProductList() {
         </DialogContent>
       </Dialog>
 
-      <Box sx={{ mb: 1, p: 1, backgroundColor: 'background.paper' }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              value={filters.country}
-              onChange={(_, newValue) => handleFilterChange('country', newValue)}
-              options={uniqueLocations.countries}
-              renderInput={(params) => (
-                <TextField {...params} label="Filter by Country" variant="outlined" size="small" />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              value={filters.province}
-              onChange={(_, newValue) => handleFilterChange('province', newValue)}
-              options={uniqueLocations.provinces}
-              renderInput={(params) => (
-                <TextField {...params} label="Filter by Province" variant="outlined" size="small" />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              value={filters.city}
-              onChange={(_, newValue) => handleFilterChange('city', newValue)}
-              options={uniqueLocations.cities}
-              renderInput={(params) => (
-                <TextField {...params} label="Filter by City" variant="outlined" size="small" />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+      <Box sx={{ width: '100%', padding: { xs: 1, sm: 3 } }}>
+        {/* Filters Section */}
+        <Box className="filters-container">
+          <Box className="filter-item">
             {!showNewCategoryInput ? (
               <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
@@ -901,7 +863,23 @@ export default function ProductList() {
                       setFilters(prev => ({ ...prev, category: value }));
                     }
                   }}
+                  displayEmpty
+                  endAdornment={
+                    filters.category ? (
+                      <IconButton
+                        size="small"
+                        sx={{ mr: 4 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFilters(prev => ({ ...prev, category: '' }));
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    ) : null
+                  }
                 >
+                  <MenuItem value="">All Categories</MenuItem>
                   {PRODUCT_CATEGORIES.map((category) => (
                     <MenuItem key={category} value={category}>{category}</MenuItem>
                   ))}
@@ -943,8 +921,8 @@ export default function ProductList() {
                 </Button>
               </Box>
             )}
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </Box>
 
       {/* Delete confirmation dialog */}
@@ -1333,16 +1311,13 @@ export default function ProductList() {
 
       <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
         <TableContainer>
-          <Table size="small" stickyHeader>
-            <TableHead>
+          <Table size="small" className="compact-table">
+            <TableHead className="table-header">
               <TableRow>
                 <TableCell padding="none" sx={{ width: '48px' }} />
-                <TableCell>Name</TableCell>
-                <TableCell>Brand</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Origin</TableCell>
-                <TableCell>Attributes</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>Actions</TableCell>
+                <TableCell>Product</TableCell>
+                <TableCell className="hide-on-mobile">Details</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1360,22 +1335,24 @@ export default function ProductList() {
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
-                    <TableCell component="th" scope="row">{product.name}</TableCell>
-                    <TableCell>{product.brand}</TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.origin.city}, {product.origin.province}, {product.origin.country}</TableCell>
                     <TableCell>
-                      {Object.entries(product.attributes || {}).map(([key, value]) => (
-                        <Chip 
-                          key={key} 
-                          label={`${key}: ${value}`} 
-                          size="small" 
-                          sx={{ m: 0.5 }}
-                        />
-                      ))}
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="body1">{product.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">{product.brand}</Typography>
+                      </Box>
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TableCell className="hide-on-mobile">
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="body2">{product.category}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {product.origin?.city && product.origin?.province 
+                            ? `${product.origin.city}, ${product.origin.province}`
+                            : product.origin?.country || ''}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box className="action-buttons">
                         <IconButton
                           size="small"
                           onClick={() => handleOpenPriceDialog(product)}
@@ -1401,84 +1378,72 @@ export default function ProductList() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={4}>
                       <Collapse in={expandedRows[product._id]} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 1 }}>
-                          <Table size="small" aria-label="prices" sx={{ bgcolor: 'action.hover' }}>
-                            <TableHead>
-                              <TableRow sx={{ bgcolor: 'action.hover' }}>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Price</TableCell>
-                                <TableCell>Unit</TableCell>
-                                <TableCell>Store</TableCell>
-                                <TableCell>Location</TableCell>
-                                <TableCell>Date</TableCell>
-                                <TableCell>Added By</TableCell>
-                                <TableCell>Online</TableCell>
-                                <TableCell sx={{ width: '100px' }}>Actions</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {(product.prices || []).map((price, index) => (
-                                <TableRow key={index}>
-                                  <TableCell>{price.name || '-'}</TableCell>
-                                  <TableCell>${price.amount.toFixed(2)}</TableCell>
-                                  <TableCell>{price.unit}</TableCell>
-                                  <TableCell>{price.store || '-'}</TableCell>
-                                  <TableCell>
-                                    {price.location?.city && price.location?.province && price.location?.country
-                                      ? `${price.location.city}, ${price.location.province}, ${price.location.country}`
-                                      : price.location?.city && price.location?.country
-                                      ? `${price.location.city}, ${price.location.country}`
-                                      : price.location?.country || '-'}
-                                  </TableCell>
-                                  <TableCell>{new Date(price.date).toLocaleString()}</TableCell>
-                                  <TableCell>
-                                    {price.created_by_name}
-                                    {price.created_by === auth.currentUser?.uid && (
-                                      <Tooltip title="Added by you">
-                                        <InfoIcon color="primary" sx={{ ml: 1, fontSize: 16 }} />
-                                      </Tooltip>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Price History
+                          </Typography>
+                          <Grid container spacing={2}>
+                            {(product.prices || []).map((price, index) => (
+                              <Grid item xs={12} sm={6} key={index}>
+                                <Paper 
+                                  elevation={0} 
+                                  sx={{ 
+                                    p: 1.5, 
+                                    bgcolor: 'background.default',
+                                    border: '1px solid',
+                                    borderColor: 'divider'
+                                  }}
+                                >
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                    <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
+                                      ${price.amount.toFixed(2)} / {price.unit}
+                                    </Typography>
+                                    {isAdmin && (
+                                      <Box>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleOpenEditPriceDialog(product._id, index, price)}
+                                        >
+                                          <EditIcon />
+                                        </IconButton>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleDeletePrice(product._id, index)}
+                                        >
+                                          <DeleteIcon />
+                                        </IconButton>
+                                      </Box>
                                     )}
-                                  </TableCell>
-                                  <TableCell>
-                                    {price.sales_link ? (
-                                      <IconButton
-                                        size="small"
-                                        href={price.sales_link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        <OpenInNewIcon />
-                                      </IconButton>
-                                    ) : (
-                                      <Typography variant="body2" color="text.secondary">
-                                        NA
-                                      </Typography>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleOpenEditPriceDialog(product._id, index, price)}
-                                        color="primary"
-                                      >
-                                        <EditIcon />
-                                      </IconButton>
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleDeletePrice(product._id, index)}
-                                        color="error"
-                                      >
-                                        <DeleteIcon />
-                                      </IconButton>
-                                    </Box>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {price.location?.city && price.location?.province 
+                                        ? `📍 ${price.location.city}, ${price.location.province}`
+                                        : price.location?.country || ''}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      📅 {formatDate(price.date)}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      👤 {price.created_by_name}
+                                    </Typography>
+                                  </Box>
+                                </Paper>
+                              </Grid>
+                            ))}
+                          </Grid>
+                          {isAdmin && (
+                            <Button
+                              size="small"
+                              startIcon={<AddIcon />}
+                              onClick={() => handleOpenPriceDialog(product)}
+                              sx={{ mt: 2 }}
+                            >
+                              Add Price
+                            </Button>
+                          )}
                         </Box>
                       </Collapse>
                     </TableCell>
@@ -1487,7 +1452,7 @@ export default function ProductList() {
               ))}
               {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={6} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No products found
                     </Typography>
