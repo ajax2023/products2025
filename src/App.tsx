@@ -64,6 +64,8 @@ function App() {
       <>
         <BackgroundImage />
         <div className="login-container">
+          {/* i want a leaf image (/maple-leaf.svg) here: */}
+          <img src="/maple-leaf.svg" alt="Leaf" className="leaf-image" />
           <h1>CanadianBuddy.ca</h1>
           <Login />
           <h1>Buy Canadian - eh!</h1>

@@ -226,3 +226,8 @@ header {
 h5 {
  color: #333;
 }
+
+.leaf-image {
+  width: 20%;
+  height: 20%;
+}

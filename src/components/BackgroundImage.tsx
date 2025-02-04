@@ -13,23 +13,28 @@ const BackgroundImage: React.FC = () => {
     useEffect(() => {
         const fetchImages = async () => {
             try {
-                console.log('Fetching images...');
+                console.log('Fetching images from Unsplash...');
                 const response = await fetch(
-                    `https://api.unsplash.com/photos/random?query=${UNSPLASH_CONFIG.SEARCH_QUERY}&count=${UNSPLASH_CONFIG.COUNT}`,
+                    `https://api.unsplash.com/search/photos?query=${encodeURIComponent(UNSPLASH_CONFIG.SEARCH_QUERY)}&per_page=${UNSPLASH_CONFIG.COUNT}&orientation=landscape`,
                     {
                         headers: {
-                            Authorization: `Client-ID ${UNSPLASH_CONFIG.ACCESS_KEY}`,
+                            Authorization: `Client-ID ${UNSPLASH_CONFIG.ACCESS_KEY}`
                         },
                     }
                 );
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`HTTP error! Status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                console.log('Images fetched:', data);
-                setImages(data);
+                console.log('Unsplash Images Fetched:', data.results);
+
+                if (data.results.length === 0) {
+                    throw new Error('No images found.');
+                }
+
+                setImages(data.results);
             } catch (err) {
                 console.error('Error fetching images:', err);
                 setError(true);
