@@ -10,10 +10,13 @@ import {
   alpha,
   Tooltip,
   Typography,
+  InputAdornment,
 } from '@mui/material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BusinessIcon from '@mui/icons-material/Business';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
@@ -62,8 +65,26 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
-    // TODO: Implement search functionality
-    console.log('Search:', searchQuery);
+    // Navigate to products page with search query
+    navigate('/?search=' + encodeURIComponent(searchQuery));
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    navigate('/');
+  };
+
+  const handleRefresh = async () => {
+    // Call the refresh function exposed by ProductList
+    if (typeof (window as any).refreshProducts === 'function') {
+      try {
+        await (window as any).refreshProducts();
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+      }
+    } else {
+      console.warn('Refresh function not available');
+    }
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -72,6 +93,14 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
     <Box sx={{ flexGrow: 1 }}>
       <AppBar>
         <Toolbar sx={{ gap: 1, px: 1 }}>
+          <img 
+            src="/maple-leaf.svg" 
+            alt="Maple Leaf"
+            style={{ 
+              height: '24px', 
+              marginRight: '16px'
+            }} 
+          />
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* Products */}
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -175,34 +204,70 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
           </Box>
 
           {/* Search Box */}
-          <Box
-            component="form"
-            onSubmit={handleSearch}
-            sx={{
-              position: 'relative',
-              borderRadius: 1,
-              backgroundColor: alpha(theme.palette.common.white, 0.15),
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.common.white, 0.25),
-              },
-              marginLeft: 0,
-              width: 'auto',
-            }}
-          >
-            <Box sx={{ padding: theme.spacing(0, 2), height: '100%', position: 'absolute', display: 'flex', alignItems: 'center' }}>
-              <SearchIcon />
-            </Box>
-            <InputBase
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products..."
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="form"
+              onSubmit={handleSearch}
               sx={{
-                color: 'inherit',
-                padding: theme.spacing(1, 1, 1, 0),
-                paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-                width: '100%',
+                position: 'relative',
+                borderRadius: 1,
+                backgroundColor: alpha(theme.palette.common.white, 0.15),
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.common.white, 0.25),
+                },
+                marginLeft: 0,
+                width: 'auto',
               }}
-            />
+            >
+              <Box sx={{ padding: theme.spacing(0, 2), height: '100%', position: 'absolute', display: 'flex', alignItems: 'center' }}>
+                <SearchIcon />
+              </Box>
+              <InputBase
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products & prices..."
+                sx={{
+                  color: 'inherit',
+                  padding: theme.spacing(1, 1, 1, 0),
+                  paddingLeft: `calc(1em + ${theme.spacing(4)})`,
+                  width: '100%',
+                  minWidth: '300px',
+                }}
+                endAdornment={
+                  searchQuery ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={handleClearSearch}
+                        sx={{ 
+                          color: 'inherit',
+                          padding: '4px',
+                          marginRight: '4px',
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.common.white, 0.1),
+                          }
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null
+                }
+              />
+            </Box>
+            <IconButton
+              color="inherit"
+              onClick={handleRefresh}
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.common.white, 0.1),
+                }
+              }}
+            >
+              <Tooltip title="Refresh">
+                <RefreshIcon />
+              </Tooltip>
+            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>

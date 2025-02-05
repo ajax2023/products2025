@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -29,18 +30,16 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Visibility, KeyboardArrowUp as KeyboardArrowUpIcon, KeyboardArrowDown as KeyboardArrowDownIcon, Clear as ClearIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Visibility, KeyboardArrowUp as KeyboardArrowUpIcon, KeyboardArrowDown as KeyboardArrowDownIcon, Clear as ClearIcon, CloudUpload as ImportIcon } from '@mui/icons-material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import InfoIcon from '@mui/icons-material/Info';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 
-import { useLocation } from 'react-router-dom';
-import { Company } from '../types/company';
-import ProductImport from './admin/ProductImport';
-import PriceImport from './admin/PriceImport';
 import { auth, db } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
@@ -56,12 +55,19 @@ import {
   onSnapshot,
   updateDoc,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  addDoc
 } from 'firebase/firestore';
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from '../types/product';
+import { UserSettings } from '../types/userSettings';
+import ProductImport from './ProductImport';
+import PriceImport from './PriceImport';
+import CompanyForm from './CompanyForm';
 
 export default function ProductList() {
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const searchQuery = searchParams.get('search')?.toLowerCase() || '';
   const brandFilter = location.state?.brandFilter;
   const [products, setProducts] = useState<Product[]>([]);
   const [companies, setCompanies] = useState<Record<string, Company>>({});
@@ -76,6 +82,7 @@ export default function ProductList() {
     amount: 0,
     unit: 'each',
     store: '',
+    name: '',
     location: {
       country: 'Canada',
       province: '',
@@ -90,6 +97,7 @@ export default function ProductList() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isContributor, setIsContributor] = useState(false);
   const [editingPrice, setEditingPrice] = useState<{productId: string, priceIndex: number} | null>(null);
   const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
   const [editedPrice, setEditedPrice] = useState<Partial<ProductPrice>>({
@@ -102,7 +110,6 @@ export default function ProductList() {
       province: '',
       city: ''
     },
-    attributes: {},
     notes: '',
     sales_link: ''
   });
@@ -127,8 +134,12 @@ export default function ProductList() {
 
   // Add filter states
   const [filters, setFilters] = useState({
-    category: ''
+    locationEnabled: true,
+    showAllPrices: false,
   });
+
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [useMyLocation, setUseMyLocation] = useState(false);
 
   // Add unique location lists - removed location related lists
   const [uniqueLocations, setUniqueLocations] = useState<{
@@ -151,10 +162,12 @@ export default function ProductList() {
     open: boolean;
     message: string;
     severity: 'success' | 'error' | 'info' | 'warning';
+    autoHideDuration: number;
   }>({
     open: false,
     message: '',
-    severity: 'success'
+    severity: 'success',
+    autoHideDuration: 3000
   });
 
   // Function to show snackbar
@@ -162,7 +175,8 @@ export default function ProductList() {
     setSnackbar({
       open: true,
       message,
-      severity
+      severity,
+      autoHideDuration: 3000
     });
   };
 
@@ -184,11 +198,132 @@ export default function ProductList() {
     }
   };
 
+  // Initial data fetch
+  const fetchData = async () => {
+    if (!authChecked) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Starting data fetch...');
+      
+      // Fetch companies first
+      const companiesSnapshot = await getDocs(collection(db, 'companies'));
+      console.log('Companies fetched:', companiesSnapshot.size);
+      const companiesMap: Record<string, Company> = {};
+      companiesSnapshot.docs.forEach(doc => {
+        companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
+      });
+      setCompanies(companiesMap);
+
+      // Fetch products
+      const productsSnapshot = await getDocs(collection(db, 'products'));
+      console.log('Products fetched:', productsSnapshot.size);
+      const productsList = productsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          _id: doc.id,
+          prices: data.prices || [],
+          name: data.name || '',
+          description: data.description || '',
+          brand: data.brand || '',
+          category: data.category || '',
+          tags: data.tags || []
+        };
+      }) as Product[];
+
+      // Apply filters
+      let filteredProducts = filterProductsBySearch(productsList);
+      if (brandFilter) {
+        filteredProducts = filteredProducts.filter(product => product.brand === brandFilter);
+      }
+      
+      console.log('Products filtered:', filteredProducts.length);
+      setProducts(filteredProducts);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError('Failed to load products. Please try refreshing the page.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data load
+  useEffect(() => {
+    if (authChecked) {
+      fetchData();
+    }
+  }, [authChecked, searchQuery, brandFilter]);
+
+  // Expose refresh function to window for Navbar to use
+  useEffect(() => {
+    (window as any).refreshProducts = fetchData;
+
+    return () => {
+      delete (window as any).refreshProducts;
+    };
+  }, []);
+
+  // Auth and settings check
+  useEffect(() => {
+    const checkAuthAndSettings = async () => {
+      try {
+        // Wait for auth to initialize
+        if (!auth.currentUser) {
+          setAuthChecked(true);
+          return;
+        }
+
+        // Get user settings
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setUserSettings(userDoc.data() as UserSettings);
+        } else {
+          // Create default user settings if none exist
+          const defaultSettings: UserSettings = {
+            _id: auth.currentUser.uid,
+            email: auth.currentUser.email || '',
+            role: 'viewer',
+            preferences: {
+              useLocation: false
+            },
+            location: {},
+            created_at: new Date().toISOString(),
+            created_by: auth.currentUser.uid
+          };
+          await setDoc(doc(db, 'users', auth.currentUser.uid), defaultSettings);
+          setUserSettings(defaultSettings);
+        }
+        setAuthChecked(true);
+      } catch (error) {
+        console.error('Error checking auth and settings:', error);
+        setError('Error loading user settings. Please refresh the page.');
+        setAuthChecked(true);
+      }
+    };
+
+    checkAuthAndSettings();
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user?.uid);
       setAuthChecked(true);
       if (user) {
+        // Load user settings
+        const userSettingsRef = doc(db, 'userSettings', user.uid);
+        const userSettingsDoc = await getDoc(userSettingsRef);
+        if (userSettingsDoc.exists()) {
+          const settings = userSettingsDoc.data() as UserSettings;
+          setUserSettings(settings);
+          setFilters(prev => ({ 
+            ...prev, 
+            locationEnabled: settings?.preferences?.useLocation ?? true 
+          }));
+        }
+
         // Check roles from Firestore first
         const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
@@ -210,6 +345,7 @@ export default function ProductList() {
           
           setIsAdmin(isUserAdmin);
           setIsSuperAdmin(isUserSuperAdmin);
+          setIsContributor(isUserContributor);
           
           // Get token to check claims
           const token = await getAuthToken(user);
@@ -220,6 +356,7 @@ export default function ProductList() {
           console.log('No user document found in Firestore');
           setIsAdmin(false);
           setIsSuperAdmin(false);
+          setIsContributor(false);
         }
         
         // Always fetch data if user is logged in, regardless of role
@@ -230,19 +367,175 @@ export default function ProductList() {
         setProducts([]);
         setIsAdmin(false);
         setIsSuperAdmin(false);
+        setIsContributor(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (brandFilter) {
-      setProducts(prevProducts => 
-        prevProducts.filter(product => product.brand === brandFilter)
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Debounced log function
+  const debouncedLog = (() => {
+    let timeout: NodeJS.Timeout | null = null;
+    return (message: string, data: any) => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      timeout = setTimeout(() => {
+        console.log(message, data);
+        timeout = null;
+      }, 100);
+    };
+  })();
+
+  const filterPricesByLocation = (prices: ProductPrice[]) => {
+    if (!filters.locationEnabled || !prices) return prices;
+    if (!userSettings?.location) return prices;
+
+    const userCountry = userSettings.location.country;
+    const userProvince = userSettings.location.province;
+    const userCity = userSettings.location.city;
+
+    // Debug raw prices first
+    // console.log('Raw prices:', prices.map(p => ({
+    //   amount: p.amount,
+    //   store: p.store_name,
+    //   link: p.product_link,
+    //   sales_link: p.sales_link,
+    //   isOnline: p.store_name?.toLowerCase() === 'online'
+    // })));
+
+    return prices.filter(price => {
+      // Check for any type of link
+      const hasLink = price.product_link || price.sales_link;
+      const isOnline = price.store_name?.toLowerCase() === 'online';
+
+      // Show all prices with links or online store
+      if (hasLink || isOnline) {
+        // console.log('Keeping price with link/online:', {
+        //   amount: price.amount,
+        //   store: price.store_name,
+        //   hasProductLink: !!price.product_link,
+        //   hasSalesLink: !!price.sales_link,
+        //   isOnline
+        // });
+        return true;
+      }
+
+      // For local store prices, apply location filtering
+      if (!price.location) return false;
+      
+      const priceCountry = price.location.country;
+      const priceProvince = price.location.province;
+      const priceCity = price.location.city;
+
+      const matches = (
+        (!userCountry || userCountry === priceCountry) &&
+        (!userProvince || userProvince === priceProvince) &&
+        (!userCity || userCity === priceCity)
       );
-    }
-  }, [brandFilter]);
+
+      // if (!matches) {
+      //   console.log('Filtered out local price:', {
+      //     amount: price.amount,
+      //     store: price.store_name,
+      //     location: price.location
+      //   });
+      // }
+
+      return matches;
+    });
+  };
+
+  const filterProductsBySearch = (products: Product[]) => {
+    if (!searchQuery) return products;
+    if (!products) return [];
+
+    return products.filter(product => {
+      try {
+        const productMatch = 
+          (product.name?.toLowerCase() || '').includes(searchQuery) ||
+          (product.description?.toLowerCase() || '').includes(searchQuery) ||
+          (product.brand?.toLowerCase() || '').includes(searchQuery) ||
+          (product.category?.toLowerCase() || '').includes(searchQuery) ||
+          (product.tags || []).some(tag => (tag?.toLowerCase() || '').includes(searchQuery));
+
+        const priceMatch = filterPricesByLocation(product.prices || []).some(price => 
+          (price.name?.toLowerCase() || '').includes(searchQuery) ||
+          (price.notes?.toLowerCase() || '').includes(searchQuery) ||
+          (price.location?.country?.toLowerCase() || '').includes(searchQuery) ||
+          (price.location?.province?.toLowerCase() || '').includes(searchQuery) ||
+          (price.location?.city?.toLowerCase() || '').includes(searchQuery) ||
+          (price.store_name?.toLowerCase() || '').includes(searchQuery)
+        );
+
+        return productMatch || priceMatch;
+      } catch (error) {
+        console.error('Error filtering product:', product, error);
+        return false;
+      }
+    });
+  };
+
+  useEffect(() => {
+    const refreshProducts = async () => {
+      console.log('Full refresh triggered');
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (auth.currentUser) {
+          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          if (userDoc.exists()) {
+            setUserSettings(userDoc.data() as UserSettings);
+          }
+        }
+
+        const companiesSnapshot = await getDocs(collection(db, 'companies'));
+        const companiesMap: Record<string, Company> = {};
+        companiesSnapshot.docs.forEach(doc => {
+          companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
+        });
+        setCompanies(companiesMap);
+
+        const productsSnapshot = await getDocs(collection(db, 'products'));
+        const productsList = productsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            _id: doc.id,
+            prices: data.prices || [],
+            name: data.name || '',
+            description: data.description || '',
+            brand: data.brand || '',
+            category: data.category || '',
+            tags: data.tags || []
+          };
+        }) as Product[];
+
+        let filteredProducts = filterProductsBySearch(productsList);
+        if (brandFilter) {
+          filteredProducts = filteredProducts.filter(product => product.brand === brandFilter);
+        }
+        
+        setProducts(filteredProducts);
+        console.log('Full refresh completed');
+      } catch (error) {
+        console.error('Error during full refresh:', error);
+        setError('Failed to refresh data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    (window as any).refreshProducts = refreshProducts;
+
+    return () => {
+      delete (window as any).refreshProducts;
+    };
+  }, [brandFilter, searchQuery, userSettings]);
 
   useEffect(() => {
     const locations = {
@@ -252,7 +545,6 @@ export default function ProductList() {
     };
 
     products.forEach(product => {
-      // Add locations from origin
       if (product.origin?.country) locations.countries.add(product.origin.country);
       if (product.origin?.province) locations.provinces.add(product.origin.province);
       if (product.origin?.city) locations.cities.add(product.origin.city);
@@ -265,56 +557,6 @@ export default function ProductList() {
     });
   }, [products]);
 
-  const fetchData = async () => {
-    try {
-      console.log('Starting data fetch...');
-      // Fetch companies first
-      const companiesSnapshot = await getDocs(collection(db, 'companies'));
-      console.log('Companies fetched:', companiesSnapshot.size);
-      const companiesMap: Record<string, Company> = {};
-      companiesSnapshot.docs.forEach(doc => {
-        companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
-      });
-      setCompanies(companiesMap);
-
-      // Then fetch products
-      console.log('Fetching products...');
-      const productsQuery = query(collection(db, 'products'));
-      const querySnapshot = await getDocs(productsQuery);
-      console.log('Products fetched:', querySnapshot.size);
-      
-      const productList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Product data:', data);
-        return {
-          ...data,
-          _id: doc.id
-        };
-      }) as Product[];
-
-      console.log('All products:', productList);
-      console.log('Brand filter:', brandFilter);
-
-      // Apply brand filter if present
-      const filteredList = brandFilter 
-        ? productList.filter(product => product.brand === brandFilter)
-        : productList;
-
-      console.log('Filtered products:', filteredList);
-      setProducts(filteredList);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      // @ts-ignore
-      if (error.code === 'permission-denied') {
-        setError('Permission denied. Please make sure you have the correct access rights.');
-      } else {
-        setError('Error loading products. Please try again.');
-      }
-      setLoading(false);
-    }
-  };
-
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -326,21 +568,27 @@ export default function ProductList() {
 
   const handleOpenPriceDialog = (product: Product) => {
     setSelectedProduct(product);
+    resetNewPrice();
     setPriceDialogOpen(true);
   };
 
-  const handleClosePriceDialog = () => {
-    setSelectedProduct(null);
-    setPriceDialogOpen(false);
+  const resetNewPrice = () => {
+    const location = filters.locationEnabled && userSettings?.location ? {
+      country: userSettings.location.country || 'Canada',
+      province: userSettings.location.province || '',
+      city: userSettings.location.city || ''
+    } : {
+      country: 'Canada',
+      province: '',
+      city: ''
+    };
+
     setNewPrice({
       amount: 0,
       unit: 'each',
       store: '',
-      location: {
-        country: 'Canada',
-        province: '',
-        city: ''
-      },
+      name: '',
+      location,
       date: new Date().toISOString(),
       source: 'manual',
       notes: '',
@@ -350,11 +598,18 @@ export default function ProductList() {
     setError(null);
   };
 
+  const handleClosePriceDialog = () => {
+    setSelectedProduct(null);
+    setPriceDialogOpen(false);
+    resetNewPrice();
+    setError(null);
+  };
+
   const handleAddPrice = async () => {
     if (!selectedProduct || !auth.currentUser) return;
     if (!newPrice.amount || !newPrice.unit || 
         !newPrice.location.country || !newPrice.location.city) {
-      setError('Please fill in all required price fields (amount, unit, country, and city)');
+      showMessage('Please fill in all required price fields (amount, unit, country, and city)', 'error');
       return;
     }
 
@@ -376,10 +631,11 @@ export default function ProductList() {
 
       await updateDoc(productRef, {
         prices: updatedPrices,
-        updated_at: new Date()
+        modified_at: now,
+        modified_by: auth.currentUser.uid,
+        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || 'unknown'
       });
 
-      // Update local state
       setProducts(prevProducts => 
         prevProducts.map(p => 
           p._id === selectedProduct._id 
@@ -388,16 +644,11 @@ export default function ProductList() {
         )
       );
 
-      // Automatically expand the price section for this product
-      setExpandedRows(prev => ({
-        ...prev,
-        [selectedProduct._id]: true
-      }));
-
+      showMessage('Price added successfully');
       handleClosePriceDialog();
     } catch (error) {
       console.error('Error adding price:', error);
-      setError('Failed to add price. Please try again.');
+      showMessage(`Error adding price: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -412,10 +663,11 @@ export default function ProductList() {
       const productRef = doc(db, 'products', productId);
       await updateDoc(productRef, {
         prices: updatedPrices,
-        updated_at: new Date()
+        modified_at: new Date().toISOString(),
+        modified_by: auth.currentUser?.uid || '',
+        modified_by_name: auth.currentUser?.displayName || auth.currentUser?.email || 'unknown'
       });
 
-      // Update local state
       setProducts(prevProducts => 
         prevProducts.map(p => 
           p._id === productId
@@ -432,7 +684,6 @@ export default function ProductList() {
   const handleOpenEditPriceDialog = (productId: string, priceIndex: number, price: ProductPrice) => {
     if (!auth.currentUser) return;
     
-    // Check if user can edit this price
     const canEdit = isAdmin || isSuperAdmin || (auth.currentUser && price.created_by === auth.currentUser.uid);
     if (!canEdit) {
       setError('You can only edit prices that you created');
@@ -441,13 +692,15 @@ export default function ProductList() {
 
     setEditingPrice({ productId, priceIndex });
     setEditedPrice({
-      name: price.name,
+      ...price,  
+      name: price.name || '',
       amount: price.amount,
       unit: price.unit,
       store: price.store,
       location: { ...price.location },
-      notes: price.notes,
-      sales_link: price.sales_link
+      notes: price.notes || '',
+      sales_link: price.sales_link || '',
+      attributes: { ...price.attributes }
     });
     setEditPriceDialogOpen(true);
   };
@@ -496,29 +749,16 @@ export default function ProductList() {
         return;
       }
 
-      console.log('Original price:', originalPrice);
-
-      // Create the updated price object
       const updatedPrice = {
-        ...originalPrice,
-        name: editedPrice.name,
-        amount: editedPrice.amount,
-        unit: editedPrice.unit,
-        store: editedPrice.store,
-        location: editedPrice.location,
-        notes: editedPrice.notes,
-        sales_link: editedPrice.sales_link,
+        ...originalPrice,  
+        ...editedPrice,    
         modified_by: auth.currentUser.uid,
         modified_by_name: auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'unknown',
         modified_at: new Date().toISOString()
       };
 
-      console.log('Updated price:', updatedPrice);
-
-      // Get a fresh reference to the document
       const productRef = doc(db, 'products', editingPrice.productId);
       
-      // Try a simpler update first - just update the specific price in the array
       const currentDoc = await getDoc(productRef);
       if (!currentDoc.exists()) {
         setError('Product not found');
@@ -528,14 +768,13 @@ export default function ProductList() {
       const prices = currentDoc.data()?.prices || [];
       prices[editingPrice.priceIndex] = updatedPrice;
 
-      console.log('Updating with prices:', prices);
-
-      // Update with the modified prices array
       await updateDoc(productRef, {
-        prices: prices
+        prices: prices,
+        modified_at: new Date(),
+        modified_by: auth.currentUser.uid,
+        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || 'unknown'
       });
 
-      // Update local state
       setProducts(prevProducts => 
         prevProducts.map(p => 
           p._id === editingPrice.productId
@@ -544,6 +783,7 @@ export default function ProductList() {
         )
       );
 
+      showMessage('Price updated successfully', 'success');
       handleCloseEditPriceDialog();
     } catch (error) {
       console.error('Error updating price:', error);
@@ -566,7 +806,6 @@ export default function ProductList() {
         return;
       }
 
-      // Get the document ID (which might be in id or _id)
       const docId = deleteConfirmProduct.id || deleteConfirmProduct._id;
       if (!docId) {
         showMessage('Invalid product ID', 'error');
@@ -577,7 +816,6 @@ export default function ProductList() {
       const productRef = doc(db, 'products', docId);
       await deleteDoc(productRef);
 
-      // Update the local state using the same ID field
       setProducts(prevProducts => prevProducts.filter(p => (p.id || p._id) !== docId));
       
       setDeleteConfirmProduct(null);
@@ -622,7 +860,6 @@ export default function ProductList() {
 
   const formatDate = (date: any) => {
     if (!date) return 'No date';
-    // Handle Firestore Timestamp
     const timestamp = date?.toDate ? date.toDate() : new Date(date);
     return timestamp.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -633,21 +870,80 @@ export default function ProductList() {
     });
   };
 
-  // Add filter handler
-  const handleFilterChange = (type: keyof typeof filters, value: string | null) => {
-    setFilters(prev => ({
-      ...prev,
-      [type]: value || ''
-    }));
+  const getLocationScore = (product: Product) => {
+    if (!userSettings?.location) return 0;
+    if (!filters.locationEnabled) return 0;
+    
+    let score = 0;
+    const userLocation = userSettings.location;
+
+    if (userLocation.country && product.origin?.country === userLocation.country) {
+      score += 3;
+    }
+
+    if (userLocation.province && product.origin?.province === userLocation.province) {
+      score += 2;
+    }
+
+    if (userLocation.city && product.origin?.city === userLocation.city) {
+      score += 1;
+    }
+
+    return score;
   };
 
-  // Add filtered products computation
-  const filteredProducts = products
-    .filter(product => {
-      const matchCategory = !filters.category || product.category === filters.category;
-      return matchCategory;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name)); // Sort by product name ascending
+  const getFilteredProducts = () => {
+    return products
+      .filter(product => !filters.category || product.category === filters.category)
+      .sort((a, b) => {
+        if (filters.locationEnabled) {
+          const scoreA = getLocationScore(a);
+          const scoreB = getLocationScore(b);
+          if (scoreA !== scoreB) {
+            return scoreB - scoreA; 
+          }
+        }
+        return a.name.localeCompare(b.name); 
+      });
+  };
+
+  const filteredProducts = getFilteredProducts();
+
+  const handleLocationToggle = async () => {
+    try {
+      if (!auth.currentUser) return;
+
+      const newLocationEnabled = !filters.locationEnabled;
+      setFilters(prev => ({ ...prev, locationEnabled: newLocationEnabled }));
+
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        'preferences.useLocation': newLocationEnabled
+      });
+
+      setUserSettings(prev => prev ? {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          useLocation: newLocationEnabled
+        }
+      } : null);
+
+      fetchData();
+    } catch (error) {
+      console.error('Error updating location preference:', error);
+      setError('Failed to update location preference');
+    }
+  };
+
+  useEffect(() => {
+    if (userSettings?.preferences) {
+      setFilters(prev => ({
+        ...prev,
+        locationEnabled: userSettings.preferences.useLocation ?? true
+      }));
+    }
+  }, [userSettings]);
 
   const handleAddProduct = async () => {
     try {
@@ -658,7 +954,6 @@ export default function ProductList() {
 
       console.log('Attempting to add product:', newProduct);
 
-      // Validate required fields
       if (!newProduct.name?.trim()) {
         showMessage('Please enter a product name', 'error');
         return;
@@ -668,7 +963,6 @@ export default function ProductList() {
         return;
       }
 
-      // Get the actual category value, whether it's from the list or new
       const categoryValue = newProduct.category?.trim();
       console.log('Category value:', categoryValue);
 
@@ -694,15 +988,12 @@ export default function ProductList() {
       console.log('Saving product data:', productData);
       await setDoc(productRef, productData);
       
-      // Add new category to PRODUCT_CATEGORIES if it's not already there
       if (categoryValue && !PRODUCT_CATEGORIES.includes(categoryValue)) {
         console.log('Adding new category:', categoryValue);
         PRODUCT_CATEGORIES.push(categoryValue);
       }
 
-      // Update products list immediately
       setProducts(prevProducts => [...prevProducts, { ...productData, id: productRef.id }]);
-
       setAddDialogOpen(false);
       setNewProduct({
         name: '',
@@ -743,9 +1034,51 @@ export default function ProductList() {
       setSnackbar({
         open: true,
         message: 'Error exporting data. Please try again.',
-        severity: 'error'
+        severity: 'error',
+        autoHideDuration: 3000
       });
     }
+  };
+
+  const [showCompanyDialog, setShowCompanyDialog] = useState(false);
+  const [companyDialogMode, setCompanyDialogMode] = useState<'add' | 'edit'>('add');
+
+  const handleCompanySelect = (companyId: string) => {
+    const company = companies[companyId];
+    if (companyDialogMode === 'add') {
+      setNewProduct(prev => ({
+        ...prev,
+        company_id: companyId,
+        origin: {
+          ...prev.origin,
+          manufacturer: company?.name || ''
+        }
+      }));
+    } else {
+      setEditingProduct(prev => prev ? {
+        ...prev,
+        company_id: companyId,
+        origin: {
+          ...prev.origin,
+          manufacturer: company?.name || ''
+        }
+      } : null);
+    }
+  };
+
+  const handleNewCompany = (mode: 'add' | 'edit') => {
+    setCompanyDialogMode(mode);
+    setShowCompanyDialog(true);
+  };
+
+  const handleCompanyDialogClose = () => {
+    setShowCompanyDialog(false);
+    // Refresh companies list after adding new company
+    fetchData();
+  };
+
+  const handleViewCompany = (companyId: string) => {
+    window.location.href = '/companies';
   };
 
   if (!authChecked) {
@@ -774,10 +1107,9 @@ export default function ProductList() {
 
   return (
     <Box sx={{ width: '100%', padding: 1 }}>
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={snackbar.autoHideDuration}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
@@ -787,38 +1119,39 @@ export default function ProductList() {
       </Snackbar>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h5">Products</Typography>
+        <Typography variant="h5" sx={{ mr: 1 }}>Products</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {isAdmin && (
             <>
               <Button
                 variant="outlined"
                 onClick={() => setShowProductImport(true)}
-                startIcon={<AddIcon />}
+                startIcon={<ImportIcon />}
               >
-                Import Products
+                Products
               </Button>
               <Button
                 variant="outlined"
                 onClick={() => setShowPriceImport(true)}
-                startIcon={<AddIcon />}
+                startIcon={<ImportIcon />}
               >
-                Import Prices
+                Prices
               </Button>
             </>
           )}
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setAddDialogOpen(true)}
-          >
-            Add Product
-          </Button>
+          {(isAdmin || isContributor) && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => setAddDialogOpen(true)}
+            >
+              Product
+            </Button>
+          )}
         </Box>
       </Box>
 
-      {/* Product Import Dialog */}
       <Dialog
         open={showProductImport}
         onClose={() => setShowProductImport(false)}
@@ -831,7 +1164,6 @@ export default function ProductList() {
         </DialogContent>
       </Dialog>
 
-      {/* Price Import Dialog */}
       <Dialog
         open={showPriceImport}
         onClose={() => setShowPriceImport(false)}
@@ -845,9 +1177,18 @@ export default function ProductList() {
       </Dialog>
 
       <Box sx={{ width: '100%', padding: { xs: 1, sm: 3 } }}>
-        {/* Filters Section */}
-        <Box className="filters-container">
-          <Box className="filter-item">
+        <Box className="filters-container" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={filters.locationEnabled}
+                onChange={handleLocationToggle}
+                disabled={!userSettings?.location?.country}
+              />
+            }
+            label="Use My Location"
+          />
+          <Box className="filter-item" sx={{ flexGrow: 1 }}>
             {!showNewCategoryInput ? (
               <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
@@ -925,7 +1266,6 @@ export default function ProductList() {
         </Box>
       </Box>
 
-      {/* Delete confirmation dialog */}
       <Dialog
         open={!!deleteConfirmProduct}
         onClose={() => setDeleteConfirmProduct(null)}
@@ -942,7 +1282,6 @@ export default function ProductList() {
         </DialogActions>
       </Dialog>
 
-      {/* Edit product dialog */}
       <Dialog
         open={!!editingProduct}
         onClose={() => setEditingProduct(null)}
@@ -963,6 +1302,39 @@ export default function ProductList() {
                 defaultValue={editingProduct.brand}
                 onChange={(e) => setEditingProduct(prev => prev ? { ...prev, brand: e.target.value } : null)}
               />
+              <FormControl fullWidth>
+                <InputLabel>Manufacturer</InputLabel>
+                <Select
+                  value={editingProduct.company_id || ''}
+                  onChange={(e) => handleCompanySelect(e.target.value)}
+                  label="Manufacturer"
+                >
+                  {Object.entries(companies).map(([id, company]) => (
+                    <MenuItem key={id} value={id}>
+                      {company.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleNewCompany('edit')}
+                  variant="outlined"
+                >
+                  Add New Company
+                </Button>
+                {editingProduct.company_id && (
+                  <Button
+                    size="small"
+                    onClick={() => handleViewCompany(editingProduct.company_id!)}
+                    variant="outlined"
+                  >
+                    View Company Details
+                  </Button>
+                )}
+              </Box>
               {!showNewCategoryInput ? (
                 <FormControl fullWidth required>
                   <InputLabel>Category</InputLabel>
@@ -1057,7 +1429,6 @@ export default function ProductList() {
                 } : null)}
               />
 
-              {/* Product Attributes Section */}
               <Box sx={{ mt: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Attributes
@@ -1127,7 +1498,6 @@ export default function ProductList() {
         </DialogActions>
       </Dialog>
 
-      {/* Add Product Dialog */}
       <Dialog 
         open={addDialogOpen} 
         onClose={() => setAddDialogOpen(false)}
@@ -1149,6 +1519,39 @@ export default function ProductList() {
               value={newProduct.brand}
               onChange={(e) => setNewProduct(prev => ({ ...prev, brand: e.target.value }))}
             />
+            <FormControl fullWidth>
+              <InputLabel>Manufacturer</InputLabel>
+              <Select
+                value={newProduct.company_id || ''}
+                onChange={(e) => handleCompanySelect(e.target.value)}
+                label="Manufacturer"
+              >
+                {Object.entries(companies).map(([id, company]) => (
+                  <MenuItem key={id} value={id}>
+                    {company.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => handleNewCompany('add')}
+                variant="outlined"
+              >
+                Add New Company
+              </Button>
+              {newProduct.company_id && (
+                <Button
+                  size="small"
+                  onClick={() => handleViewCompany(newProduct.company_id!)}
+                  variant="outlined"
+                >
+                  View Company Details
+                </Button>
+              )}
+            </Box>
             {!showNewCategoryInput ? (
               <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
@@ -1244,7 +1647,6 @@ export default function ProductList() {
               }))}
             />
 
-            {/* Product Attributes Section */}
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle1" gutterBottom>
                 Attributes
@@ -1312,7 +1714,13 @@ export default function ProductList() {
       <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
         <TableContainer>
           <Table size="small" className="compact-table">
-            <TableHead className="table-header">
+            <TableHead sx={{ 
+              backgroundColor: '#c5c5c5',
+              '& th': {
+                fontWeight: 'bold',
+                color: 'rgba(0, 0, 0, 0.87)'
+              }
+            }}>
               <TableRow>
                 <TableCell padding="none" sx={{ width: '48px' }} />
                 <TableCell>Product</TableCell>
@@ -1323,9 +1731,18 @@ export default function ProductList() {
             <TableBody>
               {filteredProducts
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((product) => (
+                .map((product, index) => (
                 <React.Fragment key={product._id}>
-                  <TableRow>
+                  <TableRow 
+                    sx={{ 
+                      '&:nth-of-type(odd)': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      },
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                      }
+                    }}
+                  >
                     <TableCell padding="none" sx={{ width: '48px' }}>
                       <IconButton
                         aria-label="expand row"
@@ -1353,39 +1770,62 @@ export default function ProductList() {
                     </TableCell>
                     <TableCell>
                       <Box className="action-buttons">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenPriceDialog(product)}
-                          color="primary"
-                        >
-                          <AttachMoneyIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditProduct(product)}
-                          color="primary"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteProduct(product)}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
+                        {(isAdmin || isContributor) && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenPriceDialog(product)}
+                            color="primary"
+                          >
+                            <AttachMoneyIcon />
+                          </IconButton>
+                        )}
+                        {(isAdmin || isContributor) && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditProduct(product)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        )}
+                        {(isAdmin || isContributor) && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteProduct(product)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={4}>
+                    <TableCell 
+                      style={{ paddingBottom: 0, paddingTop: 0 }} 
+                      colSpan={4}
+                      sx={{
+                        backgroundColor: 'rgba(188, 188, 188, 0.4)',
+                        borderBottom: 'none'
+                      }}
+                    >
                       <Collapse in={expandedRows[product._id]} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 1 }}>
-                          <Typography variant="subtitle1" gutterBottom>
+                          <Typography variant="subtitle1" gutterBottom component="div" sx={{ display: 'flex', alignItems: 'center' }}>
                             Price History
+                            {(isAdmin || isContributor) && (
+                              <Button
+                                size="small"
+                                startIcon={<AddIcon />}
+                                onClick={() => handleOpenPriceDialog(product)}
+                                sx={{ ml: 2 }}
+                              >
+                                Add Price
+                              </Button>
+                            )}
                           </Typography>
                           <Grid container spacing={2}>
-                            {(product.prices || []).map((price, index) => (
+                            {filterPricesByLocation(product.prices || []).map((price, index) => (
                               <Grid item xs={12} sm={6} key={index}>
                                 <Paper 
                                   elevation={0} 
@@ -1399,8 +1839,13 @@ export default function ProductList() {
                                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                     <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
                                       ${price.amount.toFixed(2)} / {price.unit}
+                                      {price.name && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                          {price.name}
+                                        </Typography>
+                                      )}
                                     </Typography>
-                                    {isAdmin && (
+                                    {(isAdmin || (isContributor && price.created_by === auth.currentUser?.uid)) && (
                                       <Box>
                                         <IconButton
                                           size="small"
@@ -1417,33 +1862,63 @@ export default function ProductList() {
                                       </Box>
                                     )}
                                   </Box>
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                      {price.location?.city && price.location?.province 
-                                        ? `📍 ${price.location.city}, ${price.location.province}`
-                                        : price.location?.country || ''}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                      📅 {formatDate(price.date)}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                      👤 {price.created_by_name}
-                                    </Typography>
-                                  </Box>
+                                  <Grid container spacing={2}>
+                                    <Grid item xs={6}>
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                          📍 {price.location?.city && price.location?.province 
+                                            ? `${price.location.city}, ${price.location.province}`
+                                            : price.location?.country || ''}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          📅 {formatDate(price.date)}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          🏪 {price.store || 'No store specified'}
+                                        </Typography>
+                                      </Box>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                        {price.source && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            Source: {price.source}
+                                          </Typography>
+                                        )}
+                                        {price.notes && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            📝 {price.notes}
+                                          </Typography>
+                                        )}
+                                        {Object.keys(price.attributes || {}).length > 0 && (
+                                          <Box>
+                                            <Typography variant="body2" color="text.secondary">
+                                              Attributes:
+                                            </Typography>
+                                            {Object.entries(price.attributes || {}).map(([key, value]) => (
+                                              <Typography key={key} variant="body2" color="text.secondary" sx={{ pl: 1 }}>
+                                                • {key}: {value}
+                                              </Typography>
+                                            ))}
+                                          </Box>
+                                        )}
+                                      </Box>
+                                    </Grid>
+                                  </Grid>
+                                  {price.sales_link && (
+                                    <Button
+                                      size="small"
+                                      startIcon={<OpenInNewIcon />}
+                                      onClick={() => window.open(price.sales_link, '_blank')}
+                                      sx={{ mt: 1 }}
+                                    >
+                                      View Product Link
+                                    </Button>
+                                  )}
                                 </Paper>
                               </Grid>
                             ))}
                           </Grid>
-                          {isAdmin && (
-                            <Button
-                              size="small"
-                              startIcon={<AddIcon />}
-                              onClick={() => handleOpenPriceDialog(product)}
-                              sx={{ mt: 2 }}
-                            >
-                              Add Price
-                            </Button>
-                          )}
                         </Box>
                       </Collapse>
                     </TableCell>
@@ -1463,16 +1938,22 @@ export default function ProductList() {
           </Table>
         </TableContainer>
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
           component="div"
           count={filteredProducts.length}
-          rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            backgroundColor: '#c5c5c5',
+              '& th': {
+                fontWeight: 'bold',
+                color: 'rgba(0, 0, 0, 0.87)'
+              
+            },
+          }}
         />
 
-        {/* Price Entry Dialog */}
         <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
           <DialogTitle>
             Add Price for {selectedProduct?.name}
@@ -1645,7 +2126,6 @@ export default function ProductList() {
           </DialogActions>
         </Dialog>
 
-        {/* Edit Price Dialog */}
         <Dialog open={editPriceDialogOpen} onClose={handleCloseEditPriceDialog}>
           <DialogTitle>Edit Price</DialogTitle>
           <DialogContent>
@@ -1752,7 +2232,6 @@ export default function ProductList() {
                 />
               </Grid>
 
-              {/* Product Attributes Section */}
               <Typography variant="subtitle1" gutterBottom>
                 Attributes
               </Typography>
@@ -1817,6 +2296,27 @@ export default function ProductList() {
               Save Changes
             </Button>
           </DialogActions>
+        </Dialog>
+
+        {/* Add Company Dialog */}
+        <Dialog open={showCompanyDialog} onClose={handleCompanyDialogClose}>
+          <DialogTitle>Add New Company</DialogTitle>
+          <DialogContent>
+            <CompanyForm
+              onSubmit={async (company) => {
+                try {
+                  const companyRef = await addDoc(collection(db, 'companies'), company);
+                  handleCompanySelect(companyRef.id);
+                  handleCompanyDialogClose();
+                } catch (error) {
+                  console.error('Error creating company:', error);
+                  showMessage('Failed to create company', 'error');
+                }
+              }}
+              onCancel={handleCompanyDialogClose}
+              isSubmitting={false}
+            />
+          </DialogContent>
         </Dialog>
       </Paper>
     </Box>

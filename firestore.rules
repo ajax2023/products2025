@@ -6,27 +6,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function getRole() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : 'viewer';
+    }
+
     function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
-      );
+      return isSignedIn() && (getRole() == 'admin' || getRole() == 'super_admin');
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+      return isSignedIn() && getRole() == 'super_admin';
     }
 
     function isContributor() {
       return isSignedIn() && (
-        isAdmin() ||
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'contributor' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
+        getRole() == 'contributor' ||
+        getRole() == 'admin' ||
+        getRole() == 'super_admin'
       );
     }
 
@@ -37,48 +34,59 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isUser(userId);
+      allow create: if isSignedIn() && (
+        // Allow users to create their own document with viewer role
+        (isUser(userId) && request.resource.data.role == 'viewer') ||
+        // Or admin can create with any role except super_admin
+        (isAdmin() && request.resource.data.role != 'super_admin') ||
+        // Or super_admin can create with any role
+        isSuperAdmin()
+      );
       allow update: if isSignedIn() && (
         // Users can update their own non-role fields
         (isUser(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
-        // Only super_admin can change roles
+        // Admin can update roles except super_admin
+        (isAdmin() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && resource.data.role != 'super_admin') ||
+        // Only super_admin can change any roles
         isSuperAdmin()
       );
-      // Allow users to delete their own documents, or super_admin to delete any
       allow delete: if isSignedIn() && (isUser(userId) || isSuperAdmin());
     }
 
-    // Existing rules for other collections
-    match /admins/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
+    // Contributor requests collection
+    match /contributorRequests/{requestId} {
+      allow read: if isSignedIn() && (
+        // Users can read their own requests
+        (exists(resource.data) && request.auth.uid == resource.data.userId) ||
+        // Admins can read all requests
+        isAdmin()
+      );
+      allow create: if isSignedIn() && (
+        // Users can create requests for themselves
+        request.auth.uid == request.resource.data.userId &&
+        // Only viewers can request contributor status
+        getRole() == 'viewer' &&
+        // Request must have required fields
+        request.resource.data.keys().hasAll(['userId', 'userEmail', 'status', 'createdAt'])
+      );
+      allow delete: if isSignedIn() && (
+        // Users can delete their own requests
+        (exists(resource.data) && request.auth.uid == resource.data.userId) ||
+        // Admins can delete any request
+        isAdmin()
+      );
     }
 
-    // Products collection
+    // UserSettings collection
+    match /userSettings/{userId} {
+      allow read: if isSignedIn() && isUser(userId);
+      allow write: if isSignedIn() && isUser(userId);
+    }
+
+    // Existing rules for other collections...
     match /products/{productId} {
       allow read: if isSignedIn();
       allow create: if isContributor();
-      allow update: if (
-        isSignedIn() && (
-          isContributor() ||
-          request.auth.uid in resource.data.prices[request.resource.data.prices.size() - 1].created_by
-        )
-      );
-      allow delete: if isAdmin();
-    }
-    
-    match /approval_history/{historyId} {
-      allow read: if isSignedIn();
-      allow create: if isContributor();
-      allow update: if isContributor();
-    }
-    
-    match /prices/{priceId} {
-      allow read: if isSignedIn();
-      allow create: if isContributor() 
-        && request.resource.data.keys().hasAll(['product_id', 'location', 'price', 'user_id', 'timestamp'])
-        && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.price >= 0;
       allow update: if isContributor();
       allow delete: if isAdmin();
     }
@@ -88,11 +96,6 @@ service cloud.firestore {
       allow create: if isContributor();
       allow update: if isContributor();
       allow delete: if isAdmin();
-    }
-    
-    match /userSettings/{userId} {
-      allow read: if isSignedIn() && isUser(userId);
-      allow write: if isSignedIn() && isUser(userId);
     }
   }
 }

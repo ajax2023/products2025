@@ -8,7 +8,9 @@ import {
   where,
   orderBy,
   onSnapshot,
-  setDoc
+  setDoc,
+  deleteDoc,
+  getDoc
 } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 import { User } from '../../types/user';
@@ -45,6 +47,7 @@ import {
   Search as SearchIcon,
   FilterList as FilterListIcon,
   Clear as ClearIcon,
+  Work as WorkIcon,
 } from '@mui/icons-material';
 import ProductImport from './ProductImport';
 import PriceImport from './PriceImport';
@@ -66,28 +69,68 @@ export default function UserManagement() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showProductImport, setShowProductImport] = useState(false);
   const [showPriceImport, setShowPriceImport] = useState(false);
+  const [contributorRequests, setContributorRequests] = useState<any[]>([]);
 
   useEffect(() => {
     const checkUserRole = async () => {
-      if (!auth.currentUser) return;
-
-      if (auth.currentUser.email === 'ajax@online101.ca') {
-        setCurrentUserRole('super_admin');
-        fetchUsers();
+      if (!auth.currentUser) {
+        setLoading(false);
         return;
       }
-      
-      const userDoc = await getDocs(
-        query(collection(db, 'users'), where('_id', '==', auth.currentUser.uid))
-      );
-      
-      if (!userDoc.empty) {
-        setCurrentUserRole(userDoc.docs[0].data().role);
+
+      try {
+        if (auth.currentUser.email === 'ajax@online101.ca') {
+          setCurrentUserRole('super_admin');
+          fetchUsers();
+          return;
+        }
+        
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          const role = userDoc.data().role;
+          setCurrentUserRole(role);
+          if (role === 'super_admin' || role === 'admin') {
+            fetchUsers();
+          } else {
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error);
+        setError('Error checking permissions. Please try again.');
+        setLoading(false);
       }
     };
 
     checkUserRole();
   }, []);
+
+  useEffect(() => {
+    if (currentUserRole === 'super_admin' || currentUserRole === 'admin') {
+      // Listen for contributor requests
+      const requestsQuery = query(
+        collection(db, 'contributorRequests'),
+        orderBy('createdAt', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+        const requests = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate()
+        }));
+        console.log('Fetched contributor requests:', requests); // Debug log
+        setContributorRequests(requests);
+      }, (error) => {
+        console.error('Error in contributor requests listener:', error);
+        setError('Error getting real-time updates for requests.');
+      });
+
+      return () => unsubscribe();
+    }
+  }, [currentUserRole]);
 
   useEffect(() => {
     filterUsers();
@@ -122,36 +165,11 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      // Listen for real-time updates to the users collection
       const q = query(
         collection(db, 'users'),
         orderBy('email')
       );
       
-      const querySnapshot = await getDocs(q);
-      const usersList = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        _id: doc.id,
-        // Convert Firestore Timestamps to Dates
-        created_at: doc.data().created_at?.toDate(),
-        updated_at: doc.data().updated_at?.toDate(),
-        last_login: doc.data().last_login?.toDate()
-      })) as User[];
-      
-      console.log('Fetched users:', usersList); // Debug log
-      setUsers(usersList);
-      setFilteredUsers(usersList);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Error loading users. Please try again.');
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (currentUserRole === 'super_admin') {
-      const q = query(collection(db, 'users'), orderBy('email'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const usersList = snapshot.docs.map(doc => ({
           ...doc.data(),
@@ -160,16 +178,23 @@ export default function UserManagement() {
           updated_at: doc.data().updated_at?.toDate(),
           last_login: doc.data().last_login?.toDate()
         })) as User[];
+        
         setUsers(usersList);
         setFilteredUsers(usersList);
+        setLoading(false);
       }, (error) => {
         console.error('Error in real-time updates:', error);
         setError('Error getting real-time updates. Please refresh the page.');
+        setLoading(false);
       });
 
       return () => unsubscribe();
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setError('Error loading users. Please try again.');
+      setLoading(false);
     }
-  }, [currentUserRole]);
+  };
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
@@ -197,6 +222,29 @@ export default function UserManagement() {
     } catch (error) {
       console.error('Error updating user:', error);
       setError('Error updating user. Please try again.');
+    }
+  };
+
+  const handleContributorRequest = async (requestId: string, userId: string, approved: boolean) => {
+    try {
+      if (approved) {
+        // Update user role to contributor
+        await updateDoc(doc(db, 'users', userId), {
+          role: 'contributor',
+          updated_at: new Date(),
+          updated_by: auth.currentUser?.uid
+        });
+      }
+
+      // Delete the request
+      await deleteDoc(doc(db, 'contributorRequests', requestId));
+
+      // Show success message
+      setError(approved ? 'User promoted to contributor successfully!' : 'Request denied successfully!');
+      setTimeout(() => setError(null), 3000);
+    } catch (error) {
+      console.error('Error handling contributor request:', error);
+      setError('Error processing request. Please try again.');
     }
   };
 
@@ -326,6 +374,75 @@ export default function UserManagement() {
           )}
         </Stack>
       </Paper>
+
+      {/* Contributor Requests Section */}
+      {(currentUserRole === 'super_admin' || currentUserRole === 'admin') && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <WorkIcon color="primary" />
+            <h5>Contributor Requests</h5>
+            {contributorRequests.length > 0 && (
+              <Chip 
+                label={contributorRequests.length} 
+                color="primary" 
+                size="small" 
+                sx={{ ml: 1 }}
+              />
+            )}
+          </Typography>
+          {contributorRequests.length > 0 ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>User</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Current Role</TableCell>
+                    <TableCell>Requested At</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {contributorRequests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell>{request.userName || 'Unknown'}</TableCell>
+                      <TableCell>{request.userEmail}</TableCell>
+                      <TableCell>{request.currentRole || 'viewer'}</TableCell>
+                      <TableCell>
+                        {request.createdAt?.toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleContributorRequest(request.id, request.userId, true)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleContributorRequest(request.id, request.userId, false)}
+                          >
+                            Deny
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Paper sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+              No pending contributor requests
+            </Paper>
+          )}
+        </Box>
+      )}
 
       {/* Results Summary */}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

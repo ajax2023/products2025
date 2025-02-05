@@ -20,6 +20,7 @@ export interface UserSettings {
   preferences: {
     language: string;
     currency: string;
+    useLocation: boolean;
   };
   sharing: {
     showPicture: boolean;
@@ -42,7 +43,8 @@ export const createUserSettings = (data: Partial<UserSettings>): UserSettings =>
     },
     preferences: {
       language: data.preferences?.language || 'English',
-      currency: data.preferences?.currency || 'CAD'
+      currency: data.preferences?.currency || 'CAD',
+      useLocation: data.preferences?.useLocation ?? false
     },
     sharing: {
       showPicture: data.sharing?.showPicture ?? true,

@@ -16,10 +16,14 @@ import {
   Box,
   Chip,
   IconButton,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CompanyForm from './CompanyForm'; // Import your existing CompanyForm component
 
 export default function ProductForm() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -48,6 +52,7 @@ export default function ProductForm() {
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showCompanyDialog, setShowCompanyDialog] = useState(false);
 
   useEffect(() => {
     fetchCompanies();
@@ -200,6 +205,27 @@ export default function ProductForm() {
     }));
   };
 
+  const handleCompanySelect = (companyId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      company_id: companyId
+    }));
+  };
+
+  const handleNewCompany = () => {
+    setShowCompanyDialog(true);
+  };
+
+  const handleCompanyDialogClose = () => {
+    setShowCompanyDialog(false);
+    // Refresh companies list after adding new company
+    fetchCompanies();
+  };
+
+  const handleViewCompany = (companyId: string) => {
+    window.location.href = '/companies';
+  };
+
   const selectedCompany = companies.find(c => c._id === formData.company_id);
 
   return (
@@ -238,27 +264,40 @@ export default function ProductForm() {
           </Grid>
 
           {/* Company and Brand */}
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth size="small" required>
-              <InputLabel>Company</InputLabel>
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel>Manufacturer</InputLabel>
               <Select
-                value={formData.company_id}
-                label="Company"
-                onChange={(e) => {
-                  const company = companies.find(c => c._id === e.target.value);
-                  setFormData(prev => ({
-                    ...prev,
-                    company_id: e.target.value,
-                    brand: company?.brands[0] || '',
-                    origin: company?.headquarters || { country: '', state: '', city: '' }
-                  }));
-                }}
+                value={formData.company_id || ''}
+                onChange={(e) => handleCompanySelect(e.target.value)}
+                label="Manufacturer"
               >
-                {companies.map(company => (
-                  <MenuItem key={company._id} value={company._id}>{company.name}</MenuItem>
+                {companies.map((company) => (
+                  <MenuItem key={company._id} value={company._id}>
+                    {company.name}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
+            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleNewCompany}
+                variant="outlined"
+              >
+                Add New Company
+              </Button>
+              {formData.company_id && (
+                <Button
+                  size="small"
+                  onClick={() => handleViewCompany(formData.company_id!)}
+                  variant="outlined"
+                >
+                  View Company Details
+                </Button>
+              )}
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
@@ -476,6 +515,26 @@ export default function ProductForm() {
           )}
         </Grid>
       </form>
+      <Dialog open={showCompanyDialog} onClose={handleCompanyDialogClose}>
+        <DialogTitle>Add New Company</DialogTitle>
+        <DialogContent>
+          <CompanyForm
+            onSubmit={async (company) => {
+              // Handle company creation
+              try {
+                const companyRef = await addDoc(collection(db, 'companies'), company);
+                handleCompanySelect(companyRef.id);
+                handleCompanyDialogClose();
+              } catch (error) {
+                console.error('Error creating company:', error);
+                setError('Failed to create company');
+              }
+            }}
+            onCancel={handleCompanyDialogClose}
+            isSubmitting={false}
+          />
+        </DialogContent>
+      </Dialog>
     </Paper>
   );
 }

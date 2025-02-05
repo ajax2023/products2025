@@ -223,11 +223,12 @@ header {
   color: white;
 }
 
-h5 {
- color: #333;
-}
 
 .leaf-image {
   width: 20%;
   height: 20%;
+}
+
+h6, h5, h4, h3, h2, h1 ,label {
+  color: #333;
 }

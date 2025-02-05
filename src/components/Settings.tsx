@@ -12,14 +12,16 @@ import {
   Typography,
   Paper,
   Avatar,
-  FormGroup
+  FormGroup,
+  Alert
 } from '@mui/material';
 import { auth, db } from '../firebaseConfig';
-import { getDoc, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { getDoc, setDoc, doc, deleteDoc, collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { updateProfile, reauthenticateWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth';
-import { UserSettings } from '../types/user';
+import { UserSettings, User } from '../types/user';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
+import WorkIcon from '@mui/icons-material/Work';
 
 const getGravatarUrl = (email: string) => {
   const hash = require('crypto').createHash('md5').update(email.toLowerCase()).digest('hex');
@@ -47,12 +49,18 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState('');
   const [error, setError] = useState('');
+  const [userRole, setUserRole] = useState<string>('');
+  const [contributorRequestStatus, setContributorRequestStatus] = useState<'none' | 'pending' | 'sent'>('none');
 
   useEffect(() => {
     const loadSettings = async () => {
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        setLoading(false);
+        return;
+      }
 
       try {
+        // Load user settings
         const settingsDoc = await getDoc(doc(db, 'userSettings', auth.currentUser.uid));
         if (settingsDoc.exists()) {
           const data = settingsDoc.data() as UserSettings;
@@ -61,9 +69,40 @@ export default function Settings() {
             ...data
           }));
         }
+
+        // Load user role
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          setUserRole(userData.role);
+          
+          // Check if there's a pending contributor request
+          if (userData.role === 'viewer') {
+            const requestsRef = collection(db, 'contributorRequests');
+            const requestSnapshot = await getDocs(query(requestsRef, where('userId', '==', auth.currentUser.uid), where('status', '==', 'pending')));
+            if (!requestSnapshot.empty) {
+              setContributorRequestStatus('pending');
+            }
+          }
+        } else {
+          // If user document doesn't exist, create it with default viewer role
+          const newUser: User = {
+            _id: auth.currentUser.uid,
+            email: auth.currentUser.email || '',
+            role: 'viewer',
+            displayName: auth.currentUser.displayName || '',
+            created_at: new Date(),
+            created_by: auth.currentUser.uid,
+            status: 'active'
+          };
+          await setDoc(doc(db, 'users', auth.currentUser.uid), newUser);
+          setUserRole('viewer');
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error('Error loading settings:', error);
+        setError('Error loading settings. Please try again.');
         setLoading(false);
       }
     };
@@ -128,6 +167,30 @@ export default function Settings() {
     }
   };
 
+  const handleContributorRequest = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      // Create a contributor request
+      await addDoc(collection(db, 'contributorRequests'), {
+        userId: auth.currentUser.uid,
+        userEmail: auth.currentUser.email,
+        userName: auth.currentUser.displayName,
+        status: 'pending',
+        createdAt: new Date(),
+        currentRole: userRole
+      });
+
+      setContributorRequestStatus('sent');
+      setSaveMessage('Contributor request sent successfully!');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } catch (error) {
+      console.error('Error sending contributor request:', error);
+      setError('Failed to send contributor request. Please try again.');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   if (loading) {
     return <Box sx={{ p: 2 }}>Loading settings...</Box>;
   }
@@ -189,7 +252,6 @@ export default function Settings() {
                     fullWidth
                     required
                     label="Country"
-                    defaultValue="Canada"
                     value={userSettings.location.country}
                     onChange={(e) => setUserSettings(prev => ({
                       ...prev,
@@ -236,7 +298,6 @@ export default function Settings() {
                     fullWidth
                     required
                     label="Language"
-                    defaultValue="English"
                     value={userSettings.preferences.language}
                     onChange={(e) => setUserSettings(prev => ({
                       ...prev,
@@ -252,7 +313,6 @@ export default function Settings() {
                     fullWidth
                     required
                     label="Currency"
-                    defaultValue="CAD"
                     value={userSettings.preferences.currency}
                     onChange={(e) => setUserSettings(prev => ({
                       ...prev,
@@ -264,6 +324,47 @@ export default function Settings() {
                   />
                 </Grid>
               </Grid>
+            </Card>
+          </Grid>
+
+          {/* Role Section */}
+          <Grid item xs={12}>
+            <Card sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <WorkIcon color="primary" />
+                <Typography variant="h6">Role & Permissions</Typography>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1">
+                  Current Role: <strong>{userRole || 'Loading...'}</strong>
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {userRole === 'viewer' && 'As a viewer, you can view products and their prices.'}
+                  {userRole === 'contributor' && 'As a contributor, you can add products and prices, and edit your own entries.'}
+                  {userRole === 'admin' && 'As an admin, you have full access to manage products, prices, and users.'}
+                  {userRole === 'super_admin' && 'As a super admin, you have complete control over the system.'}
+                </Typography>
+              </Box>
+              {userRole === 'viewer' && contributorRequestStatus === 'none' && (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleContributorRequest}
+                  startIcon={<WorkIcon />}
+                >
+                  Request Contributor Access
+                </Button>
+              )}
+              {contributorRequestStatus === 'pending' && (
+                <Alert severity="info">
+                  Your contributor request is pending approval from administrators.
+                </Alert>
+              )}
+              {contributorRequestStatus === 'sent' && (
+                <Alert severity="success">
+                  Your contributor request has been sent! Administrators will review it soon.
+                </Alert>
+              )}
             </Card>
           </Grid>
 
