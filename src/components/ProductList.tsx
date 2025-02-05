@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -60,12 +60,14 @@ import {
 } from 'firebase/firestore';
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from '../types/product';
 import { UserSettings } from '../types/userSettings';
+import { Company } from '../types/company';
 import ProductImport from './ProductImport';
 import PriceImport from './PriceImport';
 import CompanyForm from './CompanyForm';
 
 export default function ProductList() {
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
   const brandFilter = location.state?.brandFilter;
@@ -792,7 +794,11 @@ export default function ProductList() {
   };
 
   const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
+    // Make sure to include company_id in the initial state
+    setEditingProduct({
+      ...product,
+      company_id: product.company_id || ''
+    });
   };
 
   const handleDeleteProduct = async (product: Product) => {
@@ -830,21 +836,34 @@ export default function ProductList() {
     if (!editingProduct) return;
     
     try {
+      console.log('Updating product with data:', {
+        company_id: updatedProduct.company_id,
+        manufacturer: companies[updatedProduct.company_id]?.name
+      });
+
       const productRef = doc(db, 'products', editingProduct._id);
-      await updateDoc(productRef, {
+      const productData = {
         ...updatedProduct,
+        company_id: updatedProduct.company_id || null,
+        origin: {
+          ...updatedProduct.origin,
+          manufacturer: updatedProduct.company_id ? companies[updatedProduct.company_id]?.name : ''
+        },
         updated_at: new Date(),
         updated_by: auth.currentUser?.uid || ''
-      });
+      };
+      
+      await updateDoc(productRef, productData);
       
       setProducts(prevProducts => 
         prevProducts.map(p => 
           p._id === editingProduct._id
-            ? { ...updatedProduct, _id: editingProduct._id }
+            ? { ...productData, _id: editingProduct._id }
             : p
         )
       );
       setEditingProduct(null);
+      showMessage('Product updated successfully');
     } catch (error) {
       console.error('Error updating product:', error);
       setError('Failed to update product. Please try again.');
@@ -975,6 +994,11 @@ export default function ProductList() {
       const productData = {
         ...newProduct,
         category: categoryValue,
+        company_id: newProduct.company_id,
+        origin: {
+          ...newProduct.origin,
+          manufacturer: newProduct.company_id ? companies[newProduct.company_id]?.name : ''
+        },
         created_by: auth.currentUser.uid,
         created_by_name: auth.currentUser.displayName || auth.currentUser.email,
         created_at: new Date().toISOString(),
@@ -1040,45 +1064,66 @@ export default function ProductList() {
     }
   };
 
-  const [showCompanyDialog, setShowCompanyDialog] = useState(false);
-  const [companyDialogMode, setCompanyDialogMode] = useState<'add' | 'edit'>('add');
-
-  const handleCompanySelect = (companyId: string) => {
-    const company = companies[companyId];
-    if (companyDialogMode === 'add') {
-      setNewProduct(prev => ({
+  const handleCompanySelect = async (companyId: string) => {
+    console.log('Selected company:', companyId);
+    
+    setEditingProduct(prev => {
+      if (!prev) return null;
+      console.log('Previous state:', prev);
+      const newState = {
         ...prev,
-        company_id: companyId,
-        origin: {
-          ...prev.origin,
-          manufacturer: company?.name || ''
-        }
-      }));
-    } else {
-      setEditingProduct(prev => prev ? {
-        ...prev,
-        company_id: companyId,
-        origin: {
-          ...prev.origin,
-          manufacturer: company?.name || ''
-        }
-      } : null);
-    }
+        company_id: companyId
+      };
+      console.log('New state:', newState);
+      return newState;
+    });
   };
 
-  const handleNewCompany = (mode: 'add' | 'edit') => {
+  const handleNewCompany = async (mode: 'add' | 'edit') => {
     setCompanyDialogMode(mode);
     setShowCompanyDialog(true);
   };
 
   const handleCompanyDialogClose = () => {
     setShowCompanyDialog(false);
-    // Refresh companies list after adding new company
-    fetchData();
   };
 
+  const handleCompanySubmit = async (companyData: Partial<Company>) => {
+    try {
+      const companyRef = await addDoc(collection(db, 'companies'), {
+        ...companyData,
+        created_at: new Date(),
+        created_by: auth.currentUser?.uid,
+        updated_at: new Date(),
+        updated_by: auth.currentUser?.uid
+      });
+
+      // Add the new company to our local state
+      const newCompany = {
+        ...companyData,
+        _id: companyRef.id
+      } as Company;
+
+      setCompanies(prev => ({
+        ...prev,
+        [companyRef.id]: newCompany
+      }));
+
+      // Select the new company
+      handleCompanySelect(companyRef.id);
+      handleCompanyDialogClose();
+      showMessage('Company created successfully!');
+    } catch (error) {
+      console.error('Error creating company:', error);
+      showMessage('Failed to create company', 'error');
+    }
+  };
+
+  const [showCompanyDialog, setShowCompanyDialog] = useState(false);
+  const [companyDialogMode, setCompanyDialogMode] = useState<'add' | 'edit'>('add');
+
   const handleViewCompany = (companyId: string) => {
-    window.location.href = '/companies';
+    navigate(`/companies/${companyId}`);
   };
 
   if (!authChecked) {
@@ -1303,12 +1348,15 @@ export default function ProductList() {
                 onChange={(e) => setEditingProduct(prev => prev ? { ...prev, brand: e.target.value } : null)}
               />
               <FormControl fullWidth>
-                <InputLabel>Manufacturer</InputLabel>
+                <InputLabel>Company</InputLabel>
                 <Select
                   value={editingProduct.company_id || ''}
                   onChange={(e) => handleCompanySelect(e.target.value)}
-                  label="Manufacturer"
+                  label="Company"
                 >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
                   {Object.entries(companies).map(([id, company]) => (
                     <MenuItem key={id} value={id}>
                       {company.name}
@@ -1420,14 +1468,6 @@ export default function ProductList() {
                   origin: { ...prev.origin, city: e.target.value }
                 } : null)}
               />
-              <TextField
-                label="Manufacturer"
-                defaultValue={editingProduct.origin.manufacturer}
-                onChange={(e) => setEditingProduct(prev => prev ? { 
-                  ...prev, 
-                  origin: { ...prev.origin, manufacturer: e.target.value }
-                } : null)}
-              />
 
               <Box sx={{ mt: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
@@ -1520,12 +1560,15 @@ export default function ProductList() {
               onChange={(e) => setNewProduct(prev => ({ ...prev, brand: e.target.value }))}
             />
             <FormControl fullWidth>
-              <InputLabel>Manufacturer</InputLabel>
+              <InputLabel>Company</InputLabel>
               <Select
                 value={newProduct.company_id || ''}
                 onChange={(e) => handleCompanySelect(e.target.value)}
-                label="Manufacturer"
+                label="Company"
               >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
                 {Object.entries(companies).map(([id, company]) => (
                   <MenuItem key={id} value={id}>
                     {company.name}
@@ -1636,14 +1679,6 @@ export default function ProductList() {
               onChange={(e) => setNewProduct(prev => ({ 
                 ...prev, 
                 origin: { ...prev.origin, city: e.target.value }
-              }))}
-            />
-            <TextField
-              label="Manufacturer"
-              value={newProduct.origin.manufacturer}
-              onChange={(e) => setNewProduct(prev => ({ 
-                ...prev, 
-                origin: { ...prev.origin, manufacturer: e.target.value }
               }))}
             />
 
@@ -1762,9 +1797,13 @@ export default function ProductList() {
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="body2">{product.category}</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {product.origin?.city && product.origin?.province 
-                            ? `${product.origin.city}, ${product.origin.province}`
-                            : product.origin?.country || ''}
+                          {product.company_id && companies[product.company_id]?.name}
+                          {product.origin?.city && product.origin?.province && (
+                            <span>
+                              {product.company_id ? ' - ' : ''}
+                              {`${product.origin.city}, ${product.origin.province}`}
+                            </span>
+                          )}
                         </Typography>
                       </Box>
                     </TableCell>
@@ -2303,16 +2342,7 @@ export default function ProductList() {
           <DialogTitle>Add New Company</DialogTitle>
           <DialogContent>
             <CompanyForm
-              onSubmit={async (company) => {
-                try {
-                  const companyRef = await addDoc(collection(db, 'companies'), company);
-                  handleCompanySelect(companyRef.id);
-                  handleCompanyDialogClose();
-                } catch (error) {
-                  console.error('Error creating company:', error);
-                  showMessage('Failed to create company', 'error');
-                }
-              }}
+              onSubmit={handleCompanySubmit}
               onCancel={handleCompanyDialogClose}
               isSubmitting={false}
             />

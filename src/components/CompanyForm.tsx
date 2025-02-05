@@ -155,6 +155,8 @@ export default function CompanyForm({ company, onSubmit, onCancel, isSubmitting 
                     headquarters: { ...(prev.headquarters || {}), state: e.target.value }
                   }))}
                   fullWidth
+                  required
+                  error={!formData.headquarters?.state}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>

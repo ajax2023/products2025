@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
 import { Company } from '../types/company';
 import {
   Box,
@@ -12,19 +12,28 @@ import {
   CircularProgress,
   Link,
   Divider,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material';
 import {
   Language as WebsiteIcon,
   Business as BusinessIcon,
   People as PeopleIcon,
   DateRange as DateIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
+import CompanyForm from './CompanyForm';
 
 export default function CompanyInfo() {
   const { id } = useParams<{ id: string }>();
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCompany = async () => {
@@ -54,6 +63,16 @@ export default function CompanyInfo() {
     fetchCompany();
   }, [id]);
 
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!auth.currentUser) return;
+      const token = await auth.currentUser.getIdTokenResult();
+      const role = token.claims.admin ? 'admin' : token.claims.contributor ? 'contributor' : 'viewer';
+      setUserRole(role);
+    };
+    checkUserRole();
+  }, []);
+
   const formatEmployeeCount = (count: number) => {
     if (count >= 1000000) {
       return `${(count / 1000000).toFixed(1)}M employees`;
@@ -62,6 +81,28 @@ export default function CompanyInfo() {
       return `${(count / 1000).toFixed(1)}K employees`;
     }
     return `${count.toLocaleString()} employees`;
+  };
+
+  const handleEditCompany = async (updatedCompany: Partial<Company>) => {
+    if (!id || !company) return;
+    setIsSubmitting(true);
+    try {
+      const companyRef = doc(collection(db, 'companies'), id);
+      await updateDoc(companyRef, {
+        ...updatedCompany,
+        updated_at: new Date(),
+        updated_by: auth.currentUser?.uid || ''
+      });
+
+      // Update local state
+      setCompany(prev => prev ? { ...prev, ...updatedCompany } : null);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error updating company:', err);
+      setError('Failed to update company');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -83,14 +124,25 @@ export default function CompanyInfo() {
   return (
     <Box sx={{ p: 3 }}>
       <Paper elevation={0} sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <BusinessIcon fontSize="large" color="primary" />
+            <Typography variant="h4" component="h1">
+              {company.name}
+            </Typography>
+          </Box>
+          {(userRole === 'admin' || userRole === 'contributor') && (
+            <Button
+              startIcon={<EditIcon />}
+              variant="outlined"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit Company
+            </Button>
+          )}
+        </Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <BusinessIcon fontSize="large" color="primary" />
-              <Typography variant="h4" component="h1">
-                {company.name}
-              </Typography>
-            </Box>
             {company.description && (
               <Typography variant="body1" color="text.secondary" paragraph>
                 {company.description}
@@ -181,6 +233,23 @@ export default function CompanyInfo() {
           </Grid>
         </Grid>
       </Paper>
+
+      <Dialog
+        open={isEditing}
+        onClose={() => setIsEditing(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Edit Company</DialogTitle>
+        <DialogContent>
+          <CompanyForm
+            company={company}
+            onSubmit={handleEditCompany}
+            onCancel={() => setIsEditing(false)}
+            isSubmitting={isSubmitting}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

@@ -89,8 +89,8 @@ function App() {
               <Route path="/add" element={<ProductForm />} />
               <Route path="/brands" element={<BrandList />} />
               <Route path="/companies" element={<CompanyList />} />
+              <Route path="/companies/:id" element={<CompanyInfo />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/company" element={<CompanyInfo />} />
               <Route path="/admin/users" element={<UserManagement />} />
             </Routes>
           </main>

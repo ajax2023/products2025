@@ -23,9 +23,10 @@ import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import WorkIcon from '@mui/icons-material/Work';
 
-const getGravatarUrl = (email: string) => {
-  const hash = require('crypto').createHash('md5').update(email.toLowerCase()).digest('hex');
-  return `https://www.gravatar.com/avatar/${hash}?s=80&d=identicon`;
+const getModifiedPhotoUrl = (url: string | null) => {
+  if (!url) return '';
+  // Replace s96-c with s400 for larger size
+  return url.replace('s96-c', 's400');
 };
 
 export default function Settings() {
@@ -58,6 +59,13 @@ export default function Settings() {
         setLoading(false);
         return;
       }
+
+      console.log('Debug - auth.currentUser:', {
+        email: auth.currentUser.email,
+        photoURL: auth.currentUser.photoURL,
+        displayName: auth.currentUser.displayName,
+        uid: auth.currentUser.uid
+      });
 
       try {
         // Load user settings
@@ -114,13 +122,9 @@ export default function Settings() {
     if (!auth.currentUser) return;
 
     try {
-      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), {
-        ...userSettings,
-        updatedAt: new Date(),
-      });
-
+      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), userSettings);
       setSaveMessage('Settings saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 3000); // Clear message after 3 seconds
     } catch (error) {
       console.error('Error saving settings:', error);
       setError('Error saving settings. Please try again.');
@@ -207,12 +211,20 @@ export default function Settings() {
                   <Box sx={{ textAlign: 'center' }}>
                     <Avatar
                       sx={{ width: 70, height: 70, mb: 0.5 }}
-                      src={auth.currentUser?.photoURL || getGravatarUrl(auth.currentUser?.email || '')}
+                      src={auth.currentUser?.photoURL || ''}
+                      alt={auth.currentUser?.displayName || 'User'}
+                      imgProps={{
+                        referrerPolicy: "no-referrer",
+                        crossOrigin: "anonymous",
+                        onError: () => {
+                          console.log("Failed to load image");
+                        }
+                      }}
                     >
                       <PersonIcon />
                     </Avatar>
-                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                      {auth.currentUser?.photoURL ? 'Google Photo' : 'Gravatar'}
+                    <Typography variant="body2" color="textSecondary">
+                      {auth.currentUser?.displayName || auth.currentUser?.email || 'User'}
                     </Typography>
                   </Box>
                 </Grid>
@@ -461,12 +473,20 @@ export default function Settings() {
               </Button>
             </Box>
             {saveMessage && (
-              <Typography
-                color={saveMessage.includes('Error') ? 'error' : 'success'}
-                sx={{ mt: 1, fontSize: '0.875rem' }}
+              <Alert 
+                severity="success"
+                sx={{
+                  mt: 2,
+                  fontSize: '1.1rem',
+                  '& .MuiAlert-icon': {
+                    fontSize: '1.5rem'
+                  },
+                  backgroundColor: '#e8f5e9',
+                  border: '1px solid #81c784'
+                }}
               >
                 {saveMessage}
-              </Typography>
+              </Alert>
             )}
             {error && (
               <Typography
