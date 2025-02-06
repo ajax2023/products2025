@@ -1765,8 +1765,8 @@ export default function ProductList() {
               <TableRow>
                 <TableCell padding="none" sx={{ width: '28px' }} />
                 <TableCell sx={{ width: '25%', textAlign: 'left'  }}>Product</TableCell>
-                <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">Details</TableCell>
-                <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">Tags</TableCell>
+                <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">Details</TableCell>
+                <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">Tags</TableCell>
                 <TableCell sx={{ width: '10%', textAlign: 'right' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -1804,7 +1804,7 @@ export default function ProductList() {
                     </TableCell>
 
                     {/* DETAILS */}
-                    <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">
+                    <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <Typography variant="body2">{product.category}</Typography>
                         <Typography variant="body2" color="textSecondary">
@@ -1818,7 +1818,7 @@ export default function ProductList() {
                         </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">
+                    <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                         {Object.entries(product.product_tags || {}).map(([key, value]) => (
                           <Chip

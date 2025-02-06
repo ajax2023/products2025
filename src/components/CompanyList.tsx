@@ -366,7 +366,7 @@ export default function CompanyList() {
               onClick={() => setIsImportOpen(true)}
               startIcon={<FilterIcon />}
             >
-              Import Companies
+              Import
             </Button>
             <Button
               variant="contained"
@@ -424,14 +424,17 @@ export default function CompanyList() {
         <TableContainer>
           <Table size="small" stickyHeader>
             <TableHead>
-              <TableRow>
-                <TableCell />
-                <TableCell>Name</TableCell>
-                <TableCell>Location</TableCell>
-                <TableCell>Industry</TableCell>
-                <TableCell>Employees</TableCell>
-                <TableCell>Founded</TableCell>
-                {isAdmin && <TableCell align="right">Actions</TableCell>}
+              <TableRow sx={{ 
+                '& th': {
+                  backgroundColor: '#c5c5c5',
+                  color: 'black'
+                }
+              }}>
+                <TableCell padding="none" sx={{ width: '28px' }} />
+                <TableCell sx={{ width: '30%' }}>Name / Location</TableCell>
+                <TableCell sx={{ width: '25%' }}>Industry / Employees</TableCell>
+                <TableCell sx={{ width: '25%' }}>Founded / Website</TableCell>
+                {isAdmin && <TableCell sx={{ width: '15%' }} align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -440,7 +443,7 @@ export default function CompanyList() {
                 .map((company) => (
                   <>
                     <TableRow key={company._id}>
-                      <TableCell>
+                      <TableCell padding="none">
                         <IconButton
                           size="small"
                           onClick={() => toggleRow(company._id)}
@@ -453,33 +456,33 @@ export default function CompanyList() {
                         </IconButton>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {company.name}
-                          {company.website && (
-                            <Tooltip title="Visit Website">
-                              <IconButton
-                                size="small"
-                                href={company.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <WebsiteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                          <Typography variant="body1">{company.name}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {`${company.headquarters.city}, ${company.headquarters.country}`}
+                          </Typography>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        {`${company.headquarters.city}, ${company.headquarters.country}`}
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                          <Typography variant="body1">{company.industry || 'N/A'}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {formatEmployeeCount(company.employee_count)}
+                          </Typography>
+                        </Box>
                       </TableCell>
                       <TableCell>
-                        {company.industry || 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {formatEmployeeCount(company.employee_count)}
-                      </TableCell>
-                      <TableCell>
-                        {company.founded_year || 'N/A'}
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                          <Typography variant="body1">{company.founded_year || 'N/A'}</Typography>
+                          {company.website && (
+                            <Typography variant="body2" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <WebsiteIcon fontSize="small" />
+                              <a href={company.website} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+                                Website
+                              </a>
+                            </Typography>
+                          )}
+                        </Box>
                       </TableCell>
                       {isAdmin && (
                         <TableCell align="right">
@@ -511,8 +514,11 @@ export default function CompanyList() {
                     </TableRow>
                     {expandedRows.has(company._id) && (
                       <TableRow>
-                        <TableCell colSpan={7} sx={{ py: 0 }}>
+                        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={isAdmin ? 5 : 4}>
                           <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                            <Typography variant="body2" color="textSecondary" gutterBottom>
+                              {company.description || 'No description available'}
+                            </Typography>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                               <Typography variant="subtitle2">
                                 Brands ({company.brands?.length || 0}):
@@ -609,8 +615,8 @@ export default function CompanyList() {
                 ))}
               {filteredCompanies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    <Typography variant="body2" color="text.secondary">
+                  <TableCell colSpan={isAdmin ? 5 : 4} align="center">
+                    <Typography variant="body2" color="textSecondary">
                       No companies found
                     </Typography>
                   </TableCell>
@@ -620,6 +626,12 @@ export default function CompanyList() {
           </Table>
         </TableContainer>
         <TablePagination
+          sx={{
+            backgroundColor: '#c5c5c5',
+            '& .MuiToolbar-root': {
+              backgroundColor: '#c5c5c5'
+            }
+          }}
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
           count={filteredCompanies.length}
