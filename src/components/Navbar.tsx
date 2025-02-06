@@ -23,6 +23,7 @@ import LabelIcon from '@mui/icons-material/Label';
 import PeopleIcon from '@mui/icons-material/People';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { ViewState } from '../types/navigation';
@@ -129,6 +130,20 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 </Tooltip>
               </IconButton>
             </Link> */}
+
+            {/* Receipts */}
+            <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton
+                color="inherit"
+                sx={{ 
+                  color: isActive('/receipts') ? 'white' : alpha(theme.palette.common.white, 0.7)
+                }}
+              >
+                <Tooltip title="Receipts">
+                  <ReceiptIcon />
+                </Tooltip>
+              </IconButton>
+            </Link>
 
             {/* Companies */}
             <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>

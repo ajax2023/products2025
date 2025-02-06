@@ -15,6 +15,7 @@ import './components/Login.css';
 import UserManagement from './components/admin/UserManagement';
 import { ViewState } from './types/navigation';
 import BackgroundImage from './components/BackgroundImage';
+import Receipts from './components/Receipts';
 
 const theme = createTheme({
   palette: {
@@ -90,6 +91,8 @@ function App() {
               <Route path="/brands" element={<BrandList />} />
               <Route path="/companies" element={<CompanyList />} />
               <Route path="/companies/:id" element={<CompanyInfo />} />
+              <Route path="/products" element={<ProductList />} />
+              <Route path="/receipts" element={<Receipts />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin/users" element={<UserManagement />} />
             </Routes>
