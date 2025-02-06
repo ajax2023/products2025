@@ -87,7 +87,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
               marginRight: '16px'
             }} 
           />
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             {/* Products */}
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
