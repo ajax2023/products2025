@@ -1471,7 +1471,7 @@ export default function ProductList() {
 
               <Box sx={{ mt: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Attributes
+                  Tags
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
                   {Object.entries(editingProduct.attributes || {}).map(([key, value]) => (
@@ -1684,7 +1684,7 @@ export default function ProductList() {
 
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle1" gutterBottom>
-                Attributes
+                Tags
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
                 {Object.entries(newProduct.attributes || {}).map(([key, value]) => (
@@ -1758,10 +1758,11 @@ export default function ProductList() {
               }
             }}>
               <TableRow>
-                <TableCell padding="none" sx={{ width: '48px' }} />
-                <TableCell sx={{ width: '30%' }}>Product</TableCell>
-                <TableCell sx={{ width: '50%', textAlign: 'center' }} className="hide-on-mobile">Details</TableCell>
-                <TableCell sx={{ width: '20%', textAlign: 'right' }}>Actions</TableCell>
+                <TableCell padding="none" sx={{ width: '28px' }} />
+                <TableCell sx={{ width: '25%', textAlign: 'left'  }}>Product</TableCell>
+                <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">Details</TableCell>
+                <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">Tags</TableCell>
+                <TableCell sx={{ width: '10%', textAlign: 'right' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1788,16 +1789,20 @@ export default function ProductList() {
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ width: '30%' }}>
+                    
+                    {/* NAME / BRAND */}
+                    <TableCell sx={{ width: '25%',  textAlign: 'left'  }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="body1">{product.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">{product.brand}</Typography>
+                        <Typography variant="body2" color="textSecondary">{product.brand}</Typography>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ width: '50%', textAlign: 'center' }} className="hide-on-mobile">
+
+                    {/* DETAILS */}
+                    <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <Typography variant="body2">{product.category}</Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="textSecondary">
                           {product.company_id && companies[product.company_id]?.name}
                           {product.origin?.city && product.origin?.province && (
                             <span>
@@ -1808,7 +1813,22 @@ export default function ProductList() {
                         </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ width: '20%', textAlign: 'right' }}>
+                    <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                        {Object.entries(product.attributes || {}).map(([key, value]) => (
+                          <Chip
+                            key={key}
+                            label={`${key}: ${value}`}
+                            size="small"
+                            sx={{ margin: '2px' }}
+                          />
+                        ))}
+                        {(!product.attributes || Object.keys(product.attributes).length === 0) && (
+                          <Typography variant="body2" color="textSecondary">NA</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ width: '15%', textAlign: 'right' }}>
                       <Box className="action-buttons">
                         {(isAdmin || isContributor) && (
                           <IconButton
@@ -1843,7 +1863,7 @@ export default function ProductList() {
                   <TableRow>
                     <TableCell 
                       style={{ paddingBottom: 0, paddingTop: 0 }} 
-                      colSpan={4}
+                      colSpan={5}
                       sx={{
                         backgroundColor: 'rgba(188, 188, 188, 0.4)',
                         borderBottom: 'none'
@@ -1905,15 +1925,15 @@ export default function ProductList() {
                                   <Grid container spacing={2}>
                                     <Grid item xs={6}>
                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                        <Typography variant="body2" color="text.secondary">
+                                        <Typography variant="body2" color="textSecondary">
                                           📍 {price.location?.city && price.location?.province 
                                             ? `${price.location.city}, ${price.location.province}`
                                             : price.location?.country || ''}
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary">
+                                        <Typography variant="body2" color="textSecondary">
                                           📅 {formatDate(price.date)}
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary">
+                                        <Typography variant="body2" color="textSecondary">
                                           🏪 {price.store || 'No store specified'}
                                         </Typography>
                                       </Box>
@@ -1921,22 +1941,22 @@ export default function ProductList() {
                                     <Grid item xs={6}>
                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                         {price.source && (
-                                          <Typography variant="body2" color="text.secondary">
+                                          <Typography variant="body2" color="textSecondary">
                                             Source: {price.source}
                                           </Typography>
                                         )}
                                         {price.notes && (
-                                          <Typography variant="body2" color="text.secondary">
+                                          <Typography variant="body2" color="textSecondary">
                                             📝 {price.notes}
                                           </Typography>
                                         )}
                                         {Object.keys(price.attributes || {}).length > 0 && (
                                           <Box>
-                                            <Typography variant="body2" color="text.secondary">
-                                              Attributes:
+                                            <Typography variant="body2" color="textSecondary">
+                                              Tags:
                                             </Typography>
                                             {Object.entries(price.attributes || {}).map(([key, value]) => (
-                                              <Typography key={key} variant="body2" color="text.secondary" sx={{ pl: 1 }}>
+                                              <Typography key={key} variant="body2" color="textSecondary" sx={{ pl: 1 }}>
                                                 • {key}: {value}
                                               </Typography>
                                             ))}
@@ -1967,8 +1987,8 @@ export default function ProductList() {
               ))}
               {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography variant="body2" color="text.secondary">
+                  <TableCell colSpan={5} align="center">
+                    <Typography variant="body2" color="textSecondary">
                       No products found
                     </Typography>
                   </TableCell>
@@ -2099,7 +2119,7 @@ export default function ProductList() {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
-                  Attributes
+                  Tags
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                   {Object.entries(newPrice.attributes || {}).map(([key, value]) => (
@@ -2273,7 +2293,7 @@ export default function ProductList() {
               </Grid>
 
               <Typography variant="subtitle1" gutterBottom>
-                Attributes
+                Tags
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                 {Object.entries(editedPrice.attributes || {}).map(([key, value]) => (
