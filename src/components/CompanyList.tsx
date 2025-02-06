@@ -54,6 +54,7 @@ import {
   Language as WebsiteIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 
 const INDUSTRIES = [
@@ -369,7 +370,7 @@ export default function CompanyList() {
               <Button
                 variant="outlined"
                 onClick={() => setIsImportOpen(true)}
-                startIcon={<FilterIcon />}
+                startIcon={<CloudUploadIcon />}
               >
                 Import
               </Button>
