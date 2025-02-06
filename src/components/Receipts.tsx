@@ -88,12 +88,24 @@ const Receipts = () => {
     canvas.height = video.videoHeight;
     canvas.getContext('2d')?.drawImage(video, 0, 0);
     
-    const image = canvas.toDataURL('image/jpeg');
+    const image = canvas.toDataURL('image/jpeg', 1.0);
     setImageUrl(image);
+  };
+
+  const handleDownload = () => {
+    if (!imageUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `receipt-${new Date().toISOString().slice(0,19)}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleReset = () => {
     setImageUrl(null);
+    setScannedText('');
   };
 
   const handleCameraChange = (newCameraId: string) => {
@@ -165,6 +177,48 @@ const Receipts = () => {
                   style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
                 />
               </Box>
+              <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+                To extract text from the receipt:
+                <ol style={{ margin: '8px 0 0 20px', padding: 0 }}>
+                  <li>Click "Save Image" below to save the receipt to your phone</li>
+                  {navigator.userAgent.includes('Android') ? (
+                    <>
+                      <li>Open your gallery and select the saved image</li>
+                      <li>Tap the Google Lens icon or open Google Lens app</li>
+                      <li>Copy the detected text</li>
+                    </>
+                  ) : navigator.userAgent.includes('iPhone') ? (
+                    <>
+                      <li>Open your Photos app and find the saved image</li>
+                      <li>Look for the text selection icon (three lines)</li>
+                      <li>Select and copy the detected text</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Open the saved image in your preferred photo app</li>
+                      <li>Use your system's text recognition tool</li>
+                    </>
+                  )}
+                  <li>Return here and paste the text below</li>
+                </ol>
+              </Alert>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleDownload}
+                >
+                  Save Image
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<RestartAltIcon />}
+                  onClick={handleReset}
+                >
+                  Take Another Picture
+                </Button>
+              </Box>
               <TextField
                 fullWidth
                 multiline
@@ -172,16 +226,8 @@ const Receipts = () => {
                 value={scannedText}
                 onChange={(e) => setScannedText(e.target.value)}
                 placeholder="Paste your scanned receipt text here..."
-                sx={{ mt: 2, mb: 2 }}
+                sx={{ mt: 2 }}
               />
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<RestartAltIcon />}
-                onClick={handleReset}
-              >
-                Take Another Picture
-              </Button>
             </>
           )}
         </Box>
