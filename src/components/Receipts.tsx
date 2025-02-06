@@ -131,49 +131,88 @@ const Receipts = () => {
 
     if (deviceInfo.hasMLKit) {
       return (
-        <Box sx={{ textAlign: 'center', width: '100%' }}>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Your Android device supports text recognition! You can:
-            <ol style={{ marginBottom: 0, paddingLeft: '1.5rem' }}>
-              <li>Open your camera app</li>
-              <li>Take a clear picture of the receipt</li>
-              <li>Open Google Lens from your gallery</li>
-              <li>Select the text and copy it</li>
-              <li>Paste the text below</li>
-            </ol>
-          </Alert>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<CameraAltIcon />}
-              onClick={() => {
-                // Try to open the camera app
-                window.location.href = 'intent://scan/#Intent;scheme=camera;package=com.android.camera2;end';
-              }}
+        <>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Select Camera</InputLabel>
+            <Select
+              value={selectedCamera}
+              onChange={(e) => handleCameraChange(e.target.value)}
+              label="Select Camera"
             >
-              Open Camera
-            </Button>
+              {cameras.map((camera) => (
+                <MenuItem key={camera.deviceId} value={camera.deviceId}>
+                  {camera.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Tip: After taking a picture, you can also use Google Lens to extract text from it.
             <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<PhotoCameraIcon />}
+              size="small"
               component="a"
               href="https://lens.google.com"
               target="_blank"
+              sx={{ ml: 1 }}
             >
-              Open Google Lens Web
+              Open Google Lens
             </Button>
-          </Box>
-          <TextField
-            fullWidth
-            multiline
-            rows={6}
-            value={scannedText}
-            onChange={(e) => setScannedText(e.target.value)}
-            placeholder="Paste your scanned receipt text here..."
-            sx={{ mt: 2 }}
-          />
-        </Box>
+          </Alert>
+
+          {!imageUrl ? (
+            <>
+              <Box sx={{ width: '100%', position: 'relative' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    width: '100%',
+                    maxHeight: '400px',
+                    objectFit: 'contain',
+                    backgroundColor: '#000'
+                  }}
+                />
+              </Box>
+              <Button
+                variant="contained"
+                startIcon={<PhotoCameraIcon />}
+                onClick={handleCapture}
+                disabled={!selectedCamera}
+              >
+                Capture Receipt
+              </Button>
+            </>
+          ) : (
+            <>
+              <Box sx={{ width: '100%' }}>
+                <img 
+                  src={imageUrl} 
+                  alt="Captured receipt"
+                  style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={6}
+                value={scannedText}
+                onChange={(e) => setScannedText(e.target.value)}
+                placeholder="Paste your scanned receipt text here..."
+                sx={{ mt: 2, mb: 2 }}
+              />
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<RestartAltIcon />}
+                onClick={handleReset}
+              >
+                Take Another Picture
+              </Button>
+            </>
+          )}
+        </>
       );
     }
 
