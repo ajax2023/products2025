@@ -133,22 +133,37 @@ const Receipts = () => {
       return (
         <Box sx={{ textAlign: 'center', width: '100%' }}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Your Android device supports ML Kit text recognition! You can:
+            Your Android device supports text recognition! You can:
             <ol style={{ marginBottom: 0, paddingLeft: '1.5rem' }}>
               <li>Open your camera app</li>
-              <li>Use Google Lens</li>
-              <li>Point at the receipt</li>
-              <li>Copy and paste the detected text below</li>
+              <li>Take a clear picture of the receipt</li>
+              <li>Open Google Lens from your gallery</li>
+              <li>Select the text and copy it</li>
+              <li>Paste the text below</li>
             </ol>
           </Alert>
-          <Button
-            variant="contained"
-            startIcon={<CameraAltIcon />}
-            onClick={() => window.location.href = 'googlelens://'}
-            sx={{ mb: 2 }}
-          >
-            Open Google Lens
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<CameraAltIcon />}
+              onClick={() => {
+                // Try to open the camera app
+                window.location.href = 'intent://scan/#Intent;scheme=camera;package=com.android.camera2;end';
+              }}
+            >
+              Open Camera
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<PhotoCameraIcon />}
+              component="a"
+              href="https://lens.google.com"
+              target="_blank"
+            >
+              Open Google Lens Web
+            </Button>
+          </Box>
           <TextField
             fullWidth
             multiline
