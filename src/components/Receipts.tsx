@@ -22,6 +22,14 @@ const Receipts = () => {
   useEffect(() => {
     const getCameras = async () => {
       try {
+        // First request camera permission
+        await navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            // Stop the stream immediately, we just needed permission
+            stream.getTracks().forEach(track => track.stop());
+          });
+
+        // Now enumerate devices
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices
           .filter(device => device.kind === 'videoinput')
