@@ -39,22 +39,16 @@ export interface Location {
   city: string;
 }
 
-export interface ProductAttributes {
+export interface ProductTags {
   [key: string]: string;
 }
 
-export interface ProductPrice {
+export interface Price {
+  _id?: string;
   amount: number;
-  unit: ProductUnit;
-  date: string;  // ISO string
-  store: string;
-  location: Location;
-  created_by: string;
-  created_by_email: string;
-  created_by_name: string;
-  notes?: string;
-  attributes?: ProductAttributes;
-  sales_link?: string;
+  unit: string;
+  name?: string;
+  price_tags?: ProductTags;
 }
 
 export interface ProductOrigin extends Location {
@@ -69,8 +63,8 @@ export interface Product {
   category: ProductCategory;
   company_id?: string;
   origin: ProductOrigin;
-  attributes?: ProductAttributes;
-  price_history: ProductPrice[];
+  product_tags?: ProductTags;
+  price_history: Price[];
   created_at: string;  // ISO string
   created_by: string;
   created_by_email: string;
@@ -118,7 +112,7 @@ export const createProduct = (data: Partial<Product>): Product => {
       manufacturer: data.origin?.manufacturer || '',
       facility_id: data.origin?.facility_id || ''
     },
-    attributes: data.attributes || {},
+    product_tags: data.product_tags || {},
     price_history: data.price_history || [],
     created_at: data.created_at || new Date().toISOString(),
     created_by: data.created_by || '',

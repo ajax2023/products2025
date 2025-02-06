@@ -32,11 +32,11 @@ export default function PriceImport({ onClose }: PriceImportProps) {
   }, []);
 
   const downloadTemplate = () => {
-    const header = 'product_name,brand,amount,unit,store,country,state,city,notes,sales_link\n';
+    const header = 'product_name,brand,amount,unit,store,country,state,city,notes,sales_link,price_tags\n';
     const sampleData = [
-      'iPhone 15,Apple,999.99,each,Best Buy - 123 Main St,Canada,Ontario,Toronto,Latest model,https://example.com/iphone15',
-      'iPhone 15,Apple,899.99,each,Walmart - 456 Oak Ave,Canada,Quebec,Montreal,Holiday sale,https://example.com/iphone15-ca',
-      'Galaxy S24,Samsung,899.99,each,Target - 789 Pine Rd,Canada,British Columbia,Vancouver,New release,https://example.com/s24'
+      'iPhone 15,Apple,999.99,each,Best Buy - 123 Main St,Canada,Ontario,Toronto,Latest model,https://example.com/iphone15,"{""condition"":""new"",""warranty"":""1 year""}"',
+      'iPhone 15,Apple,899.99,each,Walmart - 456 Oak Ave,Canada,Quebec,Montreal,Holiday sale,https://example.com/iphone15-ca,"{""condition"":""new"",""promotion"":""holiday""}"',
+      'Galaxy S24,Samsung,899.99,each,Target - 789 Pine Rd,Canada,British Columbia,Vancouver,New release,https://example.com/s24,"{""condition"":""new"",""preorder"":""yes""}"'
     ].join('\n');
 
     const blob = new Blob([header + sampleData], { type: 'text/csv' });
@@ -105,8 +105,21 @@ export default function PriceImport({ onClose }: PriceImportProps) {
                 sales_link: row.sales_link || '',
                 created_by: auth.currentUser?.uid || '',
                 created_by_email: auth.currentUser?.email || '',
-                created_by_name: auth.currentUser?.displayName || auth.currentUser?.email || ''
+                created_by_name: auth.currentUser?.displayName || auth.currentUser?.email || '',
+                price_tags: {}
               };
+
+              // Parse price_tags if present
+              try {
+                if (row.price_tags) {
+                  const cleanJson = row.price_tags.replace(/^["']|["']$/g, '');
+                  price.price_tags = JSON.parse(cleanJson);
+                }
+              } catch (jsonError) {
+                console.error('Error parsing price_tags JSON:', row.price_tags, jsonError);
+                errors.push(`Error parsing price_tags for ${row.product_name}: Invalid JSON format`);
+                continue;
+              }
 
               // Update the product with the new price
               const currentPrices = product.price_history || [];
@@ -170,6 +183,7 @@ export default function PriceImport({ onClose }: PriceImportProps) {
           <li><strong>city</strong> (optional): City</li>
           <li><strong>notes</strong> (optional): Additional notes</li>
           <li><strong>sales_link</strong> (optional): URL to the product</li>
+          <li><strong>price_tags</strong> (optional): JSON string of price tags (e.g., {'"{"condition": "new", "warranty": "1 year"}"'})</li>
         </Typography>
       </Box>
 

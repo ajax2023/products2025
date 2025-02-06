@@ -94,7 +94,7 @@ export default function ProductList() {
     source: 'manual',
     notes: '',
     sales_link: '',
-    attributes: {}
+    price_tags: {}
   });
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
   const [isAdmin, setIsAdmin] = useState(false);
@@ -113,7 +113,8 @@ export default function ProductList() {
       city: ''
     },
     notes: '',
-    sales_link: ''
+    sales_link: '',
+    price_tags: {}
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null);
@@ -130,7 +131,7 @@ export default function ProductList() {
       city: '',
       manufacturer: ''
     },
-    attributes: {},
+    product_tags: {},
     prices: []
   });
 
@@ -232,7 +233,8 @@ export default function ProductList() {
           description: data.description || '',
           brand: data.brand || '',
           category: data.category || '',
-          tags: data.tags || []
+          tags: data.tags || [],
+          product_tags: data.product_tags || {}
         };
       }) as Product[];
 
@@ -513,7 +515,8 @@ export default function ProductList() {
             description: data.description || '',
             brand: data.brand || '',
             category: data.category || '',
-            tags: data.tags || []
+            tags: data.tags || [],
+            product_tags: data.product_tags || {}
           };
         }) as Product[];
 
@@ -595,7 +598,7 @@ export default function ProductList() {
       source: 'manual',
       notes: '',
       sales_link: '',
-      attributes: {}
+      price_tags: {}
     });
     setError(null);
   };
@@ -702,7 +705,7 @@ export default function ProductList() {
       location: { ...price.location },
       notes: price.notes || '',
       sales_link: price.sales_link || '',
-      attributes: { ...price.attributes }
+      price_tags: { ...price.price_tags }
     });
     setEditPriceDialogOpen(true);
   };
@@ -721,7 +724,8 @@ export default function ProductList() {
         city: ''
       },
       notes: '',
-      sales_link: ''
+      sales_link: '',
+      price_tags: {}
     });
     setError(null);
   };
@@ -1006,7 +1010,7 @@ export default function ProductList() {
         modified_by: auth.currentUser.uid,
         modified_by_name: auth.currentUser.displayName || auth.currentUser.email,
         prices: [],
-        attributes: newProduct.attributes || {}
+        product_tags: newProduct.product_tags || {}
       };
 
       console.log('Saving product data:', productData);
@@ -1029,7 +1033,7 @@ export default function ProductList() {
           city: '',
           manufacturer: ''
         },
-        attributes: {},
+        product_tags: {},
         prices: []
       });
 
@@ -1164,7 +1168,7 @@ export default function ProductList() {
       </Snackbar>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h5" sx={{ mr: 1 }}>Products</Typography>
+        <Typography variant="h5" sx={{ mr: 0 }}>Products</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {isAdmin && (
             <>
@@ -1474,16 +1478,16 @@ export default function ProductList() {
                   Tags
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
-                  {Object.entries(editingProduct.attributes || {}).map(([key, value]) => (
+                  {Object.entries(editingProduct.product_tags || {}).map(([key, value]) => (
                     <Chip
                       key={key}
                       label={`${key}: ${value}`}
                       onDelete={() => {
                         setEditingProduct(prev => {
                           if (!prev) return null;
-                          const newAttributes = { ...prev.attributes };
-                          delete newAttributes[key];
-                          return { ...prev, attributes: newAttributes };
+                          const newTags = { ...prev.product_tags };
+                          delete newTags[key];
+                          return { ...prev, product_tags: newTags };
                         });
                       }}
                       size="small"
@@ -1492,13 +1496,14 @@ export default function ProductList() {
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <TextField
-                    label="Attribute Name"
+                    label="Tag Name"
                     size="small"
                     inputRef={attributeNameRef}
                   />
                   <TextField
                     label="Value"
                     size="small"
+                    fullWidth
                     inputRef={attributeValueRef}
                   />
                   <Button
@@ -1512,8 +1517,8 @@ export default function ProductList() {
                           if (!prev) return null;
                           return {
                             ...prev,
-                            attributes: {
-                              ...prev.attributes,
+                            product_tags: {
+                              ...prev.product_tags,
                               [name]: value
                             }
                           };
@@ -1687,15 +1692,15 @@ export default function ProductList() {
                 Tags
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
-                {Object.entries(newProduct.attributes || {}).map(([key, value]) => (
+                {Object.entries(newProduct.product_tags || {}).map(([key, value]) => (
                   <Chip
                     key={key}
                     label={`${key}: ${value}`}
                     onDelete={() => {
                       setNewProduct(prev => {
-                        const newAttributes = { ...prev.attributes };
-                        delete newAttributes[key];
-                        return { ...prev, attributes: newAttributes };
+                        const newTags = { ...prev.product_tags };
+                        delete newTags[key];
+                        return { ...prev, product_tags: newTags };
                       });
                     }}
                     size="small"
@@ -1704,7 +1709,7 @@ export default function ProductList() {
               </Box>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                 <TextField
-                  label="Attribute Name"
+                  label="Tag Name"
                   size="small"
                   inputRef={attributeNameRef}
                 />
@@ -1722,8 +1727,8 @@ export default function ProductList() {
                     if (name && value) {
                       setNewProduct(prev => ({
                         ...prev,
-                        attributes: {
-                          ...prev.attributes,
+                        product_tags: {
+                          ...prev.product_tags,
                           [name]: value
                         }
                       }));
@@ -1815,7 +1820,7 @@ export default function ProductList() {
                     </TableCell>
                     <TableCell sx={{ width: '25%', textAlign: 'center' }} className="hide-on-mobile">
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                        {Object.entries(product.attributes || {}).map(([key, value]) => (
+                        {Object.entries(product.product_tags || {}).map(([key, value]) => (
                           <Chip
                             key={key}
                             label={`${key}: ${value}`}
@@ -1823,7 +1828,7 @@ export default function ProductList() {
                             sx={{ margin: '2px' }}
                           />
                         ))}
-                        {(!product.attributes || Object.keys(product.attributes).length === 0) && (
+                        {(!product.product_tags || Object.keys(product.product_tags).length === 0) && (
                           <Typography variant="body2" color="textSecondary">NA</Typography>
                         )}
                       </Box>
@@ -1878,7 +1883,7 @@ export default function ProductList() {
                                 size="small"
                                 startIcon={<AddIcon />}
                                 onClick={() => handleOpenPriceDialog(product)}
-                                sx={{ ml: 2 }}
+                                sx={{ ml: 1 }}
                               >
                                 Add Price
                               </Button>
@@ -1900,7 +1905,7 @@ export default function ProductList() {
                                     <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
                                       ${price.amount.toFixed(2)} / {price.unit}
                                       {price.name && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                        <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
                                           {price.name}
                                         </Typography>
                                       )}
@@ -1950,12 +1955,12 @@ export default function ProductList() {
                                             📝 {price.notes}
                                           </Typography>
                                         )}
-                                        {Object.keys(price.attributes || {}).length > 0 && (
+                                        {Object.keys(price.price_tags || {}).length > 0 && (
                                           <Box>
                                             <Typography variant="body2" color="textSecondary">
                                               Tags:
                                             </Typography>
-                                            {Object.entries(price.attributes || {}).map(([key, value]) => (
+                                            {Object.entries(price.price_tags || {}).map(([key, value]) => (
                                               <Typography key={key} variant="body2" color="textSecondary" sx={{ pl: 1 }}>
                                                 • {key}: {value}
                                               </Typography>
@@ -2122,24 +2127,25 @@ export default function ProductList() {
                   Tags
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {Object.entries(newPrice.attributes || {}).map(([key, value]) => (
+                  {Object.entries(newPrice.price_tags || {}).map(([key, value]) => (
                     <Chip
                       key={key}
                       label={`${key}: ${value}`}
                       onDelete={() => {
                         setNewPrice(prev => {
-                          const newAttributes = { ...prev.attributes };
-                          delete newAttributes[key];
-                          return { ...prev, attributes: newAttributes };
+                          const newTags = { ...prev.price_tags };
+                          delete newTags[key];
+                          return { ...prev, price_tags: newTags };
                         });
                       }}
                       size="small"
+                      sx={{ m: 0.5 }}
                     />
                   ))}
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <TextField
-                    label="Attribute Name"
+                    label="Tag Name"
                     size="small"
                     inputRef={attributeNameRef}
                   />
@@ -2150,15 +2156,14 @@ export default function ProductList() {
                   />
                   <Button
                     variant="outlined"
-                    size="small"
                     onClick={() => {
                       const name = attributeNameRef.current?.value;
                       const value = attributeValueRef.current?.value;
                       if (name && value) {
                         setNewPrice(prev => ({
                           ...prev,
-                          attributes: {
-                            ...prev.attributes,
+                          price_tags: {
+                            ...prev.price_tags,
                             [name]: value
                           }
                         }));
@@ -2292,34 +2297,36 @@ export default function ProductList() {
                 />
               </Grid>
 
-              <Typography variant="subtitle1" gutterBottom>
+              <Typography variant="subtitle1" sx={{ mr: 1, ml: 1}} >
                 Tags
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                {Object.entries(editedPrice.attributes || {}).map(([key, value]) => (
+                {Object.entries(editedPrice.price_tags || {}).map(([key, value]) => (
                   <Chip
                     key={key}
                     label={`${key}: ${value}`}
                     onDelete={() => {
                       setEditedPrice(prev => {
-                        const newAttributes = { ...prev.attributes };
-                        delete newAttributes[key];
-                        return { ...prev, attributes: newAttributes };
+                        const newTags = { ...prev.price_tags };
+                        delete newTags[key];
+                        return { ...prev, price_tags: newTags };
                       });
                     }}
                     size="small"
+                    sx={{ m: 0.5 }}
                   />
                 ))}
               </Box>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                 <TextField
-                  label="Attribute Name"
+                  label="Tag Name"
                   size="small"
                   inputRef={attributeNameRef}
                 />
                 <TextField
                   label="Value"
                   size="small"
+                  fullWidth
                   inputRef={attributeValueRef}
                 />
                 <Button
@@ -2330,8 +2337,8 @@ export default function ProductList() {
                     if (name && value) {
                       setEditedPrice(prev => ({
                         ...prev,
-                        attributes: {
-                          ...(prev.attributes || {}),
+                        price_tags: {
+                          ...(prev.price_tags || {}),
                           [name]: value
                         }
                       }));

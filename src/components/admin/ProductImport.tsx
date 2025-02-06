@@ -14,7 +14,7 @@ export default function ProductImport({ onClose }: ProductImportProps) {
   const [success, setSuccess] = useState<string | null>(null);
 
   const downloadTemplate = () => {
-    const header = 'name,brand,category,origin_country,state,city,origin_manufacturer,origin_facility_id,attributes\n';
+    const header = 'name,brand,category,origin_country,state,city,origin_manufacturer,origin_facility_id,product_tags\n';
     const sampleData = [
       'Apple,Farm Fresh,Food & Beverage,Canada,Ontario,Toronto,Ontario Fruit Growers,ON123,"{""organic"":true,""type"":""Gala""}"',
       'Ground Beef,Daily Farms,Food & Beverage,Canada,Alberta,Edmonton,Alberta Fresh LLC,AB789,"{""grade"":""AAA"",""weight_kg"":1}"',
@@ -55,17 +55,17 @@ export default function ProductImport({ onClose }: ProductImportProps) {
               }
 
               const docRef = doc(productsRef);
-              let attributes = {};
+              let product_tags = {};
               
               try {
-                if (row.attributes) {
-                  // Remove any extra quotes around the JSON string
-                  const cleanJson = row.attributes.replace(/^["']|["']$/g, '');
-                  attributes = JSON.parse(cleanJson);
+                if (row.product_tags) {
+                  // Remove any wrapping quotes
+                  const cleanJson = row.product_tags.replace(/^["']|["']$/g, '');
+                  product_tags = JSON.parse(cleanJson);
                 }
               } catch (jsonError) {
-                console.error('Error parsing attributes JSON:', row.attributes, jsonError);
-                setError('Error parsing attributes JSON. Make sure it is valid JSON.');
+                console.error('Error parsing product_tags JSON:', row.product_tags, jsonError);
+                setError('Error parsing product_tags JSON. Make sure it is valid JSON.');
                 return;
               }
 
@@ -85,7 +85,7 @@ export default function ProductImport({ onClose }: ProductImportProps) {
                   manufacturer: row.origin_manufacturer,
                   facility_id: row.origin_facility_id
                 },
-                attributes,
+                product_tags,
                 price_history: [],
                 created_at: isoDate,
                 updated_at: isoDate,
@@ -158,11 +158,11 @@ export default function ProductImport({ onClose }: ProductImportProps) {
           <li><strong>city</strong> (optional): City</li>
           <li><strong>origin_manufacturer</strong> (optional): Manufacturer name</li>
           <li><strong>origin_facility_id</strong> (optional): Facility identifier</li>
-          <li><strong>attributes</strong> (optional): JSON string of product attributes (e.g., {'"{"color": "red", "size": "large"}"'})</li>
+          <li><strong>product_tags</strong> (optional): JSON string of product tags (e.g., {'"{"color": "red", "size": "large"}"'})</li>
           <li><strong>company_id</strong> (optional): Company identifier</li>
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Note: Attributes must be a valid JSON string. The system will automatically add creation date, user information, and version control fields.
+          Note: Product tags must be a valid JSON string. The system will automatically add creation date, user information, and version control fields.
         </Typography>
       </Box>
 
