@@ -61,8 +61,8 @@ import {
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from '../types/product';
 import { UserSettings } from '../types/userSettings';
 import { Company } from '../types/company';
-import ProductImport from './ProductImport';
-import PriceImport from './PriceImport';
+import ProductImport from './admin/ProductImport';
+import PriceImport from './admin/PriceImport'; // Update PriceImport path to use CSV version
 import CompanyForm from './CompanyForm';
 
 export default function ProductList() {

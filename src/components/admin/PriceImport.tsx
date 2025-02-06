@@ -32,11 +32,11 @@ export default function PriceImport({ onClose }: PriceImportProps) {
   }, []);
 
   const downloadTemplate = () => {
-    const header = 'product_name,brand,item_name,amount,unit,store,country,province,city,source,notes,sales_link\n';
+    const header = 'product_name,brand,amount,unit,store,country,state,city,notes,sales_link\n';
     const sampleData = [
-      'iPhone 15,Apple,iPhone 15 Pro 256GB,999.99,each,Best Buy - 123 Main St,Canada,Ontario,Toronto,manual,Latest model,https://example.com/iphone15',
-      'iPhone 15,Apple,iPhone 15 128GB,899.99,each,Walmart - 456 Oak Ave,Canada,Quebec,Montreal,manual,Holiday sale,https://example.com/iphone15-ca',
-      'Galaxy S24,Samsung,Galaxy S24 Ultra 512GB,899.99,each,Target - 789 Pine Rd,Canada,British Columbia,Vancouver,manual,New release,https://example.com/s24'
+      'iPhone 15,Apple,999.99,each,Best Buy - 123 Main St,Canada,Ontario,Toronto,Latest model,https://example.com/iphone15',
+      'iPhone 15,Apple,899.99,each,Walmart - 456 Oak Ave,Canada,Quebec,Montreal,Holiday sale,https://example.com/iphone15-ca',
+      'Galaxy S24,Samsung,899.99,each,Target - 789 Pine Rd,Canada,British Columbia,Vancouver,New release,https://example.com/s24'
     ].join('\n');
 
     const blob = new Blob([header + sampleData], { type: 'text/csv' });
@@ -74,8 +74,8 @@ export default function PriceImport({ onClose }: PriceImportProps) {
           for (const row of results.data as any[]) {
             try {
               // Validate required fields
-              if (!row.product_name || !row.brand || !row.item_name || !row.amount || !row.unit || !row.country || !row.store) {
-                const missing = ['product_name', 'brand', 'item_name', 'amount', 'unit', 'country', 'store']
+              if (!row.product_name || !row.brand || !row.amount || !row.unit || !row.country || !row.store) {
+                const missing = ['product_name', 'brand', 'amount', 'unit', 'country', 'store']
                   .filter(field => !row[field])
                   .join(', ');
                 errors.push(`Row missing required fields: ${missing}`);
@@ -91,35 +91,30 @@ export default function PriceImport({ onClose }: PriceImportProps) {
                 continue;
               }
 
-              const price: Partial<ProductPrice> = {
-                name: row.item_name,
+              const price: ProductPrice = {
                 amount: parseFloat(row.amount),
                 unit: row.unit as typeof PRODUCT_UNITS[number],
                 store: row.store,
                 location: {
                   country: row.country,
-                  province: row.province || '',
+                  state: row.state || '',
                   city: row.city || ''
                 },
                 date: new Date().toISOString(),
-                source: row.source || 'manual',
                 notes: row.notes || '',
                 sales_link: row.sales_link || '',
                 created_by: auth.currentUser?.uid || '',
-                created_by_name: auth.currentUser?.displayName || auth.currentUser?.email || '',
-                created_at: new Date().toISOString(),
-                modified_by: auth.currentUser?.uid || '',
-                modified_by_name: auth.currentUser?.displayName || auth.currentUser?.email || '',
-                modified_at: new Date().toISOString()
+                created_by_email: auth.currentUser?.email || '',
+                created_by_name: auth.currentUser?.displayName || auth.currentUser?.email || ''
               };
 
               // Update the product with the new price
-              const currentPrices = product.prices || [];
+              const currentPrices = product.price_history || [];
               await updateDoc(doc(db, 'products', product._id), {
-                prices: [...currentPrices, price],
-                modified_at: new Date().toISOString(),
-                modified_by: auth.currentUser?.uid || '',
-                modified_by_name: auth.currentUser?.displayName || auth.currentUser?.email || ''
+                price_history: [...currentPrices, price],
+                updated_at: new Date().toISOString(),
+                updated_by: auth.currentUser?.uid || '',
+                updated_by_name: auth.currentUser?.displayName || auth.currentUser?.email || ''
               });
 
               successCount++;
@@ -167,14 +162,12 @@ export default function PriceImport({ onClose }: PriceImportProps) {
         <Typography component="ul" sx={{ pl: 2 }}>
           <li><strong>product_name</strong> (required): Exact product name</li>
           <li><strong>brand</strong> (required): Exact brand name</li>
-          <li><strong>item_name</strong> (required): Specific item/variant name (e.g., 'iPhone 15 Pro 256GB')</li>
           <li><strong>amount</strong> (required): The price amount (numeric)</li>
           <li><strong>unit</strong> (required): Unit (e.g., 'each', 'kg')</li>
           <li><strong>store</strong> (required): Store name and address (e.g., 'Walmart - 123 Main St')</li>
           <li><strong>country</strong> (required): Country where price applies</li>
-          <li><strong>province</strong> (optional): Province</li>
+          <li><strong>state</strong> (optional): State</li>
           <li><strong>city</strong> (optional): City</li>
-          <li><strong>source</strong> (optional): Source of the price</li>
           <li><strong>notes</strong> (optional): Additional notes</li>
           <li><strong>sales_link</strong> (optional): URL to the product</li>
         </Typography>

@@ -9,11 +9,13 @@ import {
   addDoc,
   updateDoc,
   where,
+  getDoc,
 } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Company } from '../types/company';
 import CompanyForm from './CompanyForm';
+import CompanyImport from './admin/CompanyImport';
 import {
   Table,
   TableBody,
@@ -77,6 +79,7 @@ export default function CompanyList() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [authChecked, setAuthChecked] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | undefined>();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('All');
@@ -86,13 +89,16 @@ export default function CompanyList() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editingBrands, setEditingBrands] = useState<Record<string, string[]>>({});
   const [newBrandInputs, setNewBrandInputs] = useState<Record<string, string>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user?.uid);
       setAuthChecked(true);
       if (user) {
-        console.log('User is authenticated, fetching companies...');
+        console.log('User is authenticated, checking role...');
+        await checkUserRole(user.uid);
         fetchCompanies();
       } else {
         console.log('No user logged in');
@@ -103,6 +109,26 @@ export default function CompanyList() {
 
     return () => unsubscribe();
   }, []);
+
+  const checkUserRole = async (userId: string) => {
+    try {
+      // Special case for super admin
+      if (auth.currentUser?.email === 'ajax@online101.ca') {
+        setIsSuperAdmin(true);
+        setIsAdmin(true);
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setIsSuperAdmin(userData.role === 'super_admin');
+        setIsAdmin(userData.role === 'admin' || userData.role === 'super_admin');
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    }
+  };
 
   useEffect(() => {
     filterCompanies();
@@ -326,27 +352,36 @@ export default function CompanyList() {
   }
 
   return (
-    <>
+    <Box sx={{ width: '100%', p: 3 }}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" component="h1">
+          Companies
+        </Typography>
+        {isAdmin && (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setIsImportOpen(true)}
+              startIcon={<FilterIcon />}
+            >
+              Import Companies
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => setIsFormOpen(true)}
+              startIcon={<BusinessIcon />}
+            >
+              Add Company
+            </Button>
+          </Box>
+        )}
+      </Box>
+      
       <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
         <Box sx={{ p: 1 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5" component="h5">
-                Companies
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<BusinessIcon />}
-                size="small"
-                onClick={() => {
-                  setEditingCompany(undefined);
-                  setIsFormOpen(true);
-                }}
-              >
-                Add Company
-              </Button>
-            </Grid>
-            
             <Grid item xs={12} sm={6} md={4}>
               <TextField
                 fullWidth
@@ -396,7 +431,7 @@ export default function CompanyList() {
                 <TableCell>Industry</TableCell>
                 <TableCell>Employees</TableCell>
                 <TableCell>Founded</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                {isAdmin && <TableCell align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -446,31 +481,33 @@ export default function CompanyList() {
                       <TableCell>
                         {company.founded_year || 'N/A'}
                       </TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setEditingCompany(company);
-                              setIsFormOpen(true);
-                            }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => {
-                              setCompanyToDelete(company);
-                              setDeleteConfirmOpen(true);
-                            }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell align="right">
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setEditingCompany(company);
+                                setIsFormOpen(true);
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => {
+                                setCompanyToDelete(company);
+                                setDeleteConfirmOpen(true);
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      )}
                     </TableRow>
                     {expandedRows.has(company._id) && (
                       <TableRow>
@@ -616,6 +653,22 @@ export default function CompanyList() {
         </DialogContent>
       </Dialog>
 
+      {/* Import Dialog */}
+      <Dialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Import Companies</DialogTitle>
+        <DialogContent>
+          <CompanyImport onClose={() => setIsImportOpen(false)} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsImportOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteConfirmOpen}
@@ -648,6 +701,6 @@ export default function CompanyList() {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 }
