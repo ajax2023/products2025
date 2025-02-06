@@ -322,6 +322,7 @@ export default function Settings() {
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
+                    required
                     label="City"
                     value={userSettings.location.city}
                     onChange={(e) => setUserSettings(prev => ({
