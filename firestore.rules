@@ -35,10 +35,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && (
-        // Allow users to create their own document with viewer role
-        (isUser(userId) && request.resource.data.role == 'viewer') ||
+        // Allow users to create their own document with contributor or viewer role
+        (isUser(userId) && (request.resource.data.role == 'contributor' || request.resource.data.role == 'viewer')) ||
         // Or admin can create with any role except super_admin
-        (isAdmin() && request.resource.data.role != 'super_admin') ||
+        (isAdmin() && (request.resource.data.role == 'contributor' || request.resource.data.role != 'super_admin')) ||
         // Or super_admin can create with any role
         isSuperAdmin()
       );
@@ -46,7 +46,7 @@ service cloud.firestore {
         // Users can update their own non-role fields
         (isUser(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
         // Admin can update roles except super_admin
-        (isAdmin() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && resource.data.role != 'super_admin') ||
+        (isAdmin() && resource.data.role != 'super_admin' && request.resource.data.role != 'super_admin') ||
         // Only super_admin can change any roles
         isSuperAdmin()
       );

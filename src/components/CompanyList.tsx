@@ -91,6 +91,7 @@ export default function CompanyList() {
   const [newBrandInputs, setNewBrandInputs] = useState<Record<string, string>>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isContributor, setIsContributor] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -116,14 +117,17 @@ export default function CompanyList() {
       if (auth.currentUser?.email === 'ajax@online101.ca') {
         setIsSuperAdmin(true);
         setIsAdmin(true);
+        setIsContributor(true);
         return;
       }
 
       const userDoc = await getDoc(doc(db, 'users', userId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        setIsSuperAdmin(userData.role === 'super_admin');
-        setIsAdmin(userData.role === 'admin' || userData.role === 'super_admin');
+        const role = userData.role;
+        setIsSuperAdmin(role === 'super_admin');
+        setIsAdmin(role === 'admin' || role === 'super_admin');
+        setIsContributor(role === 'contributor' || role === 'admin' || role === 'super_admin');
       }
     } catch (error) {
       console.error('Error checking user role:', error);
@@ -359,15 +363,17 @@ export default function CompanyList() {
         <Typography variant="h4" component="h1">
           Companies
         </Typography>
-        {isAdmin && (
+        {(isAdmin || isContributor) && (
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={() => setIsImportOpen(true)}
-              startIcon={<FilterIcon />}
-            >
-              Import
-            </Button>
+            {(isAdmin) && (
+              <Button
+                variant="outlined"
+                onClick={() => setIsImportOpen(true)}
+                startIcon={<FilterIcon />}
+              >
+                Import
+              </Button>
+            )}
             <Button
               variant="contained"
               onClick={() => setIsFormOpen(true)}
@@ -434,7 +440,7 @@ export default function CompanyList() {
                 <TableCell sx={{ width: '30%' }}>Name / Location</TableCell>
                 <TableCell sx={{ width: '25%' }}>Industry / Employees</TableCell>
                 <TableCell sx={{ width: '25%' }}>Founded / Website</TableCell>
-                {isAdmin && <TableCell sx={{ width: '15%' }} align="right">Actions</TableCell>}
+                {(isAdmin || isContributor) && <TableCell sx={{ width: '15%' }} align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -484,7 +490,7 @@ export default function CompanyList() {
                           )}
                         </Box>
                       </TableCell>
-                      {isAdmin && (
+                      {(isAdmin || isContributor) && (
                         <TableCell align="right">
                           <Tooltip title="Edit">
                             <IconButton
@@ -497,24 +503,26 @@ export default function CompanyList() {
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => {
-                                setCompanyToDelete(company);
-                                setDeleteConfirmOpen(true);
-                              }}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
+                          {(isAdmin) && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  setCompanyToDelete(company);
+                                  setDeleteConfirmOpen(true);
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
                     {expandedRows.has(company._id) && (
                       <TableRow>
-                        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={isAdmin ? 5 : 4}>
+                        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={(isAdmin || isContributor) ? 5 : 4}>
                           <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                             <Typography variant="body2" color="textSecondary" gutterBottom>
                               {company.description || 'No description available'}
@@ -615,7 +623,7 @@ export default function CompanyList() {
                 ))}
               {filteredCompanies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 5 : 4} align="center">
+                  <TableCell colSpan={(isAdmin || isContributor) ? 5 : 4} align="center">
                     <Typography variant="body2" color="textSecondary">
                       No companies found
                     </Typography>
@@ -652,9 +660,17 @@ export default function CompanyList() {
         maxWidth="md"
         fullWidth
       >
+        <DialogTitle>
+          {editingCompany ? 'Edit Company' : 'Add New Company'}
+        </DialogTitle>
         <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <CompanyForm
-            company={editingCompany}
+            initialData={editingCompany}
             onSubmit={editingCompany ? handleUpdateCompany : handleCreateCompany}
             onCancel={() => {
               setIsFormOpen(false);
@@ -665,47 +681,26 @@ export default function CompanyList() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Dialog */}
-      <Dialog
-        open={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Import Companies</DialogTitle>
-        <DialogContent>
-          <CompanyImport onClose={() => setIsImportOpen(false)} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsImportOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false);
-          setCompanyToDelete(null);
-        }}
+        onClose={() => setDeleteConfirmOpen(false)}
       >
-        <DialogTitle>Delete Company</DialogTitle>
+        <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
             Are you sure you want to delete {companyToDelete?.name}? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
           <Button
             onClick={() => {
+              if (companyToDelete) {
+                handleDeleteCompany(companyToDelete._id);
+              }
               setDeleteConfirmOpen(false);
-              setCompanyToDelete(null);
             }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteCompany}
             color="error"
             variant="contained"
           >
@@ -713,6 +708,21 @@ export default function CompanyList() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Import Dialog - Only for Admins */}
+      {isAdmin && (
+        <Dialog
+          open={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Import Companies</DialogTitle>
+          <DialogContent>
+            <CompanyImport onClose={() => setIsImportOpen(false)} onSuccess={fetchCompanies} />
+          </DialogContent>
+        </Dialog>
+      )}
     </Box>
   );
 }

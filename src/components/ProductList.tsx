@@ -289,11 +289,24 @@ export default function ProductList() {
           const defaultSettings: UserSettings = {
             _id: auth.currentUser.uid,
             email: auth.currentUser.email || '',
-            role: 'viewer',
+            displayName: auth.currentUser.displayName || '',
+            role: 'contributor',
+            status: 'active',
             preferences: {
+              language: 'English',
+              currency: 'CAD',
               useLocation: false
             },
-            location: {},
+            location: {
+              country: 'Canada',
+              province: '',
+              city: ''
+            },
+            sharing: {
+              showPicture: true,
+              showUsername: true,
+              showCountry: true
+            },
             created_at: new Date().toISOString(),
             created_by: auth.currentUser.uid
           };
@@ -1030,8 +1043,7 @@ export default function ProductList() {
         origin: {
           country: 'Canada',
           province: '',
-          city: '',
-          manufacturer: ''
+          city: ''
         },
         product_tags: {},
         prices: []
@@ -1129,6 +1141,48 @@ export default function ProductList() {
   const handleViewCompany = (companyId: string) => {
     navigate(`/companies/${companyId}`);
   };
+
+  const checkUserRole = async (userId: string) => {
+    try {
+      // Special case for super admin
+      if (auth.currentUser?.email === 'ajax@online101.ca') {
+        setIsSuperAdmin(true);
+        setIsAdmin(true);
+        setIsContributor(true);
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const role = userData.role;
+        setIsSuperAdmin(role === 'super_admin');
+        setIsAdmin(role === 'admin' || role === 'super_admin');
+        setIsContributor(role === 'contributor' || role === 'admin' || role === 'super_admin');
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user?.uid);
+      setAuthChecked(true);
+      if (user) {
+        await checkUserRole(user.uid);
+        fetchData();
+      } else {
+        console.log('No user logged in');
+        setProducts([]);
+        setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setIsContributor(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   if (!authChecked) {
     return (
@@ -1321,13 +1375,26 @@ export default function ProductList() {
       >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete "{deleteConfirmProduct?.name}"? This action cannot be undone.
-          </DialogContentText>
+          <Typography>
+            Are you sure you want to delete {deleteConfirmProduct?.name}? This action cannot be undone.
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteConfirmProduct(null)}>Cancel</Button>
-          <Button onClick={confirmDelete} color="error">Delete</Button>
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                if (deleteConfirmProduct) {
+                  confirmDelete();
+                }
+                setDeleteConfirmProduct(null);
+              }}
+              color="error"
+              variant="contained"
+            >
+              Delete
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -1853,7 +1920,7 @@ export default function ProductList() {
                             <EditIcon />
                           </IconButton>
                         )}
-                        {(isAdmin || isContributor) && (
+                        {isAdmin && (
                           <IconButton
                             size="small"
                             onClick={() => handleDeleteProduct(product)}
@@ -2152,6 +2219,7 @@ export default function ProductList() {
                   <TextField
                     label="Value"
                     size="small"
+                    fullWidth
                     inputRef={attributeValueRef}
                   />
                   <Button

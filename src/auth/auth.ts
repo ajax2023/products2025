@@ -39,7 +39,7 @@ const createUserDocument = async (user: any) => {
       _id: user.uid,
       email: user.email,
       displayName: user.displayName,
-      role: 'viewer', // Default role for new users
+      role: 'contributor', // Default role for new users
       status: 'active', // Changed from 'pending' to 'active'
       created_at: new Date(),
       created_by: user.uid,

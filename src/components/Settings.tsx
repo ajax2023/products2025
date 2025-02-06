@@ -31,6 +31,11 @@ const getModifiedPhotoUrl = (url: string | null) => {
 
 export default function Settings() {
   const [userSettings, setUserSettings] = useState<UserSettings>({
+    _id: '',
+    email: '',
+    displayName: '',
+    role: 'contributor',
+    status: 'active',
     location: {
       country: 'Canada',
       province: '',
@@ -38,13 +43,16 @@ export default function Settings() {
     },
     preferences: {
       language: 'English',
-      currency: 'CAD'
+      currency: 'CAD',
+      useLocation: false
     },
     sharing: {
       showPicture: true,
       showUsername: true,
       showCountry: true
-    }
+    },
+    created_at: new Date().toISOString(),
+    created_by: ''
   });
 
   const [loading, setLoading] = useState(true);
@@ -60,75 +68,96 @@ export default function Settings() {
         return;
       }
 
-      console.log('Debug - auth.currentUser:', {
-        email: auth.currentUser.email,
-        photoURL: auth.currentUser.photoURL,
-        displayName: auth.currentUser.displayName,
-        uid: auth.currentUser.uid
-      });
-
       try {
-        // Load user settings
-        const settingsDoc = await getDoc(doc(db, 'userSettings', auth.currentUser.uid));
-        if (settingsDoc.exists()) {
-          const data = settingsDoc.data() as UserSettings;
-          setUserSettings(prev => ({
-            ...prev,
-            ...data
-          }));
+        setError('');
+        setLoading(true);
+
+        // Wait a bit for the user document to be created by auth.ts
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Get user document
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.error('User document not found after login');
+          setError('Error loading user data. Please try signing out and in again.');
+          setLoading(false);
+          return;
         }
 
-        // Load user role
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
-          setUserRole(userData.role);
-          
-          // Check if there's a pending contributor request
-          if (userData.role === 'viewer') {
-            const requestsRef = collection(db, 'contributorRequests');
-            const requestSnapshot = await getDocs(query(requestsRef, where('userId', '==', auth.currentUser.uid), where('status', '==', 'pending')));
-            if (!requestSnapshot.empty) {
-              setContributorRequestStatus('pending');
-            }
-          }
-        } else {
-          // If user document doesn't exist, create it with default viewer role
-          const newUser: User = {
+        const userData = userDoc.data();
+        setUserRole(userData.role);
+
+        // Then handle settings
+        const settingsRef = doc(db, 'userSettings', auth.currentUser.uid);
+        const settingsDoc = await getDoc(settingsRef);
+        
+        if (!settingsDoc.exists()) {
+          const defaultSettings = {
             _id: auth.currentUser.uid,
             email: auth.currentUser.email || '',
-            role: 'viewer',
             displayName: auth.currentUser.displayName || '',
-            created_at: new Date(),
-            created_by: auth.currentUser.uid,
-            status: 'active'
+            role: userData.role,
+            status: 'active',
+            location: {
+              country: 'Canada',
+              province: '',
+              city: ''
+            },
+            preferences: {
+              language: 'English',
+              currency: 'CAD',
+              useLocation: false
+            },
+            sharing: {
+              showPicture: true,
+              showUsername: true,
+              showCountry: true
+            },
+            created_at: new Date().toISOString(),
+            created_by: auth.currentUser.uid
           };
-          await setDoc(doc(db, 'users', auth.currentUser.uid), newUser);
-          setUserRole('viewer');
+          await setDoc(settingsRef, defaultSettings);
+          setUserSettings(defaultSettings);
+        } else {
+          const settingsData = settingsDoc.data() as UserSettings;
+          setUserSettings(settingsData);
         }
-        
+
         setLoading(false);
+        setError('');
       } catch (error) {
-        console.error('Error loading settings:', error);
+        console.error('Error loading user data:', error);
         setError('Error loading settings. Please try again.');
         setLoading(false);
       }
     };
 
-    loadSettings();
-  }, []);
+    if (auth.currentUser) {
+      loadSettings();
+    } else {
+      setLoading(false);
+    }
+  }, [auth.currentUser]);
 
   const handleSave = async () => {
     if (!auth.currentUser) return;
 
     try {
-      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), userSettings);
+      setLoading(true);
+      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), {
+        ...userSettings,
+        role: userRole // Ensure role is saved with settings
+      });
       setSaveMessage('Settings saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000); // Clear message after 3 seconds
+      setError(''); // Clear any error
+      setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
       setError('Error saving settings. Please try again.');
-      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -154,6 +183,7 @@ export default function Settings() {
       
       // Delete user document from Firestore
       await deleteDoc(doc(db, 'userSettings', auth.currentUser.uid));
+      await deleteDoc(doc(db, 'users', auth.currentUser.uid));
       
       // Delete user from Firebase Auth
       await deleteUser(auth.currentUser);
@@ -348,14 +378,16 @@ export default function Settings() {
               </Box>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body1">
-                  Current Role: <strong>{userRole || 'Loading...'}</strong>
+                  Current Role: <strong>{loading ? 'Loading...' : userRole}</strong>
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  {userRole === 'viewer' && 'As a viewer, you can view products and their prices.'}
-                  {userRole === 'contributor' && 'As a contributor, you can add products and prices, and edit your own entries.'}
-                  {userRole === 'admin' && 'As an admin, you have full access to manage products, prices, and users.'}
-                  {userRole === 'super_admin' && 'As a super admin, you have complete control over the system.'}
-                </Typography>
+                {!loading && userRole && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {userRole === 'viewer' && 'As a viewer, you can view products and their prices.'}
+                    {userRole === 'contributor' && 'As a contributor, you can add products and prices, and edit your own entries.'}
+                    {userRole === 'admin' && 'As an admin, you have full access to manage products, prices, and users.'}
+                    {userRole === 'super_admin' && 'As a super admin, you have complete control over the system.'}
+                  </Typography>
+                )}
               </Box>
               {userRole === 'viewer' && contributorRequestStatus === 'none' && (
                 <Button

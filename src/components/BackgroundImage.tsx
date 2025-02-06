@@ -34,7 +34,9 @@ const BackgroundImage: React.FC = () => {
                     throw new Error('No images found.');
                 }
 
-                setImages(data.results);
+                // Shuffle the images array
+                const shuffledImages = [...data.results].sort(() => Math.random() - 0.5);
+                setImages(shuffledImages);
             } catch (err) {
                 console.error('Error fetching images:', err);
                 setError(true);
@@ -82,6 +84,8 @@ const BackgroundImage: React.FC = () => {
     }
 
     const currentImage = images[currentImageIndex];
+    const photographerUrl = `${currentImage.user.links.html}?utm_source=products2025&utm_medium=referral`;
+    const unsplashUrl = "https://unsplash.com/?utm_source=products2025&utm_medium=referral";
 
     return (
         <div className="background-image">
@@ -94,18 +98,35 @@ const BackgroundImage: React.FC = () => {
                     objectFit: 'cover'
                 }}
             />
+            <div className="photo-credit" style={{
+                position: 'absolute',
+                bottom: '10px',
+                right: '10px',
+                color: 'white',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                fontSize: '12px',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                width: '250px',
+            }}>
+                Photo by <a href={photographerUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'white' }}>{currentImage.user.name}</a> on <a href={unsplashUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'white' }}>Unsplash</a>
+            </div>
             {images.length > 1 && (
                 <>
                     <IconButton
                         onClick={handlePrevImage}
                         sx={{
-                            position: 'fixed',
-                            left: 20,
+                            position: 'absolute',
+                            left: '10px',
                             top: '50%',
                             transform: 'translateY(-50%)',
                             color: 'white',
                             backgroundColor: 'rgba(0,0,0,0.3)',
-                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' }
+                            '&:hover': {
+                                backgroundColor: 'rgba(0,0,0,0.5)'
+                            }
                         }}
                     >
                         <ChevronLeftIcon />
@@ -113,31 +134,21 @@ const BackgroundImage: React.FC = () => {
                     <IconButton
                         onClick={handleNextImage}
                         sx={{
-                            position: 'fixed',
-                            right: 20,
+                            position: 'absolute',
+                            right: '10px',
                             top: '50%',
                             transform: 'translateY(-50%)',
                             color: 'white',
                             backgroundColor: 'rgba(0,0,0,0.3)',
-                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' }
+                            '&:hover': {
+                                backgroundColor: 'rgba(0,0,0,0.5)'
+                            }
                         }}
                     >
                         <ChevronRightIcon />
                     </IconButton>
                 </>
             )}
-            <div className="photo-credit">
-                Photo by{' '}
-                <a 
-                    href={currentImage.user.links.html} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ color: 'white' }}
-                >
-                    {currentImage.user.name}
-                </a>
-                {currentImage.location?.name && ` - ${currentImage.location.name}`}
-            </div>
         </div>
     );
 };
