@@ -16,7 +16,6 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BusinessIcon from '@mui/icons-material/Business';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
@@ -72,19 +71,6 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
   const handleClearSearch = () => {
     setSearchQuery('');
     navigate('/');
-  };
-
-  const handleRefresh = async () => {
-    // Call the refresh function exposed by ProductList
-    if (typeof (window as any).refreshProducts === 'function') {
-      try {
-        await (window as any).refreshProducts();
-      } catch (error) {
-        console.error('Error refreshing data:', error);
-      }
-    } else {
-      console.warn('Refresh function not available');
-    }
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -231,7 +217,8 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                   padding: theme.spacing(1, 1, 1, 0),
                   paddingLeft: `calc(1em + ${theme.spacing(4)})`,
                   width: '100%',
-                  minWidth: '300px',
+                  minWidth: '200px',
+                  maxWidth: '250px',
                 }}
                 endAdornment={
                   searchQuery ? (
@@ -255,19 +242,6 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 }
               />
             </Box>
-            <IconButton
-              color="inherit"
-              onClick={handleRefresh}
-              sx={{
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.common.white, 0.1),
-                }
-              }}
-            >
-              <Tooltip title="Refresh">
-                <RefreshIcon />
-              </Tooltip>
-            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>

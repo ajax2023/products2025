@@ -1753,14 +1753,15 @@ export default function ProductList() {
               backgroundColor: '#c5c5c5',
               '& th': {
                 fontWeight: 'bold',
-                color: 'rgba(0, 0, 0, 0.87)'
+                color: 'rgba(0, 0, 0, 0.87)',
+                whiteSpace: 'nowrap'
               }
             }}>
               <TableRow>
                 <TableCell padding="none" sx={{ width: '48px' }} />
-                <TableCell>Product</TableCell>
-                <TableCell className="hide-on-mobile">Details</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell sx={{ width: '30%' }}>Product</TableCell>
+                <TableCell sx={{ width: '50%', textAlign: 'center' }} className="hide-on-mobile">Details</TableCell>
+                <TableCell sx={{ width: '20%', textAlign: 'right' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1787,14 +1788,14 @@ export default function ProductList() {
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: '30%' }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="body1">{product.name}</Typography>
                         <Typography variant="body2" color="text.secondary">{product.brand}</Typography>
                       </Box>
                     </TableCell>
-                    <TableCell className="hide-on-mobile">
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <TableCell sx={{ width: '50%', textAlign: 'center' }} className="hide-on-mobile">
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <Typography variant="body2">{product.category}</Typography>
                         <Typography variant="body2" color="text.secondary">
                           {product.company_id && companies[product.company_id]?.name}
@@ -1807,7 +1808,7 @@ export default function ProductList() {
                         </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: '20%', textAlign: 'right' }}>
                       <Box className="action-buttons">
                         {(isAdmin || isContributor) && (
                           <IconButton
