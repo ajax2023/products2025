@@ -12,10 +12,13 @@ const client = new vision.ImageAnnotatorClient();
 
 // Function triggers when a receipt image is uploaded to Firebase Storage
 exports.extractReceiptText = onObjectFinalized(async (event) => {
+  console.log("Function triggered for file:", event.data.name);
   const filePath = `gs://${event.data.bucket}/${event.data.name}`;
+  console.log("Processing file:", filePath);
 
   try {
     // Send image to Google Vision API
+    console.log("Sending to Vision API...");
     const [result] = await client.textDetection(filePath);
     const text = result.textAnnotations[0]?.description || "No text detected.";
 
@@ -23,11 +26,25 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
 
     // Save extracted text to Firestore
     const db = getFirestore();
-    await db.collection("receipts").doc(event.data.name).set({ text });
+    await db.collection("receipts").doc(event.data.name).set({ 
+      text,
+      timestamp: new Date().toISOString(),
+      status: "completed"
+    });
+    console.log("Saved to Firestore successfully");
 
     return null;
   } catch (error) {
-    console.error("Error extracting text:", error);
+    console.error("Error processing image:", error);
+    
+    // Save error to Firestore
+    const db = getFirestore();
+    await db.collection("receipts").doc(event.data.name).set({ 
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      status: "error"
+    });
+    
     return null;
   }
 });
