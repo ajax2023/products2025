@@ -24,9 +24,12 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
 
     console.log("Extracted Text:", text);
 
+    // Get just the filename without the path
+    const filename = event.data.name.split('/').pop();
+    
     // Save extracted text to Firestore
     const db = getFirestore();
-    await db.collection("receipts").doc(event.data.name).set({ 
+    await db.collection("receipts").doc(filename).set({ 
       text,
       timestamp: new Date().toISOString(),
       status: "completed"
@@ -37,9 +40,12 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
   } catch (error) {
     console.error("Error processing image:", error);
     
+    // Get just the filename without the path
+    const filename = event.data.name.split('/').pop();
+    
     // Save error to Firestore
     const db = getFirestore();
-    await db.collection("receipts").doc(event.data.name).set({ 
+    await db.collection("receipts").doc(filename).set({ 
       error: error.message,
       timestamp: new Date().toISOString(),
       status: "error"

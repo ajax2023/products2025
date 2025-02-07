@@ -108,10 +108,17 @@ const Receipts = () => {
     }
   };
 
-  const extractTextFromImage = async (imageUrl) => {
+  const extractTextFromImage = async (imageUrl: string) => {
     try {
       const db = getFirestore();
-      const docRef = doc(db, "receipts", imageUrl.split("/").pop());
+      // Get just the filename from the URL
+      const filename = imageUrl.split('/').pop()?.split('?')[0];
+      if (!filename) {
+        console.error("Could not extract filename from URL");
+        return;
+      }
+
+      const docRef = doc(db, "receipts", filename);
       let attempts = 0;
   
       // Polling Firestore to wait for text extraction
@@ -119,8 +126,14 @@ const Receipts = () => {
         await new Promise(res => setTimeout(res, 3000)); // Wait 3 seconds
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setScannedText(docSnap.data().text);
-          return;
+          const data = docSnap.data();
+          if (data.status === "completed" && data.text) {
+            setScannedText(data.text);
+            return;
+          } else if (data.status === "error") {
+            console.error("Error processing receipt:", data.error);
+            return;
+          }
         }
         attempts++;
       }

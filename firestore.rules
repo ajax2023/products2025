@@ -83,6 +83,11 @@ service cloud.firestore {
       allow write: if isSignedIn() && isUser(userId);
     }
 
+    // Receipts collection
+    match /receipts/{receiptId} {
+      allow read, write: if true;  // For testing, allow all access
+    }
+
     // Existing rules for other collections...
     match /products/{productId} {
       allow read: if isSignedIn();
