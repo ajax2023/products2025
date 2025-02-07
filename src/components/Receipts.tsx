@@ -111,23 +111,33 @@ const Receipts = () => {
   const extractTextFromImage = async (imageUrl: string) => {
     try {
       const db = getFirestore();
-      // Get just the filename from the URL
-      const filename = imageUrl.split('/').pop()?.split('?')[0];
+      
+      // Extract the filename from the Firebase Storage URL
+      const decodedUrl = decodeURIComponent(imageUrl);
+      const match = decodedUrl.match(/receipts%2F(.+?)\?/);
+      const filename = match ? match[1] : null;
+      
       if (!filename) {
-        console.error("Could not extract filename from URL");
+        console.error("Could not extract filename from URL:", imageUrl);
         return;
       }
 
+      console.log("Looking for document with ID:", filename);
       const docRef = doc(db, "receipts", filename);
       let attempts = 0;
   
       // Polling Firestore to wait for text extraction
-      while (attempts < 10) {
-        await new Promise(res => setTimeout(res, 3000)); // Wait 3 seconds
+      while (attempts < 20) { // Increased attempts since Vision API can take time
+        console.log(`Attempt ${attempts + 1}: Checking for text...`);
+        await new Promise(res => setTimeout(res, 2000)); // Check every 2 seconds
+        
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          console.log("Found document:", data);
+          
           if (data.status === "completed" && data.text) {
+            console.log("Text extracted successfully:", data.text);
             setScannedText(data.text);
             return;
           } else if (data.status === "error") {
@@ -138,7 +148,7 @@ const Receipts = () => {
         attempts++;
       }
   
-      console.error("Text extraction timeout.");
+      console.error("Text extraction timeout after 40 seconds");
     } catch (error) {
       console.error("Error fetching receipt text:", error);
     }
