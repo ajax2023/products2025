@@ -3,6 +3,8 @@ import { Box, Button, Container, Typography, Paper, Select, MenuItem, FormContro
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 interface VideoDevice {
   deviceId: string;
@@ -79,17 +81,54 @@ const Receipts = () => {
     startCamera();
   }, [selectedCamera]);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (!videoRef.current || !stream) return;
-
+  
     const video = videoRef.current;
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
-    
-    const image = canvas.toDataURL('image/jpeg', 1.0);
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+  
+    const image = canvas.toDataURL("image/jpeg", 1.0);
     setImageUrl(image);
+  
+    try {
+      const storage = getStorage();
+      const storageRef = ref(storage, `receipts/${Date.now()}.jpg`);
+      await uploadString(storageRef, image.split(",")[1], "base64");
+  
+      const downloadUrl = await getDownloadURL(storageRef);
+      console.log("Uploaded receipt to Firebase:", downloadUrl);
+  
+      // Send the image URL for text extraction
+      await extractTextFromImage(downloadUrl);
+    } catch (error) {
+      console.error("Error uploading receipt:", error);
+    }
+  };
+
+  const extractTextFromImage = async (imageUrl) => {
+    try {
+      const db = getFirestore();
+      const docRef = doc(db, "receipts", imageUrl.split("/").pop());
+      let attempts = 0;
+  
+      // Polling Firestore to wait for text extraction
+      while (attempts < 10) {
+        await new Promise(res => setTimeout(res, 3000)); // Wait 3 seconds
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setScannedText(docSnap.data().text);
+          return;
+        }
+        attempts++;
+      }
+  
+      console.error("Text extraction timeout.");
+    } catch (error) {
+      console.error("Error fetching receipt text:", error);
+    }
   };
 
   const handleDownload = () => {
