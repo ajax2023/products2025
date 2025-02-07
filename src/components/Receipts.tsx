@@ -114,8 +114,12 @@ const Receipts = () => {
       
       // Extract the filename from the Firebase Storage URL
       const decodedUrl = decodeURIComponent(imageUrl);
-      const match = decodedUrl.match(/receipts%2F(.+?)\?/);
-      const filename = match ? match[1] : null;
+      const urlObj = new URL(decodedUrl);
+      const objectPath = urlObj.pathname.split('/o/')[1];  // Get the path after /o/
+      const fullPath = decodeURIComponent(objectPath);  // Decode again to handle %2F
+      
+      // Get just the filename without the receipts/ prefix
+      const filename = fullPath.replace('receipts/', '');
       
       if (!filename) {
         console.error("Could not extract filename from URL:", imageUrl);
