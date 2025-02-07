@@ -1,10 +1,11 @@
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 const vision = require("@google-cloud/vision");
 
 // Initialize Firebase Admin SDK with Storage Bucket
-initializeApp({
+const app = initializeApp({
   storageBucket: "products-2025-35a50.appspot.com"
 });
 
@@ -36,6 +37,12 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
     });
     console.log("Saved to Firestore successfully");
 
+    // Delete the file from Storage
+    const storage = getStorage();
+    const file = storage.bucket(event.data.bucket).file(event.data.name);
+    await file.delete();
+    console.log("Deleted file from Storage");
+
     return null;
   } catch (error) {
     console.error("Error processing image:", error);
@@ -50,6 +57,16 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
       timestamp: new Date().toISOString(),
       status: "error"
     });
+
+    // Try to delete the file even if processing failed
+    try {
+      const storage = getStorage();
+      const file = storage.bucket(event.data.bucket).file(event.data.name);
+      await file.delete();
+      console.log("Deleted file from Storage after error");
+    } catch (deleteError) {
+      console.error("Error deleting file:", deleteError);
+    }
     
     return null;
   }

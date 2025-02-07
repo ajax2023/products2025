@@ -42,7 +42,13 @@ const Receipts = () => {
 
         console.log('Found cameras:', videoDevices);
         setCameras(videoDevices);
-        if (videoDevices.length > 0) {
+        
+        // Get saved camera preference or use the first camera
+        const savedCameraId = localStorage.getItem('preferredCamera');
+        const preferredCamera = savedCameraId && videoDevices.find(d => d.deviceId === savedCameraId);
+        if (preferredCamera) {
+          setSelectedCamera(preferredCamera.deviceId);
+        } else if (videoDevices.length > 0) {
           setSelectedCamera(videoDevices[0].deviceId);
         }
       } catch (error) {
@@ -63,11 +69,12 @@ const Receipts = () => {
     const startCamera = async () => {
       if (!selectedCamera || !videoRef.current) return;
 
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-
       try {
+        // Stop any existing stream
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: { deviceId: { exact: selectedCamera } }
         });
@@ -169,14 +176,36 @@ const Receipts = () => {
     document.body.removeChild(link);
   };
 
-  const handleReset = () => {
-    setImageUrl(null);
-    setScannedText('');
-  };
-
   const handleCameraChange = (newCameraId: string) => {
     setSelectedCamera(newCameraId);
     setImageUrl(null);
+    // Save camera preference
+    localStorage.setItem('preferredCamera', newCameraId);
+  };
+
+  const handleReset = () => {
+    setImageUrl(null);
+    setScannedText('');
+    // Restart the camera stream
+    if (selectedCamera) {
+      const startCamera = async () => {
+        try {
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+          }
+          const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: selectedCamera } }
+          });
+          setStream(newStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = newStream;
+          }
+        } catch (error) {
+          console.error('Error restarting camera:', error);
+        }
+      };
+      startCamera();
+    }
   };
 
   return (
