@@ -53,7 +53,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CameraDialog from './CameraDialog';
 
-import { auth, db } from "../firebaseConfig";
+import { auth, db, storage } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -71,7 +71,7 @@ import {
   arrayRemove,
   addDoc
 } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../types/product";
 import { UserSettings } from "../types/userSettings";
 import { Company } from "../types/company";
@@ -828,12 +828,18 @@ export default function ProductList() {
       // If product has an image, delete it from storage first
       if (productToDelete.image) {
         try {
-          const storage = getStorage();
-          const imageRef = ref(storage, productToDelete.image);
+          // Extract the path from the image URL
+          const imageUrl = new URL(productToDelete.image);
+          const pathWithQuery = imageUrl.pathname.split('/o/')[1];
+          const imagePath = decodeURIComponent(pathWithQuery.split('?')[0]);
+          console.log('Deleting image at path:', imagePath);
+          
+          // Use the imported storage instance
+          const imageRef = ref(storage, imagePath);
           await deleteObject(imageRef);
-          console.log("Product image deleted successfully");
+          console.log('Image deleted successfully');
         } catch (error) {
-          console.error("Error deleting product image:", error);
+          console.error('Error deleting image:', error);
           // Continue with product deletion even if image deletion fails
         }
       }
@@ -852,27 +858,56 @@ export default function ProductList() {
 
   const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
     try {
-      // Convert base64 to blob
-      const response = await fetch(imageDataUrl);
-      const blob = await response.blob();
+      if (!auth.currentUser) {
+        throw new Error('User must be authenticated to upload images');
+      }
+
+      console.log('Starting image upload process...');
       
-      // Create a reference to the storage location
-      const storage = getStorage();
-      const imagePath = `product_pictures/${productId}_${Date.now()}.jpg`;
-      console.log('Uploading image to:', imagePath);
+      // Convert base64 to blob
+      const base64Response = await fetch(imageDataUrl);
+      if (!base64Response.ok) {
+        throw new Error('Failed to process image data');
+      }
+      const blob = await base64Response.blob();
+      console.log('Image converted to blob:', blob.size, 'bytes');
+      
+      // Use the imported storage instance directly
+      const timestamp = Date.now();
+      const userId = auth.currentUser.uid;
+      const imagePath = `product_pictures/${userId}/${productId}_${timestamp}.jpg`;
+      console.log('Creating storage reference:', imagePath);
+      
       const imageRef = ref(storage, imagePath);
       
-      // Upload the image
-      const snapshot = await uploadBytes(imageRef, blob);
-      console.log('Image uploaded successfully:', snapshot.metadata.fullPath);
+      // Upload the image with metadata
+      const metadata = {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'uploadedBy': auth.currentUser.uid,
+          'productId': productId,
+          'uploadedAt': new Date().toISOString()
+        }
+      };
+      
+      console.log('Uploading image with metadata:', metadata);
+      const uploadResult = await uploadBytes(imageRef, blob, metadata);
+      console.log('Upload completed:', uploadResult.metadata);
       
       // Get the download URL
       const downloadUrl = await getDownloadURL(imageRef);
-      console.log('Image download URL:', downloadUrl);
+      console.log('Generated download URL:', downloadUrl);
       
       return downloadUrl;
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error('Error in uploadImageToStorage:', error);
+      // Log additional context
+      console.error('Context:', {
+        isAuthenticated: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+        productId,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   };
@@ -940,25 +975,35 @@ export default function ProductList() {
         return;
       }
 
+      console.log('Starting product creation...');
       const productRef = await addDoc(collection(db, "products"), {
         ...newProduct,
         image: "", // Initialize with empty image URL
         created_at: new Date(),
-        created_by: auth.currentUser?.uid || "",
+        created_by: auth.currentUser?.uid,
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ""
+        updated_by: auth.currentUser?.uid
       });
+      console.log('Product created with ID:', productRef.id);
 
+      let finalImageUrl = "";
       // If there's an image (in base64), upload it to storage
       if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
-        const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
+        console.log('Image detected, starting upload...');
+        finalImageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
+        console.log('Image uploaded successfully:', finalImageUrl);
         
         // Update the product with the image URL
-        await updateDoc(productRef, { image: imageUrl });
-        newProduct.image = imageUrl;
+        await updateDoc(productRef, { image: finalImageUrl });
+        console.log('Product updated with image URL');
       }
 
-      const productWithId = { ...newProduct as Product, _id: productRef.id };
+      const productWithId = { 
+        ...newProduct as Product, 
+        _id: productRef.id,
+        image: finalImageUrl 
+      };
+      
       setProducts((prevProducts) => [...prevProducts, productWithId]);
       
       setNewProduct({
@@ -980,7 +1025,7 @@ export default function ProductList() {
       showMessage("Product added successfully");
     } catch (error) {
       console.error("Error adding product:", error);
-      setError("Failed to add product. Please try again.");
+      setError(error instanceof Error ? error.message : "Failed to add product. Please try again.");
     }
   };
 
@@ -1498,11 +1543,26 @@ export default function ProductList() {
 
                     {/* NAME / BRAND */}
                     <TableCell sx={{ width: "25%", textAlign: "left" }}>
-                      <Box sx={{ display: "flex", flexDirection: "column" }}>
-                        <Typography variant="body1">{product.name}</Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {product.brand}
-                        </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        {product.image && (
+                          <Box
+                            component="img"
+                            src={product.image}
+                            alt={product.name}
+                            sx={{
+                              width: 50,
+                              height: 50,
+                              objectFit: "cover",
+                              borderRadius: 1
+                            }}
+                          />
+                        )}
+                        <Box sx={{ display: "flex", flexDirection: "column" }}>
+                          <Typography variant="body1">{product.name}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {product.brand}
+                          </Typography>
+                        </Box>
                       </Box>
                     </TableCell>
 
@@ -2257,7 +2317,11 @@ export default function ProductList() {
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Unit</InputLabel>
-                <Select value={newPrice.unit} label="Unit" onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}>
+                <Select
+                  value={newPrice.unit}
+                  label="Unit"
+                  onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}
+                >
                   {PRODUCT_UNITS.map((unit) => (
                     <MenuItem key={unit} value={unit}>
                       {unit}
