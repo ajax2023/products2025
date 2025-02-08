@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+// FORMAT TEST
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -16,6 +17,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  InputAdornment,
   Chip,
   Alert,
   Snackbar,
@@ -33,23 +35,33 @@ import {
   Paper,
   FormControlLabel,
   Checkbox
-} from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Visibility, KeyboardArrowUp as KeyboardArrowUpIcon, KeyboardArrowDown as KeyboardArrowDownIcon, Clear as ClearIcon, CloudUpload as ImportIcon } from '@mui/icons-material';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import InfoIcon from '@mui/icons-material/Info';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+} from "@mui/material";
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Clear as ClearIcon,
+  CloudUpload as ImportIcon,
+  Search as SearchIcon
+} from "@mui/icons-material";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import InfoIcon from "@mui/icons-material/Info";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 
-import { auth, db } from '../firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth';
-import { 
-  collection, 
-  doc, 
+import { auth, db } from "../firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  doc,
   getDoc,
-  getDocs, 
-  query, 
-  where, 
-  setDoc, 
+  getDocs,
+  query,
+  where,
+  setDoc,
   deleteDoc,
   orderBy,
   onSnapshot,
@@ -57,19 +69,19 @@ import {
   arrayUnion,
   arrayRemove,
   addDoc
-} from 'firebase/firestore';
-import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from '../types/product';
-import { UserSettings } from '../types/userSettings';
-import { Company } from '../types/company';
-import ProductImport from './admin/ProductImport';
-import PriceImport from './admin/PriceImport'; // Update PriceImport path to use CSV version
-import CompanyForm from './CompanyForm';
+} from "firebase/firestore";
+import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../types/product";
+import { UserSettings } from "../types/userSettings";
+import { Company } from "../types/company";
+import ProductImport from "./admin/ProductImport";
+import PriceImport from "./admin/PriceImport"; // Update PriceImport path to use CSV version
+import CompanyForm from "./CompanyForm";
 
 export default function ProductList() {
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
-  const searchQuery = searchParams.get('search')?.toLowerCase() || '';
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const brandFilter = location.state?.brandFilter;
   const [products, setProducts] = useState<Product[]>([]);
   const [companies, setCompanies] = useState<Record<string, Company>>({});
@@ -82,38 +94,38 @@ export default function ProductList() {
   const [priceDialogOpen, setPriceDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState<Partial<ProductPrice>>({
     amount: 0,
-    unit: 'each',
-    store: '',
-    name: '',
+    unit: "each",
+    store: "",
+    name: "",
     location: {
-      country: 'Canada',
-      province: '',
-      city: ''
+      country: "Canada",
+      province: "",
+      city: ""
     },
     date: new Date().toISOString(),
-    source: 'manual',
-    notes: '',
-    sales_link: '',
+    source: "manual",
+    notes: "",
+    sales_link: "",
     price_tags: {}
   });
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isContributor, setIsContributor] = useState(false);
-  const [editingPrice, setEditingPrice] = useState<{productId: string, priceIndex: number} | null>(null);
+  const [editingPrice, setEditingPrice] = useState<{ productId: string; priceIndex: number } | null>(null);
   const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
   const [editedPrice, setEditedPrice] = useState<Partial<ProductPrice>>({
-    name: '',
+    name: "",
     amount: 0,
-    unit: 'each',
-    store: '',
+    unit: "each",
+    store: "",
     location: {
-      country: 'Canada',
-      province: '',
-      city: ''
+      country: "Canada",
+      province: "",
+      city: ""
     },
-    notes: '',
-    sales_link: '',
+    notes: "",
+    sales_link: "",
     price_tags: {}
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -122,14 +134,14 @@ export default function ProductList() {
   const [showPriceImport, setShowPriceImport] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    name: '',
-    brand: '',
-    category: '',
+    name: "",
+    brand: "",
+    category: "",
     origin: {
-      country: 'Canada',
-      province: '',
-      city: '',
-      manufacturer: ''
+      country: "Canada",
+      province: "",
+      city: "",
+      manufacturer: ""
     },
     product_tags: {},
     prices: []
@@ -138,7 +150,7 @@ export default function ProductList() {
   // Add filter states
   const [filters, setFilters] = useState({
     locationEnabled: true,
-    showAllPrices: false,
+    showAllPrices: false
   });
 
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -159,22 +171,22 @@ export default function ProductList() {
   const attributeValueRef = React.createRef<HTMLInputElement>();
 
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
-  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [newCategoryInput, setNewCategoryInput] = useState("");
 
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
+    severity: "success" | "error" | "info" | "warning";
     autoHideDuration: number;
   }>({
     open: false,
-    message: '',
-    severity: 'success',
+    message: "",
+    severity: "success",
     autoHideDuration: 3000
   });
 
   // Function to show snackbar
-  const showMessage = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  const showMessage = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
     setSnackbar({
       open: true,
       message,
@@ -185,7 +197,7 @@ export default function ProductList() {
 
   // Handle snackbar close
   const handleSnackbarClose = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   const getAuthToken = async (user: any) => {
@@ -204,35 +216,35 @@ export default function ProductList() {
   // Initial data fetch
   const fetchData = async () => {
     if (!authChecked) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
-      console.log('Starting data fetch...');
-      
+      console.log("Starting data fetch...");
+
       // Fetch companies first
-      const companiesSnapshot = await getDocs(collection(db, 'companies'));
-      console.log('Companies fetched:', companiesSnapshot.size);
+      const companiesSnapshot = await getDocs(collection(db, "companies"));
+      console.log("Companies fetched:", companiesSnapshot.size);
       const companiesMap: Record<string, Company> = {};
-      companiesSnapshot.docs.forEach(doc => {
+      companiesSnapshot.docs.forEach((doc) => {
         companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
       });
       setCompanies(companiesMap);
 
       // Fetch products
-      const productsSnapshot = await getDocs(collection(db, 'products'));
-      console.log('Products fetched:', productsSnapshot.size);
-      const productsList = productsSnapshot.docs.map(doc => {
+      const productsSnapshot = await getDocs(collection(db, "products"));
+      console.log("Products fetched:", productsSnapshot.size);
+      const productsList = productsSnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           ...data,
           _id: doc.id,
           prices: data.prices || [],
-          name: data.name || '',
-          description: data.description || '',
-          brand: data.brand || '',
-          category: data.category || '',
+          name: data.name || "",
+          description: data.description || "",
+          brand: data.brand || "",
+          category: data.category || "",
           tags: data.tags || [],
           product_tags: data.product_tags || {}
         };
@@ -241,14 +253,14 @@ export default function ProductList() {
       // Apply filters
       let filteredProducts = filterProductsBySearch(productsList);
       if (brandFilter) {
-        filteredProducts = filteredProducts.filter(product => product.brand === brandFilter);
+        filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
       }
-      
-      console.log('Products filtered:', filteredProducts.length);
+
+      console.log("Products filtered:", filteredProducts.length);
       setProducts(filteredProducts);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      setError('Failed to load products. Please try refreshing the page.');
+      console.error("Error fetching data:", error);
+      setError("Failed to load products. Please try refreshing the page.");
     } finally {
       setLoading(false);
     }
@@ -259,7 +271,7 @@ export default function ProductList() {
     if (authChecked) {
       fetchData();
     }
-  }, [authChecked, searchQuery, brandFilter]);
+  }, [authChecked]);
 
   // Expose refresh function to window for Navbar to use
   useEffect(() => {
@@ -281,26 +293,26 @@ export default function ProductList() {
         }
 
         // Get user settings
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         if (userDoc.exists()) {
           setUserSettings(userDoc.data() as UserSettings);
         } else {
           // Create default user settings if none exist
           const defaultSettings: UserSettings = {
             _id: auth.currentUser.uid,
-            email: auth.currentUser.email || '',
-            displayName: auth.currentUser.displayName || '',
-            role: 'contributor',
-            status: 'active',
+            email: auth.currentUser.email || "",
+            displayName: auth.currentUser.displayName || "",
+            role: "contributor",
+            status: "active",
             preferences: {
-              language: 'English',
-              currency: 'CAD',
+              language: "English",
+              currency: "CAD",
               useLocation: false
             },
             location: {
-              country: 'Canada',
-              province: '',
-              city: ''
+              country: "Canada",
+              province: "",
+              city: ""
             },
             sharing: {
               showPicture: true,
@@ -310,13 +322,13 @@ export default function ProductList() {
             created_at: new Date().toISOString(),
             created_by: auth.currentUser.uid
           };
-          await setDoc(doc(db, 'users', auth.currentUser.uid), defaultSettings);
+          await setDoc(doc(db, "users", auth.currentUser.uid), defaultSettings);
           setUserSettings(defaultSettings);
         }
         setAuthChecked(true);
       } catch (error) {
-        console.error('Error checking auth and settings:', error);
-        setError('Error loading user settings. Please refresh the page.');
+        console.error("Error checking auth and settings:", error);
+        setError("Error loading user settings. Please refresh the page.");
         setAuthChecked(true);
       }
     };
@@ -326,61 +338,61 @@ export default function ProductList() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user?.uid);
+      console.log("Auth state changed:", user?.uid);
       setAuthChecked(true);
       if (user) {
         // Load user settings
-        const userSettingsRef = doc(db, 'userSettings', user.uid);
+        const userSettingsRef = doc(db, "userSettings", user.uid);
         const userSettingsDoc = await getDoc(userSettingsRef);
         if (userSettingsDoc.exists()) {
           const settings = userSettingsDoc.data() as UserSettings;
           setUserSettings(settings);
-          setFilters(prev => ({ 
-            ...prev, 
-            locationEnabled: settings?.preferences?.useLocation ?? true 
+          setFilters((prev) => ({
+            ...prev,
+            locationEnabled: settings?.preferences?.useLocation ?? true
           }));
         }
 
         // Check roles from Firestore first
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userRef);
-        
-        console.log('User document:', userDoc.exists() ? userDoc.data() : 'No user doc');
-        
+
+        console.log("User document:", userDoc.exists() ? userDoc.data() : "No user doc");
+
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const isUserAdmin = userData.role === 'admin' || userData.role === 'super_admin';
-          const isUserSuperAdmin = userData.role === 'super_admin';
-          const isUserContributor = userData.role === 'contributor' || isUserAdmin || isUserSuperAdmin;
-          
-          console.log('User roles:', {
+          const isUserAdmin = userData.role === "admin" || userData.role === "super_admin";
+          const isUserSuperAdmin = userData.role === "super_admin";
+          const isUserContributor = userData.role === "contributor" || isUserAdmin || isUserSuperAdmin;
+
+          console.log("User roles:", {
             role: userData.role,
             isAdmin: isUserAdmin,
             isSuperAdmin: isUserSuperAdmin,
             isContributor: isUserContributor
           });
-          
+
           setIsAdmin(isUserAdmin);
           setIsSuperAdmin(isUserSuperAdmin);
           setIsContributor(isUserContributor);
-          
+
           // Get token to check claims
           const token = await getAuthToken(user);
           if (token) {
             // Use token for API calls
           }
         } else {
-          console.log('No user document found in Firestore');
+          console.log("No user document found in Firestore");
           setIsAdmin(false);
           setIsSuperAdmin(false);
           setIsContributor(false);
         }
-        
+
         // Always fetch data if user is logged in, regardless of role
-        console.log('Fetching data for logged in user');
+        console.log("Fetching data for logged in user");
         fetchData();
       } else {
-        console.log('No user logged in');
+        console.log("No user logged in");
         setProducts([]);
         setIsAdmin(false);
         setIsSuperAdmin(false);
@@ -424,10 +436,10 @@ export default function ProductList() {
     //   isOnline: p.store_name?.toLowerCase() === 'online'
     // })));
 
-    return prices.filter(price => {
+    return prices.filter((price) => {
       // Check for any type of link
       const hasLink = price.product_link || price.sales_link;
-      const isOnline = price.store_name?.toLowerCase() === 'online';
+      const isOnline = price.store_name?.toLowerCase() === "online";
 
       // Show all prices with links or online store
       if (hasLink || isOnline) {
@@ -443,16 +455,13 @@ export default function ProductList() {
 
       // For local store prices, apply location filtering
       if (!price.location) return false;
-      
+
       const priceCountry = price.location.country;
       const priceProvince = price.location.province;
       const priceCity = price.location.city;
 
-      const matches = (
-        (!userCountry || userCountry === priceCountry) &&
-        (!userProvince || userProvince === priceProvince) &&
-        (!userCity || userCity === priceCity)
-      );
+      const matches =
+        (!userCountry || userCountry === priceCountry) && (!userProvince || userProvince === priceProvince) && (!userCity || userCity === priceCity);
 
       // if (!matches) {
       //   console.log('Filtered out local price:', {
@@ -470,27 +479,28 @@ export default function ProductList() {
     if (!searchQuery) return products;
     if (!products) return [];
 
-    return products.filter(product => {
+    return products.filter((product) => {
       try {
-        const productMatch = 
-          (product.name?.toLowerCase() || '').includes(searchQuery) ||
-          (product.description?.toLowerCase() || '').includes(searchQuery) ||
-          (product.brand?.toLowerCase() || '').includes(searchQuery) ||
-          (product.category?.toLowerCase() || '').includes(searchQuery) ||
-          (product.tags || []).some(tag => (tag?.toLowerCase() || '').includes(searchQuery));
+        const productMatch =
+          (product.name?.toLowerCase() || "").includes(searchQuery) ||
+          (product.description?.toLowerCase() || "").includes(searchQuery) ||
+          (product.brand?.toLowerCase() || "").includes(searchQuery) ||
+          (product.category?.toLowerCase() || "").includes(searchQuery) ||
+          (product.tags || []).some((tag) => (tag?.toLowerCase() || "").includes(searchQuery));
 
-        const priceMatch = filterPricesByLocation(product.prices || []).some(price => 
-          (price.name?.toLowerCase() || '').includes(searchQuery) ||
-          (price.notes?.toLowerCase() || '').includes(searchQuery) ||
-          (price.location?.country?.toLowerCase() || '').includes(searchQuery) ||
-          (price.location?.province?.toLowerCase() || '').includes(searchQuery) ||
-          (price.location?.city?.toLowerCase() || '').includes(searchQuery) ||
-          (price.store_name?.toLowerCase() || '').includes(searchQuery)
+        const priceMatch = filterPricesByLocation(product.prices || []).some(
+          (price) =>
+            (price.name?.toLowerCase() || "").includes(searchQuery) ||
+            (price.notes?.toLowerCase() || "").includes(searchQuery) ||
+            (price.location?.country?.toLowerCase() || "").includes(searchQuery) ||
+            (price.location?.province?.toLowerCase() || "").includes(searchQuery) ||
+            (price.location?.city?.toLowerCase() || "").includes(searchQuery) ||
+            (price.store_name?.toLowerCase() || "").includes(searchQuery)
         );
 
         return productMatch || priceMatch;
       } catch (error) {
-        console.error('Error filtering product:', product, error);
+        console.error("Error filtering product:", product, error);
         return false;
       }
     });
@@ -498,36 +508,36 @@ export default function ProductList() {
 
   useEffect(() => {
     const refreshProducts = async () => {
-      console.log('Full refresh triggered');
+      console.log("Full refresh triggered");
       setLoading(true);
       setError(null);
 
       try {
         if (auth.currentUser) {
-          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
           if (userDoc.exists()) {
             setUserSettings(userDoc.data() as UserSettings);
           }
         }
 
-        const companiesSnapshot = await getDocs(collection(db, 'companies'));
+        const companiesSnapshot = await getDocs(collection(db, "companies"));
         const companiesMap: Record<string, Company> = {};
-        companiesSnapshot.docs.forEach(doc => {
+        companiesSnapshot.docs.forEach((doc) => {
           companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
         });
         setCompanies(companiesMap);
 
-        const productsSnapshot = await getDocs(collection(db, 'products'));
-        const productsList = productsSnapshot.docs.map(doc => {
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const productsList = productsSnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             ...data,
             _id: doc.id,
             prices: data.prices || [],
-            name: data.name || '',
-            description: data.description || '',
-            brand: data.brand || '',
-            category: data.category || '',
+            name: data.name || "",
+            description: data.description || "",
+            brand: data.brand || "",
+            category: data.category || "",
             tags: data.tags || [],
             product_tags: data.product_tags || {}
           };
@@ -535,14 +545,14 @@ export default function ProductList() {
 
         let filteredProducts = filterProductsBySearch(productsList);
         if (brandFilter) {
-          filteredProducts = filteredProducts.filter(product => product.brand === brandFilter);
+          filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
         }
-        
+
         setProducts(filteredProducts);
-        console.log('Full refresh completed');
+        console.log("Full refresh completed");
       } catch (error) {
-        console.error('Error during full refresh:', error);
-        setError('Failed to refresh data. Please try again.');
+        console.error("Error during full refresh:", error);
+        setError("Failed to refresh data. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -553,7 +563,7 @@ export default function ProductList() {
     return () => {
       delete (window as any).refreshProducts;
     };
-  }, [brandFilter, searchQuery, userSettings]);
+  }, [brandFilter]);
 
   useEffect(() => {
     const locations = {
@@ -562,7 +572,7 @@ export default function ProductList() {
       cities: new Set<string>()
     };
 
-    products.forEach(product => {
+    products.forEach((product) => {
       if (product.origin?.country) locations.countries.add(product.origin.country);
       if (product.origin?.province) locations.provinces.add(product.origin.province);
       if (product.origin?.city) locations.cities.add(product.origin.city);
@@ -591,26 +601,29 @@ export default function ProductList() {
   };
 
   const resetNewPrice = () => {
-    const location = filters.locationEnabled && userSettings?.location ? {
-      country: userSettings.location.country || 'Canada',
-      province: userSettings.location.province || '',
-      city: userSettings.location.city || ''
-    } : {
-      country: 'Canada',
-      province: '',
-      city: ''
-    };
+    const location =
+      filters.locationEnabled && userSettings?.location
+        ? {
+            country: userSettings.location.country || "Canada",
+            province: userSettings.location.province || "",
+            city: userSettings.location.city || ""
+          }
+        : {
+            country: "Canada",
+            province: "",
+            city: ""
+          };
 
     setNewPrice({
       amount: 0,
-      unit: 'each',
-      store: '',
-      name: '',
+      unit: "each",
+      store: "",
+      name: "",
       location,
       date: new Date().toISOString(),
-      source: 'manual',
-      notes: '',
-      sales_link: '',
+      source: "manual",
+      notes: "",
+      sales_link: "",
       price_tags: {}
     });
     setError(null);
@@ -625,25 +638,24 @@ export default function ProductList() {
 
   const handleAddPrice = async () => {
     if (!selectedProduct || !auth.currentUser) return;
-    if (!newPrice.amount || !newPrice.unit || 
-        !newPrice.location.country || !newPrice.location.city) {
-      showMessage('Please fill in all required price fields (amount, unit, country, and city)', 'error');
+    if (!newPrice.amount || !newPrice.unit || !newPrice.location.country || !newPrice.location.city) {
+      showMessage("Please fill in all required price fields (amount, unit, country, and city)", "error");
       return;
     }
 
     try {
       const now = new Date().toISOString();
-      const productRef = doc(db, 'products', selectedProduct._id);
+      const productRef = doc(db, "products", selectedProduct._id);
       const updatedPrices = [
         ...(selectedProduct.prices || []),
-        { 
-          ...newPrice, 
+        {
+          ...newPrice,
           date: now,
           created_by: auth.currentUser.uid,
-          created_by_email: auth.currentUser.email || 'unknown',
-          created_by_name: auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'unknown',
+          created_by_email: auth.currentUser.email || "unknown",
+          created_by_name: auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "unknown",
           created_at: now,
-          source: 'manual'
+          source: "manual"
         } as ProductPrice
       ];
 
@@ -651,73 +663,61 @@ export default function ProductList() {
         prices: updatedPrices,
         modified_at: now,
         modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || 'unknown'
+        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || "unknown"
       });
 
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p._id === selectedProduct._id 
-            ? { ...p, prices: updatedPrices }
-            : p
-        )
-      );
+      setProducts((prevProducts) => prevProducts.map((p) => (p._id === selectedProduct._id ? { ...p, prices: updatedPrices } : p)));
 
-      showMessage('Price added successfully');
+      showMessage("Price added successfully");
       handleClosePriceDialog();
     } catch (error) {
-      console.error('Error adding price:', error);
-      showMessage(`Error adding price: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      console.error("Error adding price:", error);
+      showMessage(`Error adding price: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
     }
   };
 
   const handleDeletePrice = async (productId: string, priceIndex: number) => {
     try {
-      const product = products.find(p => p._id === productId);
+      const product = products.find((p) => p._id === productId);
       if (!product) return;
 
       const updatedPrices = [...(product.prices || [])];
       updatedPrices.splice(priceIndex, 1);
 
-      const productRef = doc(db, 'products', productId);
+      const productRef = doc(db, "products", productId);
       await updateDoc(productRef, {
         prices: updatedPrices,
         modified_at: new Date().toISOString(),
-        modified_by: auth.currentUser?.uid || '',
-        modified_by_name: auth.currentUser?.displayName || auth.currentUser?.email || 'unknown'
+        modified_by: auth.currentUser?.uid || "",
+        modified_by_name: auth.currentUser?.displayName || auth.currentUser?.email || "unknown"
       });
 
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p._id === productId
-            ? { ...p, prices: updatedPrices }
-            : p
-        )
-      );
+      setProducts((prevProducts) => prevProducts.map((p) => (p._id === productId ? { ...p, prices: updatedPrices } : p)));
     } catch (error) {
-      console.error('Error deleting price:', error);
-      setError('Failed to delete price. Please try again.');
+      console.error("Error deleting price:", error);
+      setError("Failed to delete price. Please try again.");
     }
   };
 
   const handleOpenEditPriceDialog = (productId: string, priceIndex: number, price: ProductPrice) => {
     if (!auth.currentUser) return;
-    
+
     const canEdit = isAdmin || isSuperAdmin || (auth.currentUser && price.created_by === auth.currentUser.uid);
     if (!canEdit) {
-      setError('You can only edit prices that you created');
+      setError("You can only edit prices that you created");
       return;
     }
 
     setEditingPrice({ productId, priceIndex });
     setEditedPrice({
-      ...price,  
-      name: price.name || '',
+      ...price,
+      name: price.name || "",
       amount: price.amount,
       unit: price.unit,
       store: price.store,
       location: { ...price.location },
-      notes: price.notes || '',
-      sales_link: price.sales_link || '',
+      notes: price.notes || "",
+      sales_link: price.sales_link || "",
       price_tags: { ...price.price_tags }
     });
     setEditPriceDialogOpen(true);
@@ -727,17 +727,17 @@ export default function ProductList() {
     setEditPriceDialogOpen(false);
     setEditingPrice(null);
     setEditedPrice({
-      name: '',
+      name: "",
       amount: 0,
-      unit: 'each',
-      store: '',
+      unit: "each",
+      store: "",
       location: {
-        country: 'Canada',
-        province: '',
-        city: ''
+        country: "Canada",
+        province: "",
+        city: ""
       },
-      notes: '',
-      sales_link: '',
+      notes: "",
+      sales_link: "",
       price_tags: {}
     });
     setError(null);
@@ -745,42 +745,41 @@ export default function ProductList() {
 
   const handleSaveEditedPrice = async () => {
     if (!editingPrice || !auth.currentUser) return;
-    if (!editedPrice.amount || !editedPrice.unit || 
-        !editedPrice.location.country || !editedPrice.location.city) {
-      setError('Please fill in all required price fields (amount, unit, country, and city)');
+    if (!editedPrice.amount || !editedPrice.unit || !editedPrice.location.country || !editedPrice.location.city) {
+      setError("Please fill in all required price fields (amount, unit, country, and city)");
       return;
     }
 
     try {
       const token = await auth.currentUser.getIdTokenResult();
-      console.log('Attempting price update with roles:', {
+      console.log("Attempting price update with roles:", {
         admin: token.claims.admin,
         superAdmin: token.claims.superAdmin,
         contributor: token.claims.contributor
       });
 
-      const product = products.find(p => p._id === editingPrice.productId);
+      const product = products.find((p) => p._id === editingPrice.productId);
       if (!product) return;
 
       const originalPrice = product.prices?.[editingPrice.priceIndex];
       if (!originalPrice) {
-        setError('Original price not found');
+        setError("Original price not found");
         return;
       }
 
       const updatedPrice = {
-        ...originalPrice,  
-        ...editedPrice,    
+        ...originalPrice,
+        ...editedPrice,
         modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'unknown',
+        modified_by_name: auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "unknown",
         modified_at: new Date().toISOString()
       };
 
-      const productRef = doc(db, 'products', editingPrice.productId);
-      
+      const productRef = doc(db, "products", editingPrice.productId);
+
       const currentDoc = await getDoc(productRef);
       if (!currentDoc.exists()) {
-        setError('Product not found');
+        setError("Product not found");
         return;
       }
 
@@ -791,22 +790,16 @@ export default function ProductList() {
         prices: prices,
         modified_at: new Date(),
         modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || 'unknown'
+        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || "unknown"
       });
 
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p._id === editingPrice.productId
-            ? { ...p, prices: prices }
-            : p
-        )
-      );
+      setProducts((prevProducts) => prevProducts.map((p) => (p._id === editingPrice.productId ? { ...p, prices: prices } : p)));
 
-      showMessage('Price updated successfully', 'success');
+      showMessage("Price updated successfully", "success");
       handleCloseEditPriceDialog();
     } catch (error) {
-      console.error('Error updating price:', error);
-      setError('Failed to update price. Please try again.');
+      console.error("Error updating price:", error);
+      setError("Failed to update price. Please try again.");
     }
   };
 
@@ -814,7 +807,7 @@ export default function ProductList() {
     // Make sure to include company_id in the initial state
     setEditingProduct({
       ...product,
-      company_id: product.company_id || ''
+      company_id: product.company_id || ""
     });
   };
 
@@ -825,91 +818,85 @@ export default function ProductList() {
   const confirmDelete = async () => {
     try {
       if (!deleteConfirmProduct) {
-        showMessage('No product selected for deletion', 'error');
+        showMessage("No product selected for deletion", "error");
         return;
       }
 
       const docId = deleteConfirmProduct.id || deleteConfirmProduct._id;
       if (!docId) {
-        showMessage('Invalid product ID', 'error');
+        showMessage("Invalid product ID", "error");
         return;
       }
 
-      console.log('Deleting product with ID:', docId);
-      const productRef = doc(db, 'products', docId);
+      console.log("Deleting product with ID:", docId);
+      const productRef = doc(db, "products", docId);
       await deleteDoc(productRef);
 
-      setProducts(prevProducts => prevProducts.filter(p => (p.id || p._id) !== docId));
-      
+      setProducts((prevProducts) => prevProducts.filter((p) => (p.id || p._id) !== docId));
+
       setDeleteConfirmProduct(null);
-      showMessage('Product deleted successfully');
+      showMessage("Product deleted successfully");
     } catch (error) {
-      console.error('Error deleting product:', error);
-      showMessage(`Error deleting product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      console.error("Error deleting product:", error);
+      showMessage(`Error deleting product: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
     }
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
     if (!editingProduct) return;
-    
+
     try {
-      console.log('Updating product with data:', {
+      console.log("Updating product with data:", {
         company_id: updatedProduct.company_id,
         manufacturer: companies[updatedProduct.company_id]?.name
       });
 
-      const productRef = doc(db, 'products', editingProduct._id);
+      const productRef = doc(db, "products", editingProduct._id);
       const productData = {
         ...updatedProduct,
         company_id: updatedProduct.company_id || null,
         origin: {
           ...updatedProduct.origin,
-          manufacturer: updatedProduct.company_id ? companies[updatedProduct.company_id]?.name : ''
+          manufacturer: updatedProduct.company_id ? companies[updatedProduct.company_id]?.name : ""
         },
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ''
+        updated_by: auth.currentUser?.uid || ""
       };
-      
+
       await updateDoc(productRef, productData);
-      
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p._id === editingProduct._id
-            ? { ...productData, _id: editingProduct._id }
-            : p
-        )
-      );
+
+      setProducts((prevProducts) => prevProducts.map((p) => (p._id === editingProduct._id ? { ...productData, _id: editingProduct._id } : p)));
       setEditingProduct(null);
-      showMessage('Product updated successfully');
+      showMessage("Product updated successfully");
     } catch (error) {
-      console.error('Error updating product:', error);
-      setError('Failed to update product. Please try again.');
+      console.error("Error updating product:", error);
+      setError("Failed to update product. Please try again.");
     }
   };
 
   const toggleRow = (productId: string) => {
-    setExpandedRows(prev => ({
+    setExpandedRows((prev) => ({
       ...prev,
       [productId]: !prev[productId]
     }));
   };
 
   const formatDate = (date: any) => {
-    if (!date) return 'No date';
+    if (!date) return "No date";
     const timestamp = date?.toDate ? date.toDate() : new Date(date);
-    return timestamp.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return timestamp.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
     });
   };
 
   const getLocationScore = (product: Product) => {
     if (!userSettings?.location) return 0;
     if (!filters.locationEnabled) return 0;
-    
+
     let score = 0;
     const userLocation = userSettings.location;
 
@@ -930,16 +917,16 @@ export default function ProductList() {
 
   const getFilteredProducts = () => {
     return products
-      .filter(product => !filters.category || product.category === filters.category)
+      .filter((product) => !filters.category || product.category === filters.category)
       .sort((a, b) => {
         if (filters.locationEnabled) {
           const scoreA = getLocationScore(a);
           const scoreB = getLocationScore(b);
           if (scoreA !== scoreB) {
-            return scoreB - scoreA; 
+            return scoreB - scoreA;
           }
         }
-        return a.name.localeCompare(b.name); 
+        return a.name.localeCompare(b.name);
       });
   };
 
@@ -950,31 +937,35 @@ export default function ProductList() {
       if (!auth.currentUser) return;
 
       const newLocationEnabled = !filters.locationEnabled;
-      setFilters(prev => ({ ...prev, locationEnabled: newLocationEnabled }));
+      setFilters((prev) => ({ ...prev, locationEnabled: newLocationEnabled }));
 
-      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userRef = doc(db, "users", auth.currentUser.uid);
       await updateDoc(userRef, {
-        'preferences.useLocation': newLocationEnabled
+        "preferences.useLocation": newLocationEnabled
       });
 
-      setUserSettings(prev => prev ? {
-        ...prev,
-        preferences: {
-          ...prev.preferences,
-          useLocation: newLocationEnabled
-        }
-      } : null);
+      setUserSettings((prev) =>
+        prev
+          ? {
+              ...prev,
+              preferences: {
+                ...prev.preferences,
+                useLocation: newLocationEnabled
+              }
+            }
+          : null
+      );
 
       fetchData();
     } catch (error) {
-      console.error('Error updating location preference:', error);
-      setError('Failed to update location preference');
+      console.error("Error updating location preference:", error);
+      setError("Failed to update location preference");
     }
   };
 
   useEffect(() => {
     if (userSettings?.preferences) {
-      setFilters(prev => ({
+      setFilters((prev) => ({
         ...prev,
         locationEnabled: userSettings.preferences.useLocation ?? true
       }));
@@ -984,37 +975,37 @@ export default function ProductList() {
   const handleAddProduct = async () => {
     try {
       if (!auth.currentUser) {
-        showMessage('No authenticated user found', 'error');
+        showMessage("No authenticated user found", "error");
         return;
       }
 
-      console.log('Attempting to add product:', newProduct);
+      console.log("Attempting to add product:", newProduct);
 
       if (!newProduct.name?.trim()) {
-        showMessage('Please enter a product name', 'error');
+        showMessage("Please enter a product name", "error");
         return;
       }
       if (!newProduct.brand?.trim()) {
-        showMessage('Please enter a brand name', 'error');
+        showMessage("Please enter a brand name", "error");
         return;
       }
 
       const categoryValue = newProduct.category?.trim();
-      console.log('Category value:', categoryValue);
+      console.log("Category value:", categoryValue);
 
       if (!categoryValue) {
-        showMessage('Please select or enter a category', 'error');
+        showMessage("Please select or enter a category", "error");
         return;
       }
 
-      const productRef = doc(collection(db, 'products'));
+      const productRef = doc(collection(db, "products"));
       const productData = {
         ...newProduct,
         category: categoryValue,
         company_id: newProduct.company_id,
         origin: {
           ...newProduct.origin,
-          manufacturer: newProduct.company_id ? companies[newProduct.company_id]?.name : ''
+          manufacturer: newProduct.company_id ? companies[newProduct.company_id]?.name : ""
         },
         created_by: auth.currentUser.uid,
         created_by_name: auth.currentUser.displayName || auth.currentUser.email,
@@ -1026,76 +1017,76 @@ export default function ProductList() {
         product_tags: newProduct.product_tags || {}
       };
 
-      console.log('Saving product data:', productData);
+      console.log("Saving product data:", productData);
       await setDoc(productRef, productData);
-      
+
       if (categoryValue && !PRODUCT_CATEGORIES.includes(categoryValue)) {
-        console.log('Adding new category:', categoryValue);
+        console.log("Adding new category:", categoryValue);
         PRODUCT_CATEGORIES.push(categoryValue);
       }
 
-      setProducts(prevProducts => [...prevProducts, { ...productData, id: productRef.id }]);
+      setProducts((prevProducts) => [...prevProducts, { ...productData, id: productRef.id }]);
       setAddDialogOpen(false);
       setNewProduct({
-        name: '',
-        brand: '',
-        category: '',
+        name: "",
+        brand: "",
+        category: "",
         origin: {
-          country: 'Canada',
-          province: '',
-          city: ''
+          country: "Canada",
+          province: "",
+          city: ""
         },
         product_tags: {},
         prices: []
       });
 
-      showMessage('Product added successfully!');
+      showMessage("Product added successfully!");
     } catch (error) {
-      console.error('Error adding product:', error);
-      showMessage(`Error adding product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      console.error("Error adding product:", error);
+      showMessage(`Error adding product: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
     }
   };
 
   const handleExport = async () => {
     try {
       if (!auth.currentUser) {
-        console.error('No user logged in');
+        console.error("No user logged in");
         return;
       }
 
       const token = await getAuthToken(auth.currentUser);
       if (!token) {
-        throw new Error('Failed to get auth token');
+        throw new Error("Failed to get auth token");
       }
 
       // Rest of your export logic...
     } catch (error) {
-      console.error('Error during export:', error);
+      console.error("Error during export:", error);
       setSnackbar({
         open: true,
-        message: 'Error exporting data. Please try again.',
-        severity: 'error',
+        message: "Error exporting data. Please try again.",
+        severity: "error",
         autoHideDuration: 3000
       });
     }
   };
 
   const handleCompanySelect = async (companyId: string) => {
-    console.log('Selected company:', companyId);
-    
-    setEditingProduct(prev => {
+    console.log("Selected company:", companyId);
+
+    setEditingProduct((prev) => {
       if (!prev) return null;
-      console.log('Previous state:', prev);
+      console.log("Previous state:", prev);
       const newState = {
         ...prev,
         company_id: companyId
       };
-      console.log('New state:', newState);
+      console.log("New state:", newState);
       return newState;
     });
   };
 
-  const handleNewCompany = async (mode: 'add' | 'edit') => {
+  const handleNewCompany = async (mode: "add" | "edit") => {
     setCompanyDialogMode(mode);
     setShowCompanyDialog(true);
   };
@@ -1106,7 +1097,7 @@ export default function ProductList() {
 
   const handleCompanySubmit = async (companyData: Partial<Company>) => {
     try {
-      const companyRef = await addDoc(collection(db, 'companies'), {
+      const companyRef = await addDoc(collection(db, "companies"), {
         ...companyData,
         created_at: new Date(),
         created_by: auth.currentUser?.uid,
@@ -1120,7 +1111,7 @@ export default function ProductList() {
         _id: companyRef.id
       } as Company;
 
-      setCompanies(prev => ({
+      setCompanies((prev) => ({
         ...prev,
         [companyRef.id]: newCompany
       }));
@@ -1128,15 +1119,15 @@ export default function ProductList() {
       // Select the new company
       handleCompanySelect(companyRef.id);
       handleCompanyDialogClose();
-      showMessage('Company created successfully!');
+      showMessage("Company created successfully!");
     } catch (error) {
-      console.error('Error creating company:', error);
-      showMessage('Failed to create company', 'error');
+      console.error("Error creating company:", error);
+      showMessage("Failed to create company", "error");
     }
   };
 
   const [showCompanyDialog, setShowCompanyDialog] = useState(false);
-  const [companyDialogMode, setCompanyDialogMode] = useState<'add' | 'edit'>('add');
+  const [companyDialogMode, setCompanyDialogMode] = useState<"add" | "edit">("add");
 
   const handleViewCompany = (companyId: string) => {
     navigate(`/companies/${companyId}`);
@@ -1145,35 +1136,35 @@ export default function ProductList() {
   const checkUserRole = async (userId: string) => {
     try {
       // Special case for super admin
-      if (auth.currentUser?.email === 'ajax@online101.ca') {
+      if (auth.currentUser?.email === "ajax@online101.ca") {
         setIsSuperAdmin(true);
         setIsAdmin(true);
         setIsContributor(true);
         return;
       }
 
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userDoc = await getDoc(doc(db, "users", userId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const role = userData.role;
-        setIsSuperAdmin(role === 'super_admin');
-        setIsAdmin(role === 'admin' || role === 'super_admin');
-        setIsContributor(role === 'contributor' || role === 'admin' || role === 'super_admin');
+        setIsSuperAdmin(role === "super_admin");
+        setIsAdmin(role === "admin" || role === "super_admin");
+        setIsContributor(role === "contributor" || role === "admin" || role === "super_admin");
       }
     } catch (error) {
-      console.error('Error checking user role:', error);
+      console.error("Error checking user role:", error);
     }
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user?.uid);
+      console.log("Auth state changed:", user?.uid);
       setAuthChecked(true);
       if (user) {
         await checkUserRole(user.uid);
         fetchData();
       } else {
-        console.log('No user logged in');
+        console.log("No user logged in");
         setProducts([]);
         setIsAdmin(false);
         setIsSuperAdmin(false);
@@ -1184,9 +1175,26 @@ export default function ProductList() {
     return () => unsubscribe();
   }, []);
 
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (value) {
+      navigate(`/?search=${encodeURIComponent(value)}`, { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const query = searchParams.get("search")?.toLowerCase() || "";
+    if (query !== searchQuery) {
+      setSearchQuery(query);
+    }
+  }, [location.search]);
+
   if (!authChecked) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", p: 1 }}>
         <CircularProgress />
       </Box>
     );
@@ -1194,7 +1202,7 @@ export default function ProductList() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", p: 1 }}>
         <CircularProgress />
       </Box>
     );
@@ -1202,96 +1210,121 @@ export default function ProductList() {
 
   if (error) {
     return (
-      <Box sx={{ p: 2, color: 'error.main' }}>
+      <Box sx={{ p: 2, color: "error.main" }}>
         <Typography color="error">{error}</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: '100%', padding: 1 }}>
+    <Box sx={{ width: "100%", padding: 0 }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={snackbar.autoHideDuration}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
+      {/* PRODUCTS PAGE */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, mb: 1 }}>
+        <Typography variant="h5" sx={{ mr: 0 }}>
+          Products
+        </Typography>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h5" sx={{ mr: 0 }}>Products</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {isAdmin && (
-            <>
-              <Button
-                variant="outlined"
-                onClick={() => setShowProductImport(true)}
-                startIcon={<ImportIcon />}
-              >
-                Products
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => setShowPriceImport(true)}
-                startIcon={<ImportIcon />}
-              >
-                Prices
-              </Button>
-            </>
-          )}
+        {/* IMPORT PRODUCTS */}
+        <Box sx={{ display: "flex" }}>
           {(isAdmin || isContributor) && (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={() => setAddDialogOpen(true)}
-            >
+            <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => setAddDialogOpen(true)}>
               Product
             </Button>
           )}
         </Box>
       </Box>
 
-      <Dialog
-        open={showProductImport}
-        onClose={() => setShowProductImport(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Import Products</DialogTitle>
-        <DialogContent>
-          <ProductImport onClose={() => setShowProductImport(false)} />
-        </DialogContent>
-      </Dialog>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
+          {isAdmin && (
+            <>
+              <Button variant="outlined" onClick={() => setShowProductImport(true)} startIcon={<ImportIcon />}>
+                Products
+              </Button>
+              <Button variant="outlined" onClick={() => setShowPriceImport(true)} startIcon={<ImportIcon />}>
+                Prices
+              </Button>
+            </>
+          )}
+        </Box>
+      </Box>
 
-      <Dialog
-        open={showPriceImport}
-        onClose={() => setShowPriceImport(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Import Prices</DialogTitle>
-        <DialogContent>
-          <PriceImport onClose={() => setShowPriceImport(false)} />
-        </DialogContent>
-      </Dialog>
+      <Box sx={{ width: "100%", mt: 0, p: 1 }}>
+        {/* Search and Filters Container */}
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 1,
+            mb: 1
+          }}
+        >
+          {/* Search Box */}
+          <TextField
+            sx={{
+              order: { xs: 3, sm: 1 },
+              flex: { xs: "1 1 100%", sm: "1 1 300px" },
+              minWidth: "200px",
+              "& .MuiInputBase-root": {
+                height: "40px"
+              }
+            }}
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search products & prices..."
+            variant="outlined"
+            size="small"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => handleSearchChange("")} edge="end">
+                    <ClearIcon />
+                  </IconButton>
+                </InputAdornment>
+              ) : null
+            }}
+          />
 
-      <Box sx={{ width: '100%', padding: { xs: 1, sm: 3 } }}>
-        <Box className="filters-container" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Use My Location */}
           <FormControlLabel
-            control={
-              <Checkbox
-                checked={filters.locationEnabled}
-                onChange={handleLocationToggle}
-                disabled={!userSettings?.location?.country}
-              />
-            }
+            sx={{
+              order: { xs: 1, sm: 2 },
+              m: 0,
+              "& .MuiCheckbox-root": {
+                p: 0.5
+              }
+            }}
+            control={<Checkbox checked={useMyLocation} onChange={(e) => setUseMyLocation(e.target.checked)} size="small" />}
             label="Use My Location"
           />
-          <Box className="filter-item" sx={{ flexGrow: 1 }}>
+
+          {/* Categories */}
+          <Box
+            sx={{
+              order: { xs: 2, sm: 3 },
+              flex: { xs: "1 1 100%", sm: "1 1 300px" },
+              minWidth: "200px",
+              "& .MuiInputBase-root": {
+                height: "40px"
+              }
+            }}
+          >
             {!showNewCategoryInput ? (
               <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
@@ -1300,11 +1333,11 @@ export default function ProductList() {
                   label="Category"
                   onChange={(e) => {
                     const value = e.target.value;
-                    if (value === 'add_new') {
+                    if (value === "add_new") {
                       setShowNewCategoryInput(true);
-                      setFilters(prev => ({ ...prev, category: '' }));
+                      setFilters((prev) => ({ ...prev, category: "" }));
                     } else {
-                      setFilters(prev => ({ ...prev, category: value }));
+                      setFilters((prev) => ({ ...prev, category: value }));
                     }
                   }}
                   displayEmpty
@@ -1315,7 +1348,7 @@ export default function ProductList() {
                         sx={{ mr: 4 }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setFilters(prev => ({ ...prev, category: '' }));
+                          setFilters((prev) => ({ ...prev, category: "" }));
                         }}
                       >
                         <ClearIcon fontSize="small" />
@@ -1325,30 +1358,28 @@ export default function ProductList() {
                 >
                   <MenuItem value="">All Categories</MenuItem>
                   {PRODUCT_CATEGORIES.map((category) => (
-                    <MenuItem key={category} value={category}>{category}</MenuItem>
+                    <MenuItem key={category} value={category}>
+                      {category}
+                    </MenuItem>
                   ))}
-                  <MenuItem value="add_new"><em>+ Add New Category</em></MenuItem>
+                  <MenuItem value="add_new">
+                    <em>+ Add New Category</em>
+                  </MenuItem>
                 </Select>
               </FormControl>
             ) : (
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  fullWidth
-                  label="New Category"
-                  value={newCategoryInput}
-                  onChange={(e) => setNewCategoryInput(e.target.value)}
-                  required
-                />
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
                 <Button
                   variant="contained"
                   onClick={() => {
                     if (newCategoryInput.trim()) {
-                      setFilters(prev => ({ ...prev, category: newCategoryInput.trim() }));
+                      setFilters((prev) => ({ ...prev, category: newCategoryInput.trim() }));
                       if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
                         PRODUCT_CATEGORIES.push(newCategoryInput.trim());
                       }
                       setShowNewCategoryInput(false);
-                      setNewCategoryInput('');
+                      setNewCategoryInput("");
                     }
                   }}
                 >
@@ -1358,7 +1389,7 @@ export default function ProductList() {
                   variant="outlined"
                   onClick={() => {
                     setShowNewCategoryInput(false);
-                    setNewCategoryInput('');
+                    setNewCategoryInput("");
                   }}
                 >
                   Cancel
@@ -1369,563 +1400,124 @@ export default function ProductList() {
         </Box>
       </Box>
 
-      <Dialog
-        open={!!deleteConfirmProduct}
-        onClose={() => setDeleteConfirmProduct(null)}
-      >
-        <DialogTitle>Confirm Delete</DialogTitle>
+      <Dialog open={showProductImport} onClose={() => setShowProductImport(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Import Products</DialogTitle>
         <DialogContent>
-          <Typography>
-            Are you sure you want to delete {deleteConfirmProduct?.name}? This action cannot be undone.
-          </Typography>
+          <ProductImport
+            onSuccess={() => {
+              setShowProductImport(false);
+              fetchData();
+            }}
+            onError={(error) => {
+              setError(error);
+              setShowProductImport(false);
+            }}
+          />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirmProduct(null)}>Cancel</Button>
-          {isAdmin && (
-            <Button
-              onClick={() => {
-                if (deleteConfirmProduct) {
-                  confirmDelete();
-                }
-                setDeleteConfirmProduct(null);
-              }}
-              color="error"
-              variant="contained"
-            >
-              Delete
-            </Button>
-          )}
-        </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={!!editingProduct}
-        onClose={() => setEditingProduct(null)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Edit Product</DialogTitle>
+      <Dialog open={showPriceImport} onClose={() => setShowPriceImport(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Import Prices</DialogTitle>
         <DialogContent>
-          {editingProduct && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <TextField
-                label="Name"
-                defaultValue={editingProduct.name}
-                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, name: e.target.value } : null)}
-              />
-              <TextField
-                label="Brand"
-                defaultValue={editingProduct.brand}
-                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, brand: e.target.value } : null)}
-              />
-              <FormControl fullWidth>
-                <InputLabel>Company</InputLabel>
-                <Select
-                  value={editingProduct.company_id || ''}
-                  onChange={(e) => handleCompanySelect(e.target.value)}
-                  label="Company"
-                >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  {Object.entries(companies).map(([id, company]) => (
-                    <MenuItem key={id} value={id}>
-                      {company.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => handleNewCompany('edit')}
-                  variant="outlined"
-                >
-                  Add New Company
-                </Button>
-                {editingProduct.company_id && (
-                  <Button
-                    size="small"
-                    onClick={() => handleViewCompany(editingProduct.company_id!)}
-                    variant="outlined"
-                  >
-                    View Company Details
-                  </Button>
-                )}
-              </Box>
-              {!showNewCategoryInput ? (
-                <FormControl fullWidth required>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={editingProduct.category}
-                    label="Category"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === 'add_new') {
-                        setShowNewCategoryInput(true);
-                        setEditingProduct(prev => prev ? { ...prev, category: '' } : null);
-                      } else {
-                        setEditingProduct(prev => prev ? { ...prev, category: value } : null);
-                      }
-                    }}
-                  >
-                    {PRODUCT_CATEGORIES.map((category) => (
-                      <MenuItem key={category} value={category}>{category}</MenuItem>
-                    ))}
-                    <MenuItem value="add_new"><em>+ Add New Category</em></MenuItem>
-                  </Select>
-                </FormControl>
-              ) : (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <TextField
-                    fullWidth
-                    label="New Category"
-                    value={newCategoryInput}
-                    onChange={(e) => setNewCategoryInput(e.target.value)}
-                    required
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={() => {
-                      if (newCategoryInput.trim()) {
-                        setEditingProduct(prev => prev ? { ...prev, category: newCategoryInput.trim() } : null);
-                        if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                          PRODUCT_CATEGORIES.push(newCategoryInput.trim());
-                        }
-                        setShowNewCategoryInput(false);
-                        setNewCategoryInput('');
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      setShowNewCategoryInput(false);
-                      setNewCategoryInput('');
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </Box>
-              )}
-
-              <Typography variant="subtitle1" gutterBottom>
-                Origin
-              </Typography>
-              <TextField
-                label="Country"
-                defaultValue="Canada"
-                onChange={(e) => setEditingProduct(prev => prev ? { 
-                  ...prev, 
-                  origin: { ...prev.origin, country: e.target.value }
-                } : null)}
-              />
-              <TextField
-                label="Province"
-                defaultValue={editingProduct.origin.province}
-                onChange={(e) => setEditingProduct(prev => prev ? { 
-                  ...prev, 
-                  origin: { ...prev.origin, province: e.target.value }
-                } : null)}
-              />
-              <TextField
-                label="City"
-                defaultValue={editingProduct.origin.city}
-                onChange={(e) => setEditingProduct(prev => prev ? { 
-                  ...prev, 
-                  origin: { ...prev.origin, city: e.target.value }
-                } : null)}
-              />
-
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Tags
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
-                  {Object.entries(editingProduct.product_tags || {}).map(([key, value]) => (
-                    <Chip
-                      key={key}
-                      label={`${key}: ${value}`}
-                      onDelete={() => {
-                        setEditingProduct(prev => {
-                          if (!prev) return null;
-                          const newTags = { ...prev.product_tags };
-                          delete newTags[key];
-                          return { ...prev, product_tags: newTags };
-                        });
-                      }}
-                      size="small"
-                    />
-                  ))}
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <TextField
-                    label="Tag Name"
-                    size="small"
-                    inputRef={attributeNameRef}
-                  />
-                  <TextField
-                    label="Value"
-                    size="small"
-                    fullWidth
-                    inputRef={attributeValueRef}
-                  />
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      const name = attributeNameRef.current?.value;
-                      const value = attributeValueRef.current?.value;
-                      if (name && value) {
-                        setEditingProduct(prev => {
-                          if (!prev) return null;
-                          return {
-                            ...prev,
-                            product_tags: {
-                              ...prev.product_tags,
-                              [name]: value
-                            }
-                          };
-                        });
-                        if (attributeNameRef.current) attributeNameRef.current.value = '';
-                        if (attributeValueRef.current) attributeValueRef.current.value = '';
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
-                </Box>
-              </Box>
-            </Box>
-          )}
+          <PriceImport onClose={() => setShowPriceImport(false)} />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingProduct(null)}>Cancel</Button>
-          <Button onClick={() => editingProduct && handleUpdateProduct(editingProduct)} color="primary">
-            Save Changes
-          </Button>
-        </DialogActions>
       </Dialog>
 
-      <Dialog 
-        open={addDialogOpen} 
-        onClose={() => setAddDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Add New Product</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              fullWidth
-              label="Name"
-              value={newProduct.name}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
-            />
-            <TextField
-              fullWidth
-              label="Brand"
-              value={newProduct.brand}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, brand: e.target.value }))}
-            />
-            <FormControl fullWidth>
-              <InputLabel>Company</InputLabel>
-              <Select
-                value={newProduct.company_id || ''}
-                onChange={(e) => handleCompanySelect(e.target.value)}
-                label="Company"
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {Object.entries(companies).map(([id, company]) => (
-                  <MenuItem key={id} value={id}>
-                    {company.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => handleNewCompany('add')}
-                variant="outlined"
-              >
-                Add New Company
-              </Button>
-              {newProduct.company_id && (
-                <Button
-                  size="small"
-                  onClick={() => handleViewCompany(newProduct.company_id!)}
-                  variant="outlined"
-                >
-                  View Company Details
-                </Button>
-              )}
-            </Box>
-            {!showNewCategoryInput ? (
-              <FormControl fullWidth required>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={newProduct.category}
-                  label="Category"
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === 'add_new') {
-                      setShowNewCategoryInput(true);
-                      setNewProduct(prev => ({ ...prev, category: '' }));
-                    } else {
-                      setNewProduct(prev => ({ ...prev, category: value }));
-                    }
-                  }}
-                >
-                  {PRODUCT_CATEGORIES.map((category) => (
-                    <MenuItem key={category} value={category}>{category}</MenuItem>
-                  ))}
-                  <MenuItem value="add_new"><em>+ Add New Category</em></MenuItem>
-                </Select>
-              </FormControl>
-            ) : (
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  fullWidth
-                  label="New Category"
-                  value={newCategoryInput}
-                  onChange={(e) => setNewCategoryInput(e.target.value)}
-                  required
-                />
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    if (newCategoryInput.trim()) {
-                      setNewProduct(prev => ({ ...prev, category: newCategoryInput.trim() }));
-                      if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                        PRODUCT_CATEGORIES.push(newCategoryInput.trim());
-                      }
-                      setShowNewCategoryInput(false);
-                      setNewCategoryInput('');
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setShowNewCategoryInput(false);
-                    setNewCategoryInput('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            )}
-
-            <Typography variant="subtitle1" gutterBottom>
-              Origin
-            </Typography>
-            <TextField
-              label="Country"
-              defaultValue="Canada"
-              value={newProduct.origin.country}
-              onChange={(e) => setNewProduct(prev => ({ 
-                ...prev, 
-                origin: { ...prev.origin, country: e.target.value }
-              }))}
-            />
-            <TextField
-              label="Province"
-              value={newProduct.origin.province}
-              onChange={(e) => setNewProduct(prev => ({ 
-                ...prev, 
-                origin: { ...prev.origin, province: e.target.value }
-              }))}
-            />
-            <TextField
-              label="City"
-              value={newProduct.origin.city}
-              onChange={(e) => setNewProduct(prev => ({ 
-                ...prev, 
-                origin: { ...prev.origin, city: e.target.value }
-              }))}
-            />
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Tags
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, mb: 0 }}>
-                {Object.entries(newProduct.product_tags || {}).map(([key, value]) => (
-                  <Chip
-                    key={key}
-                    label={`${key}: ${value}`}
-                    onDelete={() => {
-                      setNewProduct(prev => {
-                        const newTags = { ...prev.product_tags };
-                        delete newTags[key];
-                        return { ...prev, product_tags: newTags };
-                      });
-                    }}
-                    size="small"
-                  />
-                ))}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label="Tag Name"
-                  size="small"
-                  inputRef={attributeNameRef}
-                />
-                <TextField
-                  label="Value"
-                  size="small"
-                  inputRef={attributeValueRef}
-                />
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    const name = attributeNameRef.current?.value;
-                    const value = attributeValueRef.current?.value;
-                    if (name && value) {
-                      setNewProduct(prev => ({
-                        ...prev,
-                        product_tags: {
-                          ...prev.product_tags,
-                          [name]: value
-                        }
-                      }));
-                      if (attributeNameRef.current) attributeNameRef.current.value = '';
-                      if (attributeValueRef.current) attributeValueRef.current.value = '';
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProduct} variant="contained" color="primary">
-            Add Product
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ width: "100%", overflow: "hidden" }}>
         <TableContainer>
           <Table size="small" className="compact-table">
-            <TableHead sx={{ 
-              backgroundColor: '#c5c5c5',
-              '& th': {
-                fontWeight: 'bold',
-                color: 'rgba(0, 0, 0, 0.87)',
-                whiteSpace: 'nowrap'
-              }
-            }}>
+            <TableHead
+              sx={{
+                backgroundColor: "#c5c5c5",
+                "& th": {
+                  fontWeight: "bold",
+                  color: "rgba(0, 0, 0, 0.87)",
+                  whiteSpace: "nowrap"
+                }
+              }}
+            >
               <TableRow>
-                <TableCell padding="none" sx={{ width: '28px' }} />
-                <TableCell sx={{ width: '25%', textAlign: 'left'  }}>Product</TableCell>
-                <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">Details</TableCell>
-                <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">Tags</TableCell>
-                <TableCell sx={{ width: '10%', textAlign: 'right' }}>Actions</TableCell>
+                <TableCell padding="none" sx={{ width: "28px" }} />
+                <TableCell sx={{ width: "25%", textAlign: "left" }}>Product</TableCell>
+                <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
+                  Details
+                </TableCell>
+                <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
+                  Tags
+                </TableCell>
+                <TableCell sx={{ width: "10%", textAlign: "right" }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredProducts
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((product, index) => (
+              {filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((product, index) => (
                 <React.Fragment key={product._id}>
-                  <TableRow 
-                    sx={{ 
-                      '&:nth-of-type(odd)': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  <TableRow
+                    sx={{
+                      "&:nth-of-type(odd)": {
+                        backgroundColor: "rgba(0, 0, 0, 0.04)"
                       },
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                      "&:hover": {
+                        backgroundColor: "rgba(0, 0, 0, 0.1)"
                       }
                     }}
                   >
-                    <TableCell padding="none" sx={{ width: '48px' }}>
-                      <IconButton
-                        aria-label="expand row"
-                        size="small"
-                        onClick={() => toggleRow(product._id)}
-                      >
+                    <TableCell padding="none" sx={{ width: "48px" }}>
+                      <IconButton aria-label="expand row" size="small" onClick={() => toggleRow(product._id)}>
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
-                    
+
                     {/* NAME / BRAND */}
-                    <TableCell sx={{ width: '25%',  textAlign: 'left'  }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <TableCell sx={{ width: "25%", textAlign: "left" }}>
+                      <Box sx={{ display: "flex", flexDirection: "column" }}>
                         <Typography variant="body1">{product.name}</Typography>
-                        <Typography variant="body2" color="textSecondary">{product.brand}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {product.brand}
+                        </Typography>
                       </Box>
                     </TableCell>
 
                     {/* DETAILS */}
-                    <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <Typography variant="body2">{product.category}</Typography>
                         <Typography variant="body2" color="textSecondary">
                           {product.company_id && companies[product.company_id]?.name}
                           {product.origin?.city && product.origin?.province && (
                             <span>
-                              {product.company_id ? ' - ' : ''}
+                              {product.company_id ? " - " : ""}
                               {`${product.origin.city}, ${product.origin.province}`}
                             </span>
                           )}
                         </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ width: '30%', textAlign: 'center' }} className="hide-on-mobile">
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
                         {Object.entries(product.product_tags || {}).map(([key, value]) => (
-                          <Chip
-                            key={key}
-                            label={`${key}: ${value}`}
-                            size="small"
-                            sx={{ margin: '2px' }}
-                          />
+                          <Chip key={key} label={`${key}: ${value}`} size="small" sx={{ margin: "2px" }} />
                         ))}
                         {(!product.product_tags || Object.keys(product.product_tags).length === 0) && (
-                          <Typography variant="body2" color="textSecondary">NA</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            NA
+                          </Typography>
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ width: '15%', textAlign: 'right' }}>
+                    <TableCell sx={{ width: "15%", textAlign: "right" }}>
                       <Box className="action-buttons">
                         {(isAdmin || isContributor) && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenPriceDialog(product)}
-                            color="primary"
-                          >
+                          <IconButton size="small" onClick={() => handleOpenPriceDialog(product)} color="primary">
                             <AttachMoneyIcon />
                           </IconButton>
                         )}
                         {(isAdmin || isContributor) && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditProduct(product)}
-                            color="primary"
-                          >
+                          <IconButton size="small" onClick={() => handleEditProduct(product)} color="primary">
                             <EditIcon />
                           </IconButton>
                         )}
                         {isAdmin && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteProduct(product)}
-                            color="error"
-                          >
+                          <IconButton size="small" onClick={() => handleDeleteProduct(product)} color="error">
                             <DeleteIcon />
                           </IconButton>
                         )}
@@ -1933,25 +1525,20 @@ export default function ProductList() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell 
-                      style={{ paddingBottom: 0, paddingTop: 0 }} 
+                    <TableCell
+                      style={{ paddingBottom: 0, paddingTop: 0 }}
                       colSpan={5}
                       sx={{
-                        backgroundColor: 'rgba(188, 188, 188, 0.4)',
-                        borderBottom: 'none'
+                        backgroundColor: "rgba(188, 188, 188, 0.4)",
+                        borderBottom: "none"
                       }}
                     >
                       <Collapse in={expandedRows[product._id]} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 1 }}>
-                          <Typography variant="subtitle1" gutterBottom component="div" sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Typography variant="subtitle1" gutterBottom component="div" sx={{ display: "flex", alignItems: "center" }}>
                             Price History
                             {(isAdmin || isContributor) && (
-                              <Button
-                                size="small"
-                                startIcon={<AddIcon />}
-                                onClick={() => handleOpenPriceDialog(product)}
-                                sx={{ ml: 1 }}
-                              >
+                              <Button size="small" startIcon={<AddIcon />} onClick={() => handleOpenPriceDialog(product)} sx={{ ml: 1 }}>
                                 Add Price
                               </Button>
                             )}
@@ -1959,17 +1546,17 @@ export default function ProductList() {
                           <Grid container spacing={2}>
                             {filterPricesByLocation(product.prices || []).map((price, index) => (
                               <Grid item xs={12} sm={6} key={index}>
-                                <Paper 
-                                  elevation={0} 
-                                  sx={{ 
-                                    p: 1.5, 
-                                    bgcolor: 'background.default',
-                                    border: '1px solid',
-                                    borderColor: 'divider'
+                                <Paper
+                                  elevation={0}
+                                  sx={{
+                                    p: 1.5,
+                                    bgcolor: "background.default",
+                                    border: "1px solid",
+                                    borderColor: "divider"
                                   }}
                                 >
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
+                                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                                    <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
                                       ${price.amount.toFixed(2)} / {price.unit}
                                       {price.name && (
                                         <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
@@ -1979,16 +1566,10 @@ export default function ProductList() {
                                     </Typography>
                                     {(isAdmin || (isContributor && price.created_by === auth.currentUser?.uid)) && (
                                       <Box>
-                                        <IconButton
-                                          size="small"
-                                          onClick={() => handleOpenEditPriceDialog(product._id, index, price)}
-                                        >
+                                        <IconButton size="small" onClick={() => handleOpenEditPriceDialog(product._id, index, price)}>
                                           <EditIcon />
                                         </IconButton>
-                                        <IconButton
-                                          size="small"
-                                          onClick={() => handleDeletePrice(product._id, index)}
-                                        >
+                                        <IconButton size="small" onClick={() => handleDeletePrice(product._id, index)}>
                                           <DeleteIcon />
                                         </IconButton>
                                       </Box>
@@ -1996,22 +1577,23 @@ export default function ProductList() {
                                   </Box>
                                   <Grid container spacing={2}>
                                     <Grid item xs={6}>
-                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                                         <Typography variant="body2" color="textSecondary">
-                                          📍 {price.location?.city && price.location?.province 
+                                          📍{" "}
+                                          {price.location?.city && price.location?.province
                                             ? `${price.location.city}, ${price.location.province}`
-                                            : price.location?.country || ''}
+                                            : price.location?.country || ""}
                                         </Typography>
                                         <Typography variant="body2" color="textSecondary">
                                           📅 {formatDate(price.date)}
                                         </Typography>
                                         <Typography variant="body2" color="textSecondary">
-                                          🏪 {price.store || 'No store specified'}
+                                          🏪 {price.store || "No store specified"}
                                         </Typography>
                                       </Box>
                                     </Grid>
                                     <Grid item xs={6}>
-                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                                         {price.source && (
                                           <Typography variant="body2" color="textSecondary">
                                             Source: {price.source}
@@ -2038,12 +1620,7 @@ export default function ProductList() {
                                     </Grid>
                                   </Grid>
                                   {price.sales_link && (
-                                    <Button
-                                      size="small"
-                                      startIcon={<OpenInNewIcon />}
-                                      onClick={() => window.open(price.sales_link, '_blank')}
-                                      sx={{ mt: 1 }}
-                                    >
+                                    <Button size="small" startIcon={<OpenInNewIcon />} onClick={() => window.open(price.sales_link, "_blank")} sx={{ mt: 1 }}>
                                       View Product Link
                                     </Button>
                                   )}
@@ -2077,304 +1654,507 @@ export default function ProductList() {
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           sx={{
-            backgroundColor: '#c5c5c5',
-              '& th': {
-                fontWeight: 'bold',
-                color: 'rgba(0, 0, 0, 0.87)'
-              
-            },
+            backgroundColor: "#c5c5c5",
+            "& th": {
+              fontWeight: "bold",
+              color: "rgba(0, 0, 0, 0.87)"
+            }
           }}
         />
+      </Paper>
 
-        <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
-          <DialogTitle>
-            Add Price for {selectedProduct?.name}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Name (e.g. Gala - Organic)"
-                  placeholder="Enter a specific name or variation"
-                  value={newPrice.name}
-                  onChange={(e) => setNewPrice(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Price"
-                  value={newPrice.amount}
-                  onChange={(e) => setNewPrice(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
-                  InputProps={{
-                    inputProps: { min: 0, step: 0.01 }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Unit</InputLabel>
+      <Dialog open={!!deleteConfirmProduct} onClose={() => setDeleteConfirmProduct(null)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to delete {deleteConfirmProduct?.name}? This action cannot be undone.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmProduct(null)}>Cancel</Button>
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                if (deleteConfirmProduct) {
+                  confirmDelete();
+                }
+                setDeleteConfirmProduct(null);
+              }}
+              color="error"
+              variant="contained"
+            >
+              Delete
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!editingProduct} onClose={() => setEditingProduct(null)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Product</DialogTitle>
+        <DialogContent>
+          {editingProduct && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+              <TextField
+                label="Name"
+                defaultValue={editingProduct.name}
+                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, name: e.target.value } : null))}
+              />
+              <TextField
+                label="Brand"
+                defaultValue={editingProduct.brand}
+                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, brand: e.target.value } : null))}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Company</InputLabel>
+                <Select value={editingProduct.company_id || ""} onChange={(e) => handleCompanySelect(e.target.value)} label="Company">
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {Object.entries(companies).map(([id, company]) => (
+                    <MenuItem key={id} value={id}>
+                      {company.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
+                <Button size="small" startIcon={<AddIcon />} onClick={() => handleNewCompany("edit")} variant="outlined">
+                  Add New Company
+                </Button>
+                {editingProduct.company_id && (
+                  <Button size="small" onClick={() => handleViewCompany(editingProduct.company_id!)} variant="outlined">
+                    View Company Details
+                  </Button>
+                )}
+              </Box>
+              {!showNewCategoryInput ? (
+                <FormControl fullWidth required>
+                  <InputLabel>Category</InputLabel>
                   <Select
-                    value={newPrice.unit}
-                    label="Unit"
-                    onChange={(e) => setNewPrice(prev => ({ ...prev, unit: e.target.value }))}
+                    value={editingProduct.category}
+                    label="Category"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "add_new") {
+                        setShowNewCategoryInput(true);
+                        setEditingProduct((prev) => (prev ? { ...prev, category: "" } : null));
+                      } else {
+                        setEditingProduct((prev) => (prev ? { ...prev, category: value } : null));
+                      }
+                    }}
                   >
-                    {PRODUCT_UNITS.map((unit) => (
-                      <MenuItem key={unit} value={unit}>{unit}</MenuItem>
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <MenuItem key={category} value={category}>
+                        {category}
+                      </MenuItem>
                     ))}
+                    <MenuItem value="add_new">
+                      <em>+ Add New Category</em>
+                    </MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Store"
-                  value={newPrice.store}
-                  onChange={(e) => setNewPrice(prev => ({ ...prev, store: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Country"
-                  defaultValue="Canada"
-                  value={newPrice.location.country}
-                  onChange={(e) => setNewPrice(prev => ({
-                    ...prev,
-                    location: { ...prev.location, country: e.target.value }
-                  }))}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  label="Province"
-                  value={newPrice.location.province}
-                  onChange={(e) => setNewPrice(prev => ({
-                    ...prev,
-                    location: { ...prev.location, province: e.target.value }
-                  }))}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  label="City"
-                  value={newPrice.location.city}
-                  onChange={(e) => setNewPrice(prev => ({
-                    ...prev,
-                    location: { ...prev.location, city: e.target.value }
-                  }))}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  multiline
-                  rows={2}
-                  value={newPrice.notes}
-                  onChange={(e) => setNewPrice(prev => ({ ...prev, notes: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Sales Link"
-                  value={newPrice.sales_link}
-                  onChange={(e) => setNewPrice(prev => ({ ...prev, sales_link: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
+              ) : (
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      if (newCategoryInput.trim()) {
+                        setEditingProduct((prev) => (prev ? { ...prev, category: newCategoryInput.trim() } : null));
+                        if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                          PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                        }
+                        setShowNewCategoryInput(false);
+                        setNewCategoryInput("");
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setShowNewCategoryInput(false);
+                      setNewCategoryInput("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              )}
+
+              <Typography variant="subtitle1" gutterBottom>
+                Origin
+              </Typography>
+              <TextField
+                label="Country"
+                defaultValue="Canada"
+                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: e.target.value } } : null))}
+              />
+              <TextField
+                label="Province"
+                defaultValue={editingProduct.origin.province}
+                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, province: e.target.value } } : null))}
+              />
+              <TextField
+                label="City"
+                defaultValue={editingProduct.origin.city}
+                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, city: e.target.value } } : null))}
+              />
+
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
                   Tags
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {Object.entries(newPrice.price_tags || {}).map(([key, value]) => (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0, mb: 0 }}>
+                  {Object.entries(editingProduct.product_tags || {}).map(([key, value]) => (
                     <Chip
                       key={key}
                       label={`${key}: ${value}`}
                       onDelete={() => {
-                        setNewPrice(prev => {
-                          const newTags = { ...prev.price_tags };
+                        setEditingProduct((prev) => {
+                          if (!prev) return null;
+                          const newTags = { ...prev.product_tags };
                           delete newTags[key];
-                          return { ...prev, price_tags: newTags };
+                          return { ...prev, product_tags: newTags };
                         });
                       }}
                       size="small"
-                      sx={{ m: 0.5 }}
                     />
                   ))}
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <TextField
-                    label="Tag Name"
-                    size="small"
-                    inputRef={attributeNameRef}
-                  />
-                  <TextField
-                    label="Value"
-                    size="small"
-                    fullWidth
-                    inputRef={attributeValueRef}
-                  />
+                <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                  <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
+                  <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
                   <Button
                     variant="outlined"
+                    size="small"
                     onClick={() => {
                       const name = attributeNameRef.current?.value;
                       const value = attributeValueRef.current?.value;
                       if (name && value) {
-                        setNewPrice(prev => ({
-                          ...prev,
-                          price_tags: {
-                            ...prev.price_tags,
-                            [name]: value
-                          }
-                        }));
-                        if (attributeNameRef.current) attributeNameRef.current.value = '';
-                        if (attributeValueRef.current) attributeValueRef.current.value = '';
+                        setEditingProduct((prev) => {
+                          if (!prev) return null;
+                          return {
+                            ...prev,
+                            product_tags: {
+                              ...prev.product_tags,
+                              [name]: value
+                            }
+                          };
+                        });
+                        if (attributeNameRef.current) attributeNameRef.current.value = "";
+                        if (attributeValueRef.current) attributeValueRef.current.value = "";
                       }
                     }}
                   >
                     Add
                   </Button>
                 </Box>
-              </Grid>
-            </Grid>
-            {error && (
-              <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-                {error}
-              </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingProduct(null)}>Cancel</Button>
+          <Button onClick={() => editingProduct && handleUpdateProduct(editingProduct)} color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ADD NEW PRODUCT DIALOG */}
+      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
+        {/* PAGE TITLE */}
+        <DialogTitle>Add New Product</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+            {/* NAME AND BRAND INPUT */}
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <TextField fullWidth label="Name" value={newProduct.name} onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))} />
+              <TextField fullWidth label="Brand" value={newProduct.brand} onChange={(e) => setNewProduct((prev) => ({ ...prev, brand: e.target.value }))} />
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+              {/* COMPANY SELECT */}
+
+              <FormControl fullWidth>
+                <InputLabel>Company</InputLabel>
+                <Select value={newProduct.company_id || ""} onChange={(e) => handleCompanySelect(e.target.value)} label="Company">
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {Object.entries(companies).map(([id, company]) => (
+                    <MenuItem key={id} value={id}>
+                      {company.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* ADD NEW COMPANY */}
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button size="small" startIcon={<AddIcon />} onClick={() => handleNewCompany("add")} variant="outlined">
+                  Add New Company
+                </Button>
+
+                {/* VIEW COMPANY */}
+                {newProduct.company_id && (
+                  <Button size="small" onClick={() => handleViewCompany(newProduct.company_id!)} variant="outlined">
+                    View Company Details
+                  </Button>
+                )}
+              </Box>
+            </Box>
+
+            {/* CATEGORY */}
+            {!showNewCategoryInput ? (
+              <FormControl fullWidth required>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={newProduct.category}
+                  label="Category"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "add_new") {
+                      setShowNewCategoryInput(true);
+                      setNewProduct((prev) => ({ ...prev, category: "" }));
+                    } else {
+                      setNewProduct((prev) => ({ ...prev, category: value }));
+                    }
+                  }}
+                >
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <MenuItem key={category} value={category}>
+                      {category}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="add_new">
+                    <em>+ Add New Category</em>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            ) : (
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (newCategoryInput.trim()) {
+                      setNewProduct((prev) => ({ ...prev, category: newCategoryInput.trim() }));
+                      if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                        PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                      }
+                      setShowNewCategoryInput(false);
+                      setNewCategoryInput("");
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setShowNewCategoryInput(false);
+                    setNewCategoryInput("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
             )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleClosePriceDialog}>Cancel</Button>
-            <Button onClick={handleAddPrice} variant="contained">
-              Add Price
-            </Button>
-          </DialogActions>
-        </Dialog>
 
-        <Dialog open={editPriceDialogOpen} onClose={handleCloseEditPriceDialog}>
-          <DialogTitle>Edit Price</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Name"
-                  value={editedPrice.name || ''}
-                  onChange={(e) => setEditedPrice(prev => ({ ...prev, name: e.target.value }))}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Price"
-                    type="number"
-                    value={editedPrice.amount || ''}
-                    onChange={(e) => setEditedPrice(prev => ({ ...prev, amount: parseFloat(e.target.value) }))}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Unit</InputLabel>
-                    <Select
-                      value={editedPrice.unit || 'each'}
-                      label="Unit"
-                      onChange={(e) => setEditedPrice(prev => ({ ...prev, unit: e.target.value as typeof PRODUCT_UNITS[number] }))}
-                    >
-                      {PRODUCT_UNITS.map((unit) => (
-                        <MenuItem key={unit} value={unit}>{unit}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Store"
-                  placeholder="Store Name - Address"
-                  value={editedPrice.store || ''}
-                  onChange={(e) => setEditedPrice(prev => ({ ...prev, store: e.target.value }))}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Country"
-                    value={editedPrice.location?.country || 'Canada'}
-                    onChange={(e) => setEditedPrice(prev => ({ 
-                      ...prev, 
-                      location: { ...(prev.location || {}), country: e.target.value }
-                    }))}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Province"
-                    value={editedPrice.location?.province || ''}
-                    onChange={(e) => setEditedPrice(prev => ({ 
-                      ...prev, 
-                      location: { ...(prev.location || {}), province: e.target.value }
-                    }))}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="City"
-                    value={editedPrice.location?.city || ''}
-                    onChange={(e) => setEditedPrice(prev => ({ 
-                      ...prev, 
-                      location: { ...(prev.location || {}), city: e.target.value }
-                    }))}
-                  />
-                </Grid>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Sales Link"
-                  value={editedPrice.sales_link || ''}
-                  onChange={(e) => setEditedPrice(prev => ({ ...prev, sales_link: e.target.value }))}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Notes"
-                  value={editedPrice.notes || ''}
-                  onChange={(e) => setEditedPrice(prev => ({ ...prev, notes: e.target.value }))}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
+            <Typography variant="subtitle1" gutterBottom>
+              Origin
+            </Typography>
+            <TextField
+              label="Country"
+              defaultValue="Canada"
+              value={newProduct.origin.country}
+              onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: e.target.value } }))}
+            />
+            <TextField
+              label="Province"
+              value={newProduct.origin.province}
+              onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, province: e.target.value } }))}
+            />
+            <TextField
+              label="City"
+              value={newProduct.origin.city}
+              onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, city: e.target.value } }))}
+            />
 
-              <Typography variant="subtitle1" sx={{ mr: 1, ml: 1}} >
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
                 Tags
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                {Object.entries(editedPrice.price_tags || {}).map(([key, value]) => (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0, mb: 0 }}>
+                {Object.entries(newProduct.product_tags || {}).map(([key, value]) => (
                   <Chip
                     key={key}
                     label={`${key}: ${value}`}
                     onDelete={() => {
-                      setEditedPrice(prev => {
+                      setNewProduct((prev) => {
+                        const newTags = { ...prev.product_tags };
+                        delete newTags[key];
+                        return { ...prev, product_tags: newTags };
+                      });
+                    }}
+                    size="small"
+                  />
+                ))}
+              </Box>
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
+                <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const name = attributeNameRef.current?.value;
+                    const value = attributeValueRef.current?.value;
+                    if (name && value) {
+                      setNewProduct((prev) => ({
+                        ...prev,
+                        product_tags: {
+                          ...prev.product_tags,
+                          [name]: value
+                        }
+                      }));
+                      if (attributeNameRef.current) attributeNameRef.current.value = "";
+                      if (attributeValueRef.current) attributeValueRef.current.value = "";
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddProduct} variant="contained" color="primary">
+            Add Product
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
+        <DialogTitle>Add Price for {selectedProduct?.name}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Name (e.g. Gala - Organic)"
+                placeholder="Enter a specific name or variation"
+                value={newPrice.name}
+                onChange={(e) => setNewPrice((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Price"
+                value={newPrice.amount}
+                onChange={(e) => setNewPrice((prev) => ({ ...prev, amount: parseFloat(e.target.value) }))}
+                InputProps={{
+                  inputProps: { min: 0, step: 0.01 }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Unit</InputLabel>
+                <Select value={newPrice.unit} label="Unit" onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}>
+                  {PRODUCT_UNITS.map((unit) => (
+                    <MenuItem key={unit} value={unit}>
+                      {unit}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Store"
+                value={newPrice.store}
+                onChange={(e) => setNewPrice((prev) => ({ ...prev, store: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                required
+                label="Country"
+                defaultValue="Canada"
+                value={newPrice.location.country}
+                onChange={(e) =>
+                  setNewPrice((prev) => ({
+                    ...prev,
+                    location: { ...prev.location, country: e.target.value }
+                  }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Province"
+                value={newPrice.location.province}
+                onChange={(e) =>
+                  setNewPrice((prev) => ({
+                    ...prev,
+                    location: { ...prev.location, province: e.target.value }
+                  }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="City"
+                value={newPrice.location.city}
+                onChange={(e) =>
+                  setNewPrice((prev) => ({
+                    ...prev,
+                    location: { ...prev.location, city: e.target.value }
+                  }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                multiline
+                rows={2}
+                value={newPrice.notes}
+                onChange={(e) => setNewPrice((prev) => ({ ...prev, notes: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Sales Link"
+                value={newPrice.sales_link}
+                onChange={(e) => setNewPrice((prev) => ({ ...prev, sales_link: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                Tags
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                {Object.entries(newPrice.price_tags || {}).map(([key, value]) => (
+                  <Chip
+                    key={key}
+                    label={`${key}: ${value}`}
+                    onDelete={() => {
+                      setNewPrice((prev) => {
                         const newTags = { ...prev.price_tags };
                         delete newTags[key];
                         return { ...prev, price_tags: newTags };
@@ -2385,33 +2165,24 @@ export default function ProductList() {
                   />
                 ))}
               </Box>
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label="Tag Name"
-                  size="small"
-                  inputRef={attributeNameRef}
-                />
-                <TextField
-                  label="Value"
-                  size="small"
-                  fullWidth
-                  inputRef={attributeValueRef}
-                />
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
+                <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
                 <Button
                   variant="outlined"
                   onClick={() => {
                     const name = attributeNameRef.current?.value;
                     const value = attributeValueRef.current?.value;
                     if (name && value) {
-                      setEditedPrice(prev => ({
+                      setNewPrice((prev) => ({
                         ...prev,
                         price_tags: {
-                          ...(prev.price_tags || {}),
+                          ...prev.price_tags,
                           [name]: value
                         }
                       }));
-                      if (attributeNameRef.current) attributeNameRef.current.value = '';
-                      if (attributeValueRef.current) attributeValueRef.current.value = '';
+                      if (attributeNameRef.current) attributeNameRef.current.value = "";
+                      if (attributeValueRef.current) attributeValueRef.current.value = "";
                     }
                   }}
                 >
@@ -2419,32 +2190,201 @@ export default function ProductList() {
                 </Button>
               </Box>
             </Grid>
-            {error && (
-              <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-                {error}
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseEditPriceDialog}>Cancel</Button>
-            <Button onClick={handleSaveEditedPrice} variant="contained" color="primary">
-              Save Changes
-            </Button>
-          </DialogActions>
-        </Dialog>
+          </Grid>
+          {error && (
+            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+              {error}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePriceDialog}>Cancel</Button>
+          <Button onClick={handleAddPrice} variant="contained">
+            Add Price
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Add Company Dialog */}
-        <Dialog open={showCompanyDialog} onClose={handleCompanyDialogClose}>
-          <DialogTitle>Add New Company</DialogTitle>
-          <DialogContent>
-            <CompanyForm
-              onSubmit={handleCompanySubmit}
-              onCancel={handleCompanyDialogClose}
-              isSubmitting={false}
-            />
-          </DialogContent>
-        </Dialog>
-      </Paper>
+      <Dialog open={editPriceDialogOpen} onClose={handleCloseEditPriceDialog}>
+        <DialogTitle>Edit Price</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Name"
+                value={editedPrice.name || ""}
+                onChange={(e) => setEditedPrice((prev) => ({ ...prev, name: e.target.value }))}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Price"
+                  type="number"
+                  value={editedPrice.amount || ""}
+                  onChange={(e) => setEditedPrice((prev) => ({ ...prev, amount: parseFloat(e.target.value) }))}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Unit</InputLabel>
+                  <Select
+                    value={editedPrice.unit || "each"}
+                    label="Unit"
+                    onChange={(e) => setEditedPrice((prev) => ({ ...prev, unit: e.target.value as (typeof PRODUCT_UNITS)[number] }))}
+                  >
+                    {PRODUCT_UNITS.map((unit) => (
+                      <MenuItem key={unit} value={unit}>
+                        {unit}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Store"
+                placeholder="Store Name - Address"
+                value={editedPrice.store || ""}
+                onChange={(e) => setEditedPrice((prev) => ({ ...prev, store: e.target.value }))}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Country"
+                  value={editedPrice.location?.country || "Canada"}
+                  onChange={(e) =>
+                    setEditedPrice((prev) => ({
+                      ...prev,
+                      location: { ...(prev.location || {}), country: e.target.value }
+                    }))
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Province"
+                  value={editedPrice.location?.province || ""}
+                  onChange={(e) =>
+                    setEditedPrice((prev) => ({
+                      ...prev,
+                      location: { ...(prev.location || {}), province: e.target.value }
+                    }))
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={editedPrice.location?.city || ""}
+                  onChange={(e) =>
+                    setEditedPrice((prev) => ({
+                      ...prev,
+                      location: { ...(prev.location || {}), city: e.target.value }
+                    }))
+                  }
+                />
+              </Grid>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Sales Link"
+                value={editedPrice.sales_link || ""}
+                onChange={(e) => setEditedPrice((prev) => ({ ...prev, sales_link: e.target.value }))}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Notes"
+                value={editedPrice.notes || ""}
+                onChange={(e) => setEditedPrice((prev) => ({ ...prev, notes: e.target.value }))}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+
+            <Typography variant="subtitle1" sx={{ mr: 1, ml: 1 }}>
+              Tags
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+              {Object.entries(editedPrice.price_tags || {}).map(([key, value]) => (
+                <Chip
+                  key={key}
+                  label={`${key}: ${value}`}
+                  onDelete={() => {
+                    setEditedPrice((prev) => {
+                      const newTags = { ...prev.price_tags };
+                      delete newTags[key];
+                      return { ...prev, price_tags: newTags };
+                    });
+                  }}
+                  size="small"
+                  sx={{ m: 0.5 }}
+                />
+              ))}
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+              <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
+              <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  const name = attributeNameRef.current?.value;
+                  const value = attributeValueRef.current?.value;
+                  if (name && value) {
+                    setEditedPrice((prev) => ({
+                      ...prev,
+                      price_tags: {
+                        ...(prev.price_tags || {}),
+                        [name]: value
+                      }
+                    }));
+                    if (attributeNameRef.current) attributeNameRef.current.value = "";
+                    if (attributeValueRef.current) attributeValueRef.current.value = "";
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </Box>
+          </Grid>
+          {error && (
+            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+              {error}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditPriceDialog}>Cancel</Button>
+          <Button onClick={handleSaveEditedPrice} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Company Dialog */}
+      <Dialog open={showCompanyDialog} onClose={handleCompanyDialogClose}>
+        <DialogTitle>Add New Company</DialogTitle>
+        <DialogContent>
+          <CompanyForm onSubmit={handleCompanySubmit} onCancel={handleCompanyDialogClose} isSubmitting={false} />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

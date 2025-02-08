@@ -216,12 +216,15 @@ const Receipts = () => {
         </Typography>
         
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            After taking a picture, you can use your phone's built-in text recognition:
-            <ul style={{ marginBottom: 0, paddingLeft: '1.5rem' }}>
-              <li>Android: Use Google Lens to extract text</li>
-              <li>iPhone: Use Live Text to extract text</li>
-            </ul>
+
+{/* CONSENT CHECKBOX */}
+
+
+          <Alert severity="info" sx={{ mb: 2,  alignItems: 'start'}}>
+            Receipt Scanner Instructions:<br />
+            1. Click "Take Picture" when your receipt is in view<br />
+            2. Save the Image" to process the receipt or "Take Another Picture" to process another receipt<br />
+            <br />
           </Alert>
 
           <FormControl fullWidth sx={{ mb: 2 }}>
@@ -260,8 +263,13 @@ const Receipts = () => {
                 onClick={handleCapture}
                 disabled={!selectedCamera}
               >
-                Capture Receipt
+                Capture Receipt**. 
               </Button>
+              <Alert severity="info" sx={{ mb: 2,  alignItems: 'start'}}>
+You are about to send the receipt to Google Vision for processing. This may take a moment.<br />
+
+            Note: For best results, ensure good lighting and that all text is clearly visible<br />
+          </Alert>
             </>
           ) : (
             <>

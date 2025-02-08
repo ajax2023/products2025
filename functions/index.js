@@ -1,15 +1,31 @@
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
-const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
-const { getStorage } = require("firebase-admin/storage");
+const admin = require("firebase-admin");
 const vision = require("@google-cloud/vision");
 
-// Initialize Firebase Admin SDK with Storage Bucket
-const app = initializeApp({
-  storageBucket: "products-2025-35a50.appspot.com"
-});
+// Initialize Firebase Admin SDK
+admin.initializeApp();
 
 const client = new vision.ImageAnnotatorClient();
+
+async function deleteFile(bucket, filename) {
+  try {
+    const file = admin.storage().bucket(bucket).file(filename);
+    
+    // Check if file exists before attempting deletion
+    const [exists] = await file.exists();
+    if (!exists) {
+      console.log(`File ${filename} does not exist`);
+      return;
+    }
+    
+    console.log(`Attempting to delete file: ${filename}`);
+    await file.delete();
+    console.log(`Successfully deleted file: ${filename}`);
+  } catch (error) {
+    console.error(`Error deleting file ${filename}:`, error);
+    throw error; // Re-throw to handle in the main function
+  }
+}
 
 // Function triggers when a receipt image is uploaded to Firebase Storage
 exports.extractReceiptText = onObjectFinalized(async (event) => {
@@ -29,8 +45,7 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
     const filename = event.data.name.split('/').pop();
     
     // Save extracted text to Firestore
-    const db = getFirestore();
-    await db.collection("receipts").doc(filename).set({ 
+    await admin.firestore().collection("receipts").doc(filename).set({ 
       text,
       timestamp: new Date().toISOString(),
       status: "completed"
@@ -38,10 +53,7 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
     console.log("Saved to Firestore successfully");
 
     // Delete the file from Storage
-    const storage = getStorage();
-    const file = storage.bucket(event.data.bucket).file(event.data.name);
-    await file.delete();
-    console.log("Deleted file from Storage");
+    await deleteFile(event.data.bucket, event.data.name);
 
     return null;
   } catch (error) {
@@ -51,8 +63,7 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
     const filename = event.data.name.split('/').pop();
     
     // Save error to Firestore
-    const db = getFirestore();
-    await db.collection("receipts").doc(filename).set({ 
+    await admin.firestore().collection("receipts").doc(filename).set({ 
       error: error.message,
       timestamp: new Date().toISOString(),
       status: "error"
@@ -60,12 +71,9 @@ exports.extractReceiptText = onObjectFinalized(async (event) => {
 
     // Try to delete the file even if processing failed
     try {
-      const storage = getStorage();
-      const file = storage.bucket(event.data.bucket).file(event.data.name);
-      await file.delete();
-      console.log("Deleted file from Storage after error");
+      await deleteFile(event.data.bucket, event.data.name);
     } catch (deleteError) {
-      console.error("Error deleting file:", deleteError);
+      console.error("Final attempt to delete file failed:", deleteError);
     }
     
     return null;

@@ -1,41 +1,34 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
   IconButton,
-  InputBase,
   Box,
   useTheme,
   alpha,
   Tooltip,
-  Typography,
-  InputAdornment,
 } from '@mui/material';
+
+// Import all required icons
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
-import SettingsIcon from '@mui/icons-material/Settings';
-import BusinessIcon from '@mui/icons-material/Business';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
-import LabelIcon from '@mui/icons-material/Label';
-import PeopleIcon from '@mui/icons-material/People';
-import StorefrontIcon from '@mui/icons-material/Storefront';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import BusinessIcon from '@mui/icons-material/Business';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import SettingsIcon from '@mui/icons-material/Settings';
+import PeopleIcon from '@mui/icons-material/People';
+
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { ViewState } from '../types/navigation';
 
 interface NavbarProps {
-  onTabChange: (tab: ViewState) => void;
-  activeTab: ViewState;
-  user: any;
+  onTabChange?: (tab: ViewState) => void;
+  activeTab?: ViewState;
+  user?: any;
 }
 
 export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
-  const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const theme = useTheme();
   const location = useLocation();
@@ -61,84 +54,53 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
     };
 
     checkUserRole();
-  }, []);
-
-  const handleSearch = (event: React.FormEvent) => {
-    event.preventDefault();
-    // Navigate to products page with search query
-    navigate('/?search=' + encodeURIComponent(searchQuery));
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    navigate('/');
-  };
+  }, [user]);
 
   const isActive = (path: string) => location.pathname === path;
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar>
-        <Toolbar sx={{ gap: 1, px: 1 }}>
+      <AppBar position="fixed">
+        <Toolbar sx={{ 
+          minHeight: { xs: '48px' },
+          overflow: 'hidden'
+        }}>
+          {/* Logo */}
           <img 
             src="/maple-leaf.svg" 
             alt="Maple Leaf"
             style={{ 
-              height: '24px', 
+              height: '32px',
               marginRight: '16px'
             }} 
           />
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+
+          <Box 
+            component="div"
+            sx={{
+              display: 'flex',
+              overflow: 'auto',
+              flexGrow: 1,
+              gap: 0.5,
+              mx: -2,
+              px: 2,
+              '& > *': {
+                flex: 'none'
+              }
+            }}
+          >
             {/* Products */}
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton 
-                color="inherit"
-                sx={{ 
-                  color: isActive('/') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
+              <IconButton color="inherit">
                 <Tooltip title="Products">
                   <ShoppingCartIcon />
                 </Tooltip>
               </IconButton>
             </Link>
 
-            {/* Add Product */}
-            {/* <Link to="/add" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton
-                color="inherit"
-                sx={{ 
-                  color: isActive('/add') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
-                <Tooltip title="Add Product">
-                  <AddCircleOutlineIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
-            {/* Brands */}
-            {/* <Link to="/brands" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton
-                color="inherit"
-                sx={{ 
-                  color: isActive('/brands') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
-                <Tooltip title="Brands">
-                  <LabelIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
             {/* Receipts */}
             <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton
-                color="inherit"
-                sx={{ 
-                  color: isActive('/receipts') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
+              <IconButton color="inherit">
                 <Tooltip title="Receipts">
                   <ReceiptIcon />
                 </Tooltip>
@@ -147,43 +109,30 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
 
             {/* Companies */}
             <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton
-                color="inherit"
-                sx={{ 
-                  color: isActive('/companies') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
+              <IconButton color="inherit">
                 <Tooltip title="Companies">
                   <BusinessIcon />
                 </Tooltip>
               </IconButton>
             </Link>
 
-            {/* Company Info */}
-            {/* <Link to="/company" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton
-                color="inherit"
-                sx={{ 
-                  color: isActive('/company') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
-                <Tooltip title="Company Info">
-                  <StorefrontIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
             {/* Admin Users - Only show if admin */}
             {isAdmin && (
-              <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <IconButton
-                  color="inherit"
-                  sx={{ 
-                    color: isActive('/admin/users') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                  }}
-                >
-                  <Tooltip title="User Management">
+              <Link to="/admin" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <IconButton color="inherit">
+                  <Tooltip title="Admin">
                     <AdminPanelSettingsIcon />
+                  </Tooltip>
+                </IconButton>
+              </Link>
+            )}
+
+            {/* User Management - Only show if admin */}
+            {isAdmin && (
+              <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <IconButton color="inherit">
+                  <Tooltip title="User Management">
+                    <PeopleIcon />
                   </Tooltip>
                 </IconButton>
               </Link>
@@ -191,72 +140,12 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
 
             {/* Settings */}
             <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton
-                color="inherit"
-                sx={{ 
-                  color: isActive('/settings') ? 'white' : alpha(theme.palette.common.white, 0.7)
-                }}
-              >
+              <IconButton color="inherit">
                 <Tooltip title="Settings">
                   <SettingsIcon />
                 </Tooltip>
               </IconButton>
             </Link>
-          </Box>
-
-          {/* Search Box */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
-              component="form"
-              onSubmit={handleSearch}
-              sx={{
-                position: 'relative',
-                borderRadius: 1,
-                backgroundColor: alpha(theme.palette.common.white, 0.15),
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.common.white, 0.25),
-                },
-                marginLeft: 0,
-                width: 'auto',
-              }}
-            >
-              <Box sx={{ padding: theme.spacing(0, 2), height: '100%', position: 'absolute', display: 'flex', alignItems: 'center' }}>
-                <SearchIcon />
-              </Box>
-              <InputBase
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products & prices..."
-                sx={{
-                  color: 'inherit',
-                  padding: theme.spacing(1, 1, 1, 0),
-                  paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-                  width: '100%',
-                  minWidth: '200px',
-                  maxWidth: '250px',
-                }}
-                endAdornment={
-                  searchQuery ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={handleClearSearch}
-                        sx={{ 
-                          color: 'inherit',
-                          padding: '4px',
-                          marginRight: '4px',
-                          '&:hover': {
-                            backgroundColor: alpha(theme.palette.common.white, 0.1),
-                          }
-                        }}
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : null
-                }
-              />
-            </Box>
           </Box>
         </Toolbar>
       </AppBar>
