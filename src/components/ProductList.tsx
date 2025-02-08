@@ -7,50 +7,51 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
-  TextField,
-  Grid,
-  IconButton,
-  Typography,
-  Select,
-  MenuItem,
   FormControl,
   InputLabel,
-  InputAdornment,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
   Chip,
-  Alert,
-  Snackbar,
-  Autocomplete,
-  Collapse,
-  TablePagination,
-  Tooltip,
-  CircularProgress,
-  TableContainer,
+  IconButton,
+  Grid,
+  Paper,
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
-  Paper,
+  TablePagination,
+  Tooltip,
+  Alert,
+  Snackbar,
+  CircularProgress,
+  Collapse,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  DialogContentText,
+  InputAdornment,
+  Autocomplete
 } from "@mui/material";
 import {
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility,
+  Edit as EditIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   Clear as ClearIcon,
   CloudUpload as ImportIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  CameraAlt as CameraAltIcon
 } from "@mui/icons-material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import InfoIcon from "@mui/icons-material/Info";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import CameraDialog from './CameraDialog';
 
 import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -136,7 +137,8 @@ export default function ProductList() {
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: "",
     brand: "",
-    category: "",
+    category: "Food & Beverage",
+    company_id: "",
     origin: {
       country: "Canada",
       province: "",
@@ -144,7 +146,8 @@ export default function ProductList() {
       manufacturer: ""
     },
     product_tags: {},
-    prices: []
+    prices: [],
+    image: ""
   });
 
   // Add filter states
@@ -184,6 +187,8 @@ export default function ProductList() {
     severity: "success",
     autoHideDuration: 3000
   });
+
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
 
   // Function to show snackbar
   const showMessage = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
@@ -1030,14 +1035,16 @@ export default function ProductList() {
       setNewProduct({
         name: "",
         brand: "",
-        category: "",
+        category: "Food & Beverage",
+        company_id: "",
         origin: {
           country: "Canada",
           province: "",
           city: ""
         },
         product_tags: {},
-        prices: []
+        prices: [],
+        image: ""
       });
 
       showMessage("Product added successfully!");
@@ -1215,6 +1222,10 @@ export default function ProductList() {
       </Box>
     );
   }
+
+  const handleImageCapture = (imageUrl: string) => {
+    setNewProduct(prev => ({ ...prev, image: imageUrl }));
+  };
 
   return (
     <Box sx={{ width: "100%", padding: 0 }}>
@@ -1495,7 +1506,12 @@ export default function ProductList() {
                     <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
                       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
                         {Object.entries(product.product_tags || {}).map(([key, value]) => (
-                          <Chip key={key} label={`${key}: ${value}`} size="small" sx={{ margin: "2px" }} />
+                          <Chip
+                            key={key}
+                            label={`${key}: ${value}`}
+                            size="small"
+                            sx={{ margin: "2px" }}
+                          />
                         ))}
                         {(!product.product_tags || Object.keys(product.product_tags).length === 0) && (
                           <Typography variant="body2" color="textSecondary">
@@ -1692,103 +1708,159 @@ export default function ProductList() {
         <DialogContent>
           {editingProduct && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-              <TextField
-                label="Name"
-                defaultValue={editingProduct.name}
-                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, name: e.target.value } : null))}
-              />
-              <TextField
-                label="Brand"
-                defaultValue={editingProduct.brand}
-                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, brand: e.target.value } : null))}
-              />
-              <FormControl fullWidth>
-                <InputLabel>Company</InputLabel>
-                <Select value={editingProduct.company_id || ""} onChange={(e) => handleCompanySelect(e.target.value)} label="Company">
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  {Object.entries(companies).map(([id, company]) => (
-                    <MenuItem key={id} value={id}>
-                      {company.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
-                <Button size="small" startIcon={<AddIcon />} onClick={() => handleNewCompany("edit")} variant="outlined">
-                  Add New Company
-                </Button>
-                {editingProduct.company_id && (
-                  <Button size="small" onClick={() => handleViewCompany(editingProduct.company_id!)} variant="outlined">
-                    View Company Details
-                  </Button>
-                )}
+              {/* NAME AND BRAND INPUT */}
+              <Box sx={{ display: "flex", gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  defaultValue={editingProduct.name}
+                  onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, name: e.target.value } : null))}
+                />
+                <TextField
+                  fullWidth
+                  label="Brand"
+                  defaultValue={editingProduct.brand}
+                  onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, brand: e.target.value } : null))}
+                />
               </Box>
-              {!showNewCategoryInput ? (
-                <FormControl fullWidth required>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={editingProduct.category}
-                    label="Category"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "add_new") {
-                        setShowNewCategoryInput(true);
-                        setEditingProduct((prev) => (prev ? { ...prev, category: "" } : null));
-                      } else {
-                        setEditingProduct((prev) => (prev ? { ...prev, category: value } : null));
-                      }
-                    }}
-                  >
-                    {PRODUCT_CATEGORIES.map((category) => (
-                      <MenuItem key={category} value={category}>
-                        {category}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="add_new">
-                      <em>+ Add New Category</em>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              ) : (
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
-                  <Button
-                    variant="contained"
-                    onClick={() => {
-                      if (newCategoryInput.trim()) {
-                        setEditingProduct((prev) => (prev ? { ...prev, category: newCategoryInput.trim() } : null));
-                        if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                          PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+
+              <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                {/* CATEGORY */}
+                {!showNewCategoryInput ? (
+                  <FormControl fullWidth required>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={editingProduct.category}
+                      label="Category"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "add_new") {
+                          setShowNewCategoryInput(true);
+                          setEditingProduct((prev) => (prev ? { ...prev, category: "" } : null));
+                        } else {
+                          setEditingProduct((prev) => (prev ? { ...prev, category: value } : null));
                         }
+                      }}
+                    >
+                      {PRODUCT_CATEGORIES.map((category) => (
+                        <MenuItem key={category} value={category}>
+                          {category}
+                        </MenuItem>
+                      ))}
+                      <MenuItem value="add_new">
+                        <em>+ Add New Category</em>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        if (newCategoryInput.trim()) {
+                          setEditingProduct((prev) => (prev ? { ...prev, category: newCategoryInput.trim() } : null));
+                          if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                            PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                          }
+                          setShowNewCategoryInput(false);
+                          setNewCategoryInput("");
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
                         setShowNewCategoryInput(false);
                         setNewCategoryInput("");
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      setShowNewCategoryInput(false);
-                      setNewCategoryInput("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </Box>
-              )}
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </Box>
+                )}
+              </Box>
 
               <Typography variant="subtitle1" gutterBottom>
                 Origin
               </Typography>
-              <TextField
-                label="Country"
-                defaultValue="Canada"
-                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: e.target.value } } : null))}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  label="Country"
+                  defaultValue="Canada"
+                  value={editingProduct.origin.country}
+                  onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: e.target.value } } : null))}
+                />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <img 
+                    src="/flags/Canada.png" 
+                    alt="Canada" 
+                    style={{ width: '30px', cursor: 'pointer' }}
+                    onClick={() => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: 'Canada' } } : null))}
+                  />
+                  <img 
+                    src="/flags/United States.png" 
+                    alt="USA" 
+                    style={{ width: '30px', cursor: 'pointer' }}
+                    onClick={() => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: 'USA' } } : null))}
+                  />
+                  <Box 
+                    sx={{ 
+                      width: '30px', 
+                      height: '30px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '20px'
+                    }}
+                    onClick={() => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: 'Other' } } : null))}
+                  >
+                    🌐
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* COMPANY SELECT */}
+              <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                <FormControl fullWidth>
+                  <InputLabel>Company</InputLabel>
+                  <Select
+                    value={editingProduct.company_id || ""}
+                    onChange={(e) => handleCompanySelect(e.target.value)}
+                    label="Company"
+                  >
+                    <MenuItem value="">
+                      <em>None</em>
+                    </MenuItem>
+                    {Object.entries(companies).map(([id, company]) => (
+                      <MenuItem key={id} value={id}>
+                        {company.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* ADD NEW COMPANY */}
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button size="small" startIcon={<AddIcon />} onClick={() => handleNewCompany("edit")} variant="outlined">
+                    Add New Company
+                  </Button>
+
+                  {/* VIEW COMPANY */}
+                  {editingProduct.company_id && (
+                    <Button size="small" onClick={() => handleViewCompany(editingProduct.company_id!)} variant="outlined">
+                      View Company Details
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Commented out province and city fields
               <TextField
                 label="Province"
                 defaultValue={editingProduct.origin.province}
@@ -1799,6 +1871,7 @@ export default function ProductList() {
                 defaultValue={editingProduct.origin.city}
                 onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, city: e.target.value } } : null))}
               />
+              */}
 
               <Box sx={{ mt: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
@@ -1870,16 +1943,130 @@ export default function ProductList() {
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
             {/* NAME AND BRAND INPUT */}
             <Box sx={{ display: "flex", gap: 2 }}>
-              <TextField fullWidth label="Name" value={newProduct.name} onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))} />
-              <TextField fullWidth label="Brand" value={newProduct.brand} onChange={(e) => setNewProduct((prev) => ({ ...prev, brand: e.target.value }))} />
+              <TextField
+                fullWidth
+                label="Name"
+                value={newProduct.name}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                label="Brand"
+                value={newProduct.brand}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, brand: e.target.value }))}
+              />
             </Box>
 
             <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              {/* COMPANY SELECT */}
+              {/* CATEGORY */}
+              {!showNewCategoryInput ? (
+                <FormControl fullWidth required>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={newProduct.category}
+                    label="Category"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "add_new") {
+                        setShowNewCategoryInput(true);
+                        setNewProduct((prev) => ({ ...prev, category: "" }));
+                      } else {
+                        setNewProduct((prev) => ({ ...prev, category: value }));
+                      }
+                    }}
+                  >
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <MenuItem key={category} value={category}>
+                        {category}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="add_new">
+                      <em>+ Add New Category</em>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              ) : (
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      if (newCategoryInput.trim()) {
+                        setNewProduct((prev) => ({ ...prev, category: newCategoryInput.trim() }));
+                        if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
+                          PRODUCT_CATEGORIES.push(newCategoryInput.trim());
+                        }
+                        setShowNewCategoryInput(false);
+                        setNewCategoryInput("");
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setShowNewCategoryInput(false);
+                      setNewCategoryInput("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              )}
+            </Box>
 
+            {/* <Typography variant="subtitle1" gutterBottom>
+              Origin
+            </Typography> */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TextField
+                label="Country"
+                defaultValue="Canada"
+                value={newProduct.origin.country}
+                onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: e.target.value } }))}
+              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <img 
+                  src="/flags/Canada.png" 
+                  alt="Canada" 
+                  style={{ width: '30px', cursor: 'pointer' }}
+                  onClick={() => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: 'Canada' } }))}
+                />
+                <img 
+                  src="/flags/United States.png" 
+                  alt="USA" 
+                  style={{ width: '30px', cursor: 'pointer' }}
+                  onClick={() => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: 'USA' } }))}
+                />
+                <Box 
+                  sx={{ 
+                    width: '30px', 
+                    height: '30px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '20px'
+                  }}
+                  onClick={() => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: 'Other' } }))}
+                >
+                  🌐
+                </Box>
+              </Box>
+            </Box>
+
+            {/* COMPANY SELECT */}
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
               <FormControl fullWidth>
                 <InputLabel>Company</InputLabel>
-                <Select value={newProduct.company_id || ""} onChange={(e) => handleCompanySelect(e.target.value)} label="Company">
+                <Select
+                  value={newProduct.company_id || ""}
+                  onChange={(e) => handleCompanySelect(e.target.value)}
+                  label="Company"
+                >
                   <MenuItem value="">
                     <em>None</em>
                   </MenuItem>
@@ -1906,72 +2093,7 @@ export default function ProductList() {
               </Box>
             </Box>
 
-            {/* CATEGORY */}
-            {!showNewCategoryInput ? (
-              <FormControl fullWidth required>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={newProduct.category}
-                  label="Category"
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "add_new") {
-                      setShowNewCategoryInput(true);
-                      setNewProduct((prev) => ({ ...prev, category: "" }));
-                    } else {
-                      setNewProduct((prev) => ({ ...prev, category: value }));
-                    }
-                  }}
-                >
-                  {PRODUCT_CATEGORIES.map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                  <MenuItem value="add_new">
-                    <em>+ Add New Category</em>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            ) : (
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    if (newCategoryInput.trim()) {
-                      setNewProduct((prev) => ({ ...prev, category: newCategoryInput.trim() }));
-                      if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                        PRODUCT_CATEGORIES.push(newCategoryInput.trim());
-                      }
-                      setShowNewCategoryInput(false);
-                      setNewCategoryInput("");
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setShowNewCategoryInput(false);
-                    setNewCategoryInput("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            )}
-
-            <Typography variant="subtitle1" gutterBottom>
-              Origin
-            </Typography>
-            <TextField
-              label="Country"
-              defaultValue="Canada"
-              value={newProduct.origin.country}
-              onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: e.target.value } }))}
-            />
+            {/* Commented out province and city fields
             <TextField
               label="Province"
               value={newProduct.origin.province}
@@ -1982,8 +2104,31 @@ export default function ProductList() {
               value={newProduct.origin.city}
               onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, city: e.target.value } }))}
             />
+            */}
+                <Box sx={{ p: 0 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Existing form fields */}
+                {/* Camera Button */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<CameraAltIcon />}
+                    onClick={() => setShowCameraDialog(true)}
+                  >
+                    Take Product Picture
+                  </Button>
+                  {newProduct.image && (
+                    <img 
+                      src={newProduct.image} 
+                      alt="Product" 
+                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                    />
+                  )}
+                </Box>
+              </Box>
+            </Box>
 
-            <Box sx={{ mt: 2 }}>
+            <Box sx={{ mt: 0 }}>
               <Typography variant="subtitle1" gutterBottom>
                 Tags
               </Typography>
@@ -2003,7 +2148,7 @@ export default function ProductList() {
                   />
                 ))}
               </Box>
-              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+              <Box sx={{ display: "flex", gap: 1, mb: 0 }}>
                 <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
                 <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
                 <Button
@@ -2029,6 +2174,8 @@ export default function ProductList() {
                 </Button>
               </Box>
             </Box>
+
+        
           </Box>
         </DialogContent>
         <DialogActions>
@@ -2038,6 +2185,13 @@ export default function ProductList() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Camera Dialog */}
+      <CameraDialog
+        open={showCameraDialog}
+        onClose={() => setShowCameraDialog(false)}
+        onCapture={handleImageCapture}
+      />
 
       <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
         <DialogTitle>Add Price for {selectedProduct?.name}</DialogTitle>
@@ -2086,23 +2240,54 @@ export default function ProductList() {
               />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                required
-                label="Country"
-                defaultValue="Canada"
-                value={newPrice.location.country}
-                onChange={(e) =>
-                  setNewPrice((prev) => ({
-                    ...prev,
-                    location: { ...prev.location, country: e.target.value }
-                  }))
-                }
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Country"
+                  defaultValue="Canada"
+                  value={newPrice.location.country}
+                  onChange={(e) =>
+                    setNewPrice((prev) => ({
+                      ...prev,
+                      location: { ...prev.location, country: e.target.value }
+                    }))
+                  }
+                />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <img 
+                    src="/flags/Canada.png" 
+                    alt="Canada" 
+                    style={{ width: '30px', cursor: 'pointer' }}
+                    onClick={() => setNewPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Canada' } }))}
+                  />
+                  <img 
+                    src="/flags/United States.png" 
+                    alt="USA" 
+                    style={{ width: '30px', cursor: 'pointer' }}
+                    onClick={() => setNewPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'USA' } }))}
+                  />
+                  <Box 
+                    sx={{ 
+                      width: '30px', 
+                      height: '30px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '20px'
+                    }}
+                    onClick={() => setNewPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Other' } }))}
+                  >
+                    🌐
+                  </Box>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
-                fullWidth
                 label="Province"
                 value={newPrice.location.province}
                 onChange={(e) =>
@@ -2115,7 +2300,6 @@ export default function ProductList() {
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
-                fullWidth
                 label="City"
                 value={newPrice.location.city}
                 onChange={(e) =>
@@ -2258,22 +2442,53 @@ export default function ProductList() {
             </Grid>
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Country"
-                  value={editedPrice.location?.country || "Canada"}
-                  onChange={(e) =>
-                    setEditedPrice((prev) => ({
-                      ...prev,
-                      location: { ...(prev.location || {}), country: e.target.value }
-                    }))
-                  }
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Country"
+                    value={editedPrice.location?.country || "Canada"}
+                    onChange={(e) =>
+                      setEditedPrice((prev) => ({
+                        ...prev,
+                        location: { ...(prev.location || {}), country: e.target.value }
+                      }))
+                    }
+                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <img 
+                      src="/flags/Canada.png" 
+                      alt="Canada" 
+                      style={{ width: '30px', cursor: 'pointer' }}
+                      onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Canada' } }))}
+                    />
+                    <img 
+                      src="/flags/United States.png" 
+                      alt="USA" 
+                      style={{ width: '30px', cursor: 'pointer' }}
+                      onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'USA' } }))}
+                    />
+                    <Box 
+                      sx={{ 
+                        width: '30px', 
+                        height: '30px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '20px'
+                      }}
+                      onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Other' } }))}
+                    >
+                      🌐
+                    </Box>
+                  </Box>
+                </Box>
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
-                  fullWidth
                   label="Province"
                   value={editedPrice.location?.province || ""}
                   onChange={(e) =>
@@ -2286,7 +2501,6 @@ export default function ProductList() {
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
-                  fullWidth
                   label="City"
                   value={editedPrice.location?.city || ""}
                   onChange={(e) =>
