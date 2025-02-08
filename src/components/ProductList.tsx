@@ -279,6 +279,68 @@ export default function ProductList() {
     }
   }, [authChecked]);
 
+  useEffect(() => {
+    const refreshProducts = async () => {
+      console.log("Full refresh triggered");
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (auth.currentUser) {
+          const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+          if (userDoc.exists()) {
+            setUserSettings(userDoc.data() as UserSettings);
+          }
+        }
+
+        const companiesSnapshot = await getDocs(collection(db, "companies"));
+        const companiesMap: Record<string, Company> = {};
+        companiesSnapshot.docs.forEach((doc) => {
+          companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
+        });
+        setCompanies(companiesMap);
+
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const productsList = productsSnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            _id: doc.id,
+            prices: data.prices || [],
+            name: data.name || "",
+            description: data.description || "",
+            brand: data.brand || "",
+            category: data.category || "",
+            tags: data.tags || [],
+            product_tags: data.product_tags || {}
+          };
+        }) as Product[];
+
+        let filteredProducts = filterProductsBySearch(productsList);
+        if (brandFilter) {
+          filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
+        }
+
+        console.log("Full refresh completed");
+        setProducts(filteredProducts);
+      } catch (error) {
+        console.error("Error during full refresh:", error);
+        setError("Failed to refresh data. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    refreshProducts();
+
+    // Expose refresh function globally for debugging
+    (window as any).refreshProducts = refreshProducts;
+
+    return () => {
+      delete (window as any).refreshProducts;
+    };
+  }, [brandFilter]);
+
   // Expose refresh function to window for Navbar to use
   useEffect(() => {
     (window as any).refreshProducts = fetchData;
@@ -511,65 +573,6 @@ export default function ProductList() {
       }
     });
   };
-
-  useEffect(() => {
-    const refreshProducts = async () => {
-      console.log("Full refresh triggered");
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (auth.currentUser) {
-          const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-          if (userDoc.exists()) {
-            setUserSettings(userDoc.data() as UserSettings);
-          }
-        }
-
-        const companiesSnapshot = await getDocs(collection(db, "companies"));
-        const companiesMap: Record<string, Company> = {};
-        companiesSnapshot.docs.forEach((doc) => {
-          companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
-        });
-        setCompanies(companiesMap);
-
-        const productsSnapshot = await getDocs(collection(db, "products"));
-        const productsList = productsSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            ...data,
-            _id: doc.id,
-            prices: data.prices || [],
-            name: data.name || "",
-            description: data.description || "",
-            brand: data.brand || "",
-            category: data.category || "",
-            tags: data.tags || [],
-            product_tags: data.product_tags || {}
-          };
-        }) as Product[];
-
-        let filteredProducts = filterProductsBySearch(productsList);
-        if (brandFilter) {
-          filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
-        }
-
-        console.log("Full refresh completed");
-        setProducts(filteredProducts);
-      } catch (error) {
-        console.error("Error during full refresh:", error);
-        setError("Failed to refresh data. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    (window as any).refreshProducts = refreshProducts;
-
-    return () => {
-      delete (window as any).refreshProducts;
-    };
-  }, [brandFilter]);
 
   useEffect(() => {
     const locations = {
@@ -920,8 +923,13 @@ export default function ProductList() {
     }
   };
 
-  const handleAddProduct = async (newProduct: Product) => {
+  const handleAddProduct = async () => {
     try {
+      if (!newProduct.name || !newProduct.category) {
+        setError("Name and category are required");
+        return;
+      }
+
       const productRef = await addDoc(collection(db, "products"), {
         ...newProduct,
         image: "", // Initialize with empty image URL
@@ -932,7 +940,7 @@ export default function ProductList() {
       });
 
       // If there's an image (in base64), upload it to storage
-      if (newProduct.image && newProduct.image.startsWith('data:image')) {
+      if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
         const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
         
         // Update the product with the image URL
@@ -940,12 +948,40 @@ export default function ProductList() {
         newProduct.image = imageUrl;
       }
 
-      setProducts((prevProducts) => [...prevProducts, { ...newProduct, _id: productRef.id }]);
+      const productWithId = { ...newProduct as Product, _id: productRef.id };
+      setProducts((prevProducts) => [...prevProducts, productWithId]);
+      
+      setNewProduct({
+        name: "",
+        brand: "",
+        category: "Food & Beverage",
+        company_id: "",
+        origin: {
+          country: "Canada",
+          province: "",
+          city: ""
+        },
+        product_tags: {},
+        prices: [],
+        image: ""
+      });
+      
+      setAddDialogOpen(false);
       showMessage("Product added successfully");
     } catch (error) {
       console.error("Error adding product:", error);
       setError("Failed to add product. Please try again.");
     }
+  };
+
+  const handleImageCapture = async (imageUrl: string) => {
+    setNewProduct(prev => ({ ...prev, image: imageUrl }));
+    setShowCameraDialog(false);
+  };
+
+  const handleEditImageCapture = async (imageUrl: string) => {
+    setEditingProduct(prev => prev ? { ...prev, image: imageUrl } : null);
+    setEditCameraDialogOpen(false);
   };
 
   const toggleRow = (productId: string) => {
@@ -1046,106 +1082,22 @@ export default function ProductList() {
     }
   }, [userSettings]);
 
-  const handleAddProduct = async () => {
-    try {
-      if (!auth.currentUser) {
-        showMessage("No authenticated user found", "error");
-        return;
-      }
-
-      console.log("Attempting to add product:", newProduct);
-
-      if (!newProduct.name?.trim()) {
-        showMessage("Please enter a product name", "error");
-        return;
-      }
-      if (!newProduct.brand?.trim()) {
-        showMessage("Please enter a brand name", "error");
-        return;
-      }
-
-      const categoryValue = newProduct.category?.trim();
-      console.log("Category value:", categoryValue);
-
-      if (!categoryValue) {
-        showMessage("Please select or enter a category", "error");
-        return;
-      }
-
-      const productRef = doc(collection(db, "products"));
-      const productData = {
-        ...newProduct,
-        category: categoryValue,
-        company_id: newProduct.company_id,
-        origin: {
-          ...newProduct.origin,
-          manufacturer: newProduct.company_id ? companies[newProduct.company_id]?.name : ""
-        },
-        created_by: auth.currentUser.uid,
-        created_by_name: auth.currentUser.displayName || auth.currentUser.email,
-        created_at: new Date().toISOString(),
-        modified_at: new Date().toISOString(),
-        modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email,
-        prices: [],
-        product_tags: newProduct.product_tags || {}
-      };
-
-      console.log("Saving product data:", productData);
-      await setDoc(productRef, productData);
-
-      if (categoryValue && !PRODUCT_CATEGORIES.includes(categoryValue)) {
-        console.log("Adding new category:", categoryValue);
-        PRODUCT_CATEGORIES.push(categoryValue);
-      }
-
-      setProducts((prevProducts) => [...prevProducts, { ...productData, id: productRef.id }]);
-      setAddDialogOpen(false);
-      setNewProduct({
-        name: "",
-        brand: "",
-        category: "Food & Beverage",
-        company_id: "",
-        origin: {
-          country: "Canada",
-          province: "",
-          city: ""
-        },
-        product_tags: {},
-        prices: [],
-        image: ""
-      });
-
-      showMessage("Product added successfully!");
-    } catch (error) {
-      console.error("Error adding product:", error);
-      showMessage(`Error adding product: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (value) {
+      navigate(`/?search=${encodeURIComponent(value)}`, { replace: true });
+    } else {
+      navigate("/", { replace: true });
     }
   };
 
-  const handleExport = async () => {
-    try {
-      if (!auth.currentUser) {
-        console.error("No user logged in");
-        return;
-      }
-
-      const token = await getAuthToken(auth.currentUser);
-      if (!token) {
-        throw new Error("Failed to get auth token");
-      }
-
-      // Rest of your export logic...
-    } catch (error) {
-      console.error("Error during export:", error);
-      setSnackbar({
-        open: true,
-        message: "Error exporting data. Please try again.",
-        severity: "error",
-        autoHideDuration: 3000
-      });
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const query = searchParams.get("search")?.toLowerCase() || "";
+    if (query !== searchQuery) {
+      setSearchQuery(query);
     }
-  };
+  }, [location.search]);
 
   const handleCompanySelect = async (companyId: string) => {
     console.log("Selected company:", companyId);
@@ -1251,124 +1203,25 @@ export default function ProductList() {
     return () => unsubscribe();
   }, []);
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    if (value) {
-      navigate(`/?search=${encodeURIComponent(value)}`, { replace: true });
-    } else {
-      navigate("/", { replace: true });
-    }
-  };
+  const renderLoading = () => (
+    <Box sx={{ display: "flex", justifyContent: "center", p: 1 }}>
+      <CircularProgress />
+    </Box>
+  );
 
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const query = searchParams.get("search")?.toLowerCase() || "";
-    if (query !== searchQuery) {
-      setSearchQuery(query);
-    }
-  }, [location.search]);
+  const renderError = () => (
+    <Box sx={{ p: 2, color: "error.main" }}>
+      <Typography color="error">{error}</Typography>
+    </Box>
+  );
 
-  if (!authChecked) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", p: 1 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", p: 1 }}>
-        <CircularProgress />
-      </Box>
-    );
+  if (!authChecked || loading) {
+    return renderLoading();
   }
 
   if (error) {
-    return (
-      <Box sx={{ p: 2, color: "error.main" }}>
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
+    return renderError();
   }
-
-  const handleImageCapture = async (imageUrl: string) => {
-    try {
-      // Check if user is authenticated
-      if (!auth.currentUser) {
-        throw new Error("User not authenticated");
-      }
-      
-      console.log("User authenticated:", auth.currentUser.uid);
-      console.log("Starting image upload...");
-
-      // Upload image to Firebase Storage
-      const storage = getStorage();
-      const storageRef = ref(storage, `products/${Date.now()}.jpg`);
-      
-      // Remove the "data:image/jpeg;base64," prefix from the data URL
-      const base64Data = imageUrl.split(';base64,').pop();
-      if (!base64Data) {
-        throw new Error("Invalid image data");
-      }
-
-      await uploadString(storageRef, base64Data, "base64", {
-        contentType: 'image/jpeg'
-      });
-
-      // Get the download URL
-      const downloadUrl = await getDownloadURL(storageRef);
-      
-      // Update product with the Firebase Storage URL
-      setNewProduct(prev => ({ ...prev, image: downloadUrl }));
-    } catch (error) {
-      console.error("Error uploading product image:", error);
-      setSnackbar({
-        open: true,
-        message: error instanceof Error ? error.message : "Failed to upload image",
-        severity: "error",
-        autoHideDuration: 3000
-      });
-    }
-  };
-
-  const handleEditImageCapture = async (imageUrl: string) => {
-    try {
-      if (!auth.currentUser) {
-        throw new Error("User not authenticated");
-      }
-      
-      console.log("User authenticated:", auth.currentUser.uid);
-      console.log("Starting image upload for edit...");
-
-      const storage = getStorage();
-      const storageRef = ref(storage, `products/${Date.now()}.jpg`);
-      
-      const base64Data = imageUrl.split(';base64,').pop();
-      if (!base64Data) {
-        throw new Error("Invalid image data");
-      }
-
-      await uploadString(storageRef, base64Data, "base64", {
-        contentType: 'image/jpeg'
-      });
-
-      const downloadUrl = await getDownloadURL(storageRef);
-      
-      // Update the selected product with the new image
-      if (selectedProduct) {
-        setSelectedProduct(prev => prev ? { ...prev, image: downloadUrl } : null);
-      }
-    } catch (error) {
-      console.error("Error uploading product image:", error);
-      setSnackbar({
-        open: true,
-        message: error instanceof Error ? error.message : "Failed to upload image",
-        severity: "error",
-        autoHideDuration: 3000
-      });
-    }
-  };
 
   return (
     <Box sx={{ width: "100%", padding: 0 }}>
