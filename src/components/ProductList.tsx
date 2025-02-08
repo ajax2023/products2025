@@ -71,6 +71,7 @@ import {
   arrayRemove,
   addDoc
 } from "firebase/firestore";
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../types/product";
 import { UserSettings } from "../types/userSettings";
 import { Company } from "../types/company";
@@ -837,6 +838,18 @@ export default function ProductList() {
       const productRef = doc(db, "products", docId);
       await deleteDoc(productRef);
 
+      // Delete the image from Firebase Storage if it exists
+      if (deleteConfirmProduct.image) {
+        try {
+          const storage = getStorage();
+          const imageRef = ref(storage, deleteConfirmProduct.image);
+          await deleteObject(imageRef);
+        } catch (error) {
+          console.error("Error deleting product image:", error);
+          // Continue with product deletion even if image deletion fails
+        }
+      }
+
       setProducts((prevProducts) => prevProducts.filter((p) => (p.id || p._id) !== docId));
 
       setDeleteConfirmProduct(null);
@@ -1223,8 +1236,27 @@ export default function ProductList() {
     );
   }
 
-  const handleImageCapture = (imageUrl: string) => {
-    setNewProduct(prev => ({ ...prev, image: imageUrl }));
+  const handleImageCapture = async (imageUrl: string) => {
+    try {
+      // Upload image to Firebase Storage
+      const storage = getStorage();
+      const storageRef = ref(storage, `products/${Date.now()}.jpg`);
+      await uploadString(storageRef, imageUrl.split(",")[1], "base64");
+
+      // Get the download URL
+      const downloadUrl = await getDownloadURL(storageRef);
+      
+      // Update product with the Firebase Storage URL
+      setNewProduct(prev => ({ ...prev, image: downloadUrl }));
+    } catch (error) {
+      console.error("Error uploading product image:", error);
+      setSnackbar({
+        open: true,
+        message: "Failed to upload image",
+        severity: "error",
+        autoHideDuration: 3000
+      });
+    }
   };
 
   return (
