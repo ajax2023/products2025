@@ -10,5 +10,10 @@ service firebase.storage {
     match /receipts/{fileName} {
       allow read, write: if true;  // For testing, allow all access
     }
+
+    match /products/{fileName} {
+      // For testing, allow all operations for authenticated users
+      allow read, write, delete: if request.auth != null;
+    }
   }
 }

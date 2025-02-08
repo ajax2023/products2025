@@ -71,7 +71,7 @@ import {
   arrayRemove,
   addDoc
 } from "firebase/firestore";
-import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../types/product";
 import { UserSettings } from "../types/userSettings";
 import { Company } from "../types/company";
@@ -143,8 +143,7 @@ export default function ProductList() {
     origin: {
       country: "Canada",
       province: "",
-      city: "",
-      manufacturer: ""
+      city: ""
     },
     product_tags: {},
     prices: [],
@@ -190,6 +189,7 @@ export default function ProductList() {
   });
 
   const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
 
   // Function to show snackbar
   const showMessage = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
@@ -554,8 +554,8 @@ export default function ProductList() {
           filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
         }
 
-        setProducts(filteredProducts);
         console.log("Full refresh completed");
+        setProducts(filteredProducts);
       } catch (error) {
         console.error("Error during full refresh:", error);
         setError("Failed to refresh data. Please try again.");
@@ -694,8 +694,7 @@ export default function ProductList() {
       await updateDoc(productRef, {
         prices: updatedPrices,
         modified_at: new Date().toISOString(),
-        modified_by: auth.currentUser?.uid || "",
-        modified_by_name: auth.currentUser?.displayName || auth.currentUser?.email || "unknown"
+        modified_by: auth.currentUser?.uid || ""
       });
 
       setProducts((prevProducts) => prevProducts.map((p) => (p._id === productId ? { ...p, prices: updatedPrices } : p)));
@@ -818,46 +817,51 @@ export default function ProductList() {
   };
 
   const handleDeleteProduct = async (product: Product) => {
-    setDeleteConfirmProduct(product);
-  };
-
-  const confirmDelete = async () => {
     try {
-      if (!deleteConfirmProduct) {
-        showMessage("No product selected for deletion", "error");
-        return;
-      }
+      // Get the product to check if it has an image
+      const productToDelete = products.find(p => p._id === product._id);
+      if (!productToDelete) return;
 
-      const docId = deleteConfirmProduct.id || deleteConfirmProduct._id;
-      if (!docId) {
-        showMessage("Invalid product ID", "error");
-        return;
-      }
-
-      console.log("Deleting product with ID:", docId);
-      const productRef = doc(db, "products", docId);
-      await deleteDoc(productRef);
-
-      // Delete the image from Firebase Storage if it exists
-      if (deleteConfirmProduct.image) {
+      // If product has an image, delete it from storage first
+      if (productToDelete.image) {
         try {
           const storage = getStorage();
-          const imageRef = ref(storage, deleteConfirmProduct.image);
+          const imageRef = ref(storage, productToDelete.image);
           await deleteObject(imageRef);
+          console.log("Product image deleted successfully");
         } catch (error) {
           console.error("Error deleting product image:", error);
           // Continue with product deletion even if image deletion fails
         }
       }
 
-      setProducts((prevProducts) => prevProducts.filter((p) => (p.id || p._id) !== docId));
+      // Delete the product from Firestore
+      const productRef = doc(db, "products", product._id);
+      await deleteDoc(productRef);
 
-      setDeleteConfirmProduct(null);
+      setProducts((prevProducts) => prevProducts.filter((p) => p._id !== product._id));
       showMessage("Product deleted successfully");
     } catch (error) {
       console.error("Error deleting product:", error);
-      showMessage(`Error deleting product: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+      setError("Failed to delete product. Please try again.");
     }
+  };
+
+  const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
+    // Convert base64 to blob
+    const response = await fetch(imageDataUrl);
+    const blob = await response.blob();
+    
+    // Create a reference to the storage location
+    const storage = getStorage();
+    const imagePath = `products/${productId}_${Date.now()}.jpg`;
+    const imageRef = ref(storage, imagePath);
+    
+    // Upload the image
+    await uploadBytes(imageRef, blob);
+    
+    // Get the download URL
+    return await getDownloadURL(imageRef);
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
@@ -870,8 +874,32 @@ export default function ProductList() {
       });
 
       const productRef = doc(db, "products", editingProduct._id);
+
+      // Get the old product data to check if image changed
+      const oldProduct = products.find(p => p._id === editingProduct._id);
+      
+      let imageUrl = updatedProduct.image;
+      
+      // If image is a base64 string, upload it to storage
+      if (updatedProduct.image && updatedProduct.image.startsWith('data:image')) {
+        imageUrl = await uploadImageToStorage(updatedProduct.image, editingProduct._id);
+        
+        // If old image exists, delete it from storage
+        if (oldProduct?.image) {
+          try {
+            const storage = getStorage();
+            const oldImageRef = ref(storage, oldProduct.image);
+            await deleteObject(oldImageRef);
+          } catch (error) {
+            console.error("Error deleting old image:", error);
+            // Continue with update even if old image deletion fails
+          }
+        }
+      }
+
       const productData = {
         ...updatedProduct,
+        image: imageUrl,
         company_id: updatedProduct.company_id || null,
         origin: {
           ...updatedProduct.origin,
@@ -889,6 +917,34 @@ export default function ProductList() {
     } catch (error) {
       console.error("Error updating product:", error);
       setError("Failed to update product. Please try again.");
+    }
+  };
+
+  const handleAddProduct = async (newProduct: Product) => {
+    try {
+      const productRef = await addDoc(collection(db, "products"), {
+        ...newProduct,
+        image: "", // Initialize with empty image URL
+        created_at: new Date(),
+        created_by: auth.currentUser?.uid || "",
+        updated_at: new Date(),
+        updated_by: auth.currentUser?.uid || ""
+      });
+
+      // If there's an image (in base64), upload it to storage
+      if (newProduct.image && newProduct.image.startsWith('data:image')) {
+        const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
+        
+        // Update the product with the image URL
+        await updateDoc(productRef, { image: imageUrl });
+        newProduct.image = imageUrl;
+      }
+
+      setProducts((prevProducts) => [...prevProducts, { ...newProduct, _id: productRef.id }]);
+      showMessage("Product added successfully");
+    } catch (error) {
+      console.error("Error adding product:", error);
+      setError("Failed to add product. Please try again.");
     }
   };
 
@@ -1238,10 +1294,27 @@ export default function ProductList() {
 
   const handleImageCapture = async (imageUrl: string) => {
     try {
+      // Check if user is authenticated
+      if (!auth.currentUser) {
+        throw new Error("User not authenticated");
+      }
+      
+      console.log("User authenticated:", auth.currentUser.uid);
+      console.log("Starting image upload...");
+
       // Upload image to Firebase Storage
       const storage = getStorage();
       const storageRef = ref(storage, `products/${Date.now()}.jpg`);
-      await uploadString(storageRef, imageUrl.split(",")[1], "base64");
+      
+      // Remove the "data:image/jpeg;base64," prefix from the data URL
+      const base64Data = imageUrl.split(';base64,').pop();
+      if (!base64Data) {
+        throw new Error("Invalid image data");
+      }
+
+      await uploadString(storageRef, base64Data, "base64", {
+        contentType: 'image/jpeg'
+      });
 
       // Get the download URL
       const downloadUrl = await getDownloadURL(storageRef);
@@ -1252,7 +1325,45 @@ export default function ProductList() {
       console.error("Error uploading product image:", error);
       setSnackbar({
         open: true,
-        message: "Failed to upload image",
+        message: error instanceof Error ? error.message : "Failed to upload image",
+        severity: "error",
+        autoHideDuration: 3000
+      });
+    }
+  };
+
+  const handleEditImageCapture = async (imageUrl: string) => {
+    try {
+      if (!auth.currentUser) {
+        throw new Error("User not authenticated");
+      }
+      
+      console.log("User authenticated:", auth.currentUser.uid);
+      console.log("Starting image upload for edit...");
+
+      const storage = getStorage();
+      const storageRef = ref(storage, `products/${Date.now()}.jpg`);
+      
+      const base64Data = imageUrl.split(';base64,').pop();
+      if (!base64Data) {
+        throw new Error("Invalid image data");
+      }
+
+      await uploadString(storageRef, base64Data, "base64", {
+        contentType: 'image/jpeg'
+      });
+
+      const downloadUrl = await getDownloadURL(storageRef);
+      
+      // Update the selected product with the new image
+      if (selectedProduct) {
+        setSelectedProduct(prev => prev ? { ...prev, image: downloadUrl } : null);
+      }
+    } catch (error) {
+      console.error("Error uploading product image:", error);
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : "Failed to upload image",
         severity: "error",
         autoHideDuration: 3000
       });
@@ -1740,6 +1851,24 @@ export default function ProductList() {
         <DialogContent>
           {editingProduct && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+              {/* Camera Button and Image Preview */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<CameraAltIcon />}
+                  onClick={() => setEditCameraDialogOpen(true)}
+                >
+                  {editingProduct.image ? 'Change Picture' : 'Take Picture'}
+                </Button>
+                {editingProduct.image && (
+                  <img 
+                    src={editingProduct.image} 
+                    alt="Product" 
+                    style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                  />
+                )}
+              </Box>
+
               {/* NAME AND BRAND INPUT */}
               <Box sx={{ display: "flex", gap: 2 }}>
                 <TextField
@@ -2631,6 +2760,13 @@ export default function ProductList() {
           <CompanyForm onSubmit={handleCompanySubmit} onCancel={handleCompanyDialogClose} isSubmitting={false} />
         </DialogContent>
       </Dialog>
+
+      {/* Camera Dialog for Edit */}
+      <CameraDialog
+        open={editCameraDialogOpen}
+        onClose={() => setEditCameraDialogOpen(false)}
+        onCapture={handleEditImageCapture}
+      />
     </Box>
   );
 }

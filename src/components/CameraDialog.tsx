@@ -109,12 +109,39 @@ export default function CameraDialog({ open, onClose, onCapture }: CameraDialogP
   const handleTakePicture = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      const MAX_WIDTH = 800; // Maximum width for the image
+      const MAX_HEIGHT = 600; // Maximum height for the image
+      let width = videoRef.current.videoWidth;
+      let height = videoRef.current.videoHeight;
+      
+      // Calculate new dimensions while maintaining aspect ratio
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width = Math.round((width * MAX_HEIGHT) / height);
+          height = MAX_HEIGHT;
+        }
+      }
+      
+      // Set canvas dimensions to the resized values
+      canvas.width = width;
+      canvas.height = height;
+      
       const context = canvas.getContext('2d');
       if (context) {
-        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg');
+        // Use better image smoothing
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        
+        // Draw the resized image
+        context.drawImage(videoRef.current, 0, 0, width, height);
+        
+        // Convert to JPEG with reduced quality
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // 0.8 = 80% quality
         setImageUrl(dataUrl);
       }
     }
