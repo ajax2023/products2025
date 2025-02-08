@@ -851,20 +851,30 @@ export default function ProductList() {
   };
 
   const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
-    // Convert base64 to blob
-    const response = await fetch(imageDataUrl);
-    const blob = await response.blob();
-    
-    // Create a reference to the storage location
-    const storage = getStorage();
-    const imagePath = `products/${productId}_${Date.now()}.jpg`;
-    const imageRef = ref(storage, imagePath);
-    
-    // Upload the image
-    await uploadBytes(imageRef, blob);
-    
-    // Get the download URL
-    return await getDownloadURL(imageRef);
+    try {
+      // Convert base64 to blob
+      const response = await fetch(imageDataUrl);
+      const blob = await response.blob();
+      
+      // Create a reference to the storage location
+      const storage = getStorage();
+      const imagePath = `product_pictures/${productId}_${Date.now()}.jpg`;
+      console.log('Uploading image to:', imagePath);
+      const imageRef = ref(storage, imagePath);
+      
+      // Upload the image
+      const snapshot = await uploadBytes(imageRef, blob);
+      console.log('Image uploaded successfully:', snapshot.metadata.fullPath);
+      
+      // Get the download URL
+      const downloadUrl = await getDownloadURL(imageRef);
+      console.log('Image download URL:', downloadUrl);
+      
+      return downloadUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
@@ -975,13 +985,25 @@ export default function ProductList() {
   };
 
   const handleImageCapture = async (imageUrl: string) => {
-    setNewProduct(prev => ({ ...prev, image: imageUrl }));
-    setShowCameraDialog(false);
+    try {
+      console.log('Captured image, setting in state');
+      setNewProduct(prev => ({ ...prev, image: imageUrl }));
+      setShowCameraDialog(false);
+    } catch (error) {
+      console.error('Error handling image capture:', error);
+      setError('Failed to process captured image');
+    }
   };
 
   const handleEditImageCapture = async (imageUrl: string) => {
-    setEditingProduct(prev => prev ? { ...prev, image: imageUrl } : null);
-    setEditCameraDialogOpen(false);
+    try {
+      console.log('Captured image for edit, setting in state');
+      setEditingProduct(prev => prev ? { ...prev, image: imageUrl } : null);
+      setEditCameraDialogOpen(false);
+    } catch (error) {
+      console.error('Error handling edit image capture:', error);
+      setError('Failed to process captured image');
+    }
   };
 
   const toggleRow = (productId: string) => {
