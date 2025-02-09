@@ -34,7 +34,10 @@ import {
   Checkbox,
   DialogContentText,
   InputAdornment,
-  Autocomplete
+  Autocomplete,
+  ImageList,
+  ImageListItem,
+  ImageListItemBar
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -87,7 +90,7 @@ export default function ProductList() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const brandFilter = location.state?.brandFilter;
   const [products, setProducts] = useState<Product[]>([]);
-  const [companies, setCompanies] = useState<Record<string, Company>>({});
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -150,6 +153,20 @@ export default function ProductList() {
     prices: [],
     image: ""
   });
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [flagPickerOpen, setFlagPickerOpen] = useState(false);
+  const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
+  const [userCompanies, setUserCompanies] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedOrigin, setSelectedOrigin] = useState<string>("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<AlertColor>("success");
+  const [updating, setUpdating] = useState(false);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -189,8 +206,38 @@ export default function ProductList() {
     autoHideDuration: 3000
   });
 
-  const [showCameraDialog, setShowCameraDialog] = useState(false);
   const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
+
+  // Get list of countries from flags folder
+  const countries = [
+    'Afghanistan', 'Albania', 'Algeria', 'American Samoa', 'Andorra', 'Angola', 'Anguilla', 'Antarctica', 
+    'Antigua Barbuda', 'Argentina', 'Armenia', 'Aruba', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 
+    'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bermuda', 'Bhutan', 
+    'Bolivia', 'Bosnia Herzegovina', 'Botswana', 'Brazil', 'British Virgin Islands', 'Brunei', 'Bulgaria', 
+    'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon', 'Cape Verde', 'Cayman Islands', 'Central African Republic', 
+    'Chad', 'Chile', 'China', 'Christmas Island', 'Colombia', 'Comoros', 'Congo', 'Cook Islands', 'Costa Rica', 
+    'Croatia', 'Cuba', 'Curacao', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 
+    'East Timor', 'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Ethiopia', 
+    'Falkland Islands', 'Faroe Islands', 'Fiji', 'Finland', 'France', 'French Polynesia', 'Gabon', 'Gambia', 
+    'Georgia', 'Germany', 'Ghana', 'Gibraltar', 'Greece', 'Greenland', 'Grenada', 'Guadeloupe', 'Guam', 
+    'Guatemala', 'Guinea', 'Guinea Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hong Kong', 'Hungary', 'Iceland', 
+    'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 
+    'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 
+    'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Macau', 'Madagascar', 
+    'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Martinique', 'Mauritania', 
+    'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Montserrat', 
+    'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Caledonia', 
+    'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'Niue', 'North Korea', 'North Macedonia', 'Norway', 
+    'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 
+    'Poland', 'Portugal', 'Puerto Rico', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 
+    'Saint Lucia', 'Saint Vincent', 'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 
+    'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 
+    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 
+    'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tonga', 'Trinidad and Tobago', 
+    'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 
+    'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 
+    'Zambia', 'Zimbabwe'
+  ].sort();
 
   // Function to show snackbar
   const showMessage = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
@@ -231,13 +278,23 @@ export default function ProductList() {
       console.log("Starting data fetch...");
 
       // Fetch companies first
-      const companiesSnapshot = await getDocs(collection(db, "companies"));
-      console.log("Companies fetched:", companiesSnapshot.size);
-      const companiesMap: Record<string, Company> = {};
-      companiesSnapshot.docs.forEach((doc) => {
-        companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
-      });
-      setCompanies(companiesMap);
+      const fetchCompanies = async () => {
+        try {
+          const companiesCollection = collection(db, "companies");
+          const companiesSnapshot = await getDocs(companiesCollection);
+          const companiesData = companiesSnapshot.docs.map(doc => ({
+            _id: doc.id,
+            ...doc.data()
+          })) as Company[];
+          console.log('Companies fetched:', companiesData);
+          setCompanies(companiesData);
+        } catch (error) {
+          console.error("Error fetching companies:", error);
+          setError("Failed to fetch companies");
+        }
+      };
+
+      await fetchCompanies();
 
       // Fetch products
       const productsSnapshot = await getDocs(collection(db, "products"));
@@ -294,12 +351,14 @@ export default function ProductList() {
           }
         }
 
-        const companiesSnapshot = await getDocs(collection(db, "companies"));
-        const companiesMap: Record<string, Company> = {};
-        companiesSnapshot.docs.forEach((doc) => {
-          companiesMap[doc.id] = { ...doc.data(), _id: doc.id } as Company;
-        });
-        setCompanies(companiesMap);
+        const companiesCollection = collection(db, "companies");
+        const companiesSnapshot = await getDocs(companiesCollection);
+        const companiesData = companiesSnapshot.docs.map(doc => ({
+          _id: doc.id,
+          ...doc.data()
+        })) as Company[];
+        console.log('Companies fetched:', companiesData);
+        setCompanies(companiesData);
 
         const productsSnapshot = await getDocs(collection(db, "products"));
         const productsList = productsSnapshot.docs.map((doc) => {
@@ -471,8 +530,6 @@ export default function ProductList() {
 
     return () => unsubscribe();
   }, []);
-
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Debounced log function
   const debouncedLog = (() => {
@@ -802,42 +859,84 @@ export default function ProductList() {
     }
   };
 
-  const handleEditProduct = (product: Product) => {
-    // Make sure to include company_id in the initial state
-    setEditingProduct({
-      ...product,
-      company_id: product.company_id || ""
-    });
+  const handleEditClick = (product: Product) => {
+    console.log('Starting edit for product:', product);
+    setEditingProduct({ ...product, _id: product._id });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateProduct = async (product: Product, closeDialog = true) => {
+    try {
+      if (!product._id) {
+        console.error('No product ID');
+        return;
+      }
+
+      setUpdating(true);
+      const productRef = doc(db, "products", product._id);
+      
+      const cleanProduct = {
+        ...product,
+        updated_at: new Date(),
+        updated_by: auth.currentUser?.uid || ""
+      };
+
+      console.log('Saving product:', cleanProduct);
+      await updateDoc(productRef, cleanProduct);
+      
+      // Update local state
+      setProducts(prevProducts => 
+        prevProducts.map(p => p._id === product._id ? cleanProduct : p)
+      );
+
+      showMessage('Product updated successfully');
+      
+      if (closeDialog) {
+        setEditDialogOpen(false);
+        setFlagPickerOpen(false);
+        setEditingProduct(null);
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+      showMessage('Error updating product', 'error');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleDeleteProduct = async (product: Product) => {
     try {
       // Get the product to check if it has an image
-      const productToDelete = products.find(p => p._id === product._id);
-      if (!productToDelete) return;
+      const productDoc = await getDoc(doc(db, "products", product._id));
+      if (!productDoc.exists()) {
+        showMessage("Product not found", "error");
+        return;
+      }
 
-      // If product has an image, delete it from storage first
-      if (productToDelete.image) {
+      const productData = productDoc.data();
+
+      // If product has an image, delete it from storage
+      if (productData.image) {
         try {
-          const storage = getStorage();
-          const imageRef = ref(storage, productToDelete.image);
+          const imageRef = ref(storage, productData.image);
           await deleteObject(imageRef);
-          console.log("Product image deleted successfully");
         } catch (error) {
-          console.error("Error deleting product image:", error);
+          console.error("Error deleting image:", error);
           // Continue with product deletion even if image deletion fails
         }
       }
 
-      // Delete the product from Firestore
-      const productRef = doc(db, "products", product._id);
-      await deleteDoc(productRef);
-
-      setProducts((prevProducts) => prevProducts.filter((p) => p._id !== product._id));
+      // Delete the product document
+      await deleteDoc(doc(db, "products", product._id));
+      
+      setProducts((prevProducts) => 
+        prevProducts.filter((p) => p._id !== product._id)
+      );
+      
       showMessage("Product deleted successfully");
     } catch (error) {
       console.error("Error deleting product:", error);
-      setError("Failed to delete product. Please try again.");
+      showMessage("Failed to delete product", "error");
     }
   };
 
@@ -878,113 +977,6 @@ export default function ProductList() {
         name: error.name
       });
       throw error;
-    }
-  };
-
-  const handleUpdateProduct = async (updatedProduct: Product) => {
-    if (!editingProduct) return;
-
-    try {
-      console.log("Updating product with data:", {
-        company_id: updatedProduct.company_id,
-        manufacturer: companies[updatedProduct.company_id]?.name
-      });
-
-      const productRef = doc(db, "products", editingProduct._id);
-
-      // Get the old product data to check if image changed
-      const oldProduct = products.find(p => p._id === editingProduct._id);
-      
-      let imageUrl = updatedProduct.image;
-      
-      // If image is a base64 string, upload it to storage
-      if (updatedProduct.image && updatedProduct.image.startsWith('data:image')) {
-        imageUrl = await uploadImageToStorage(updatedProduct.image, editingProduct._id);
-        
-        // If old image exists, delete it from storage
-        if (oldProduct?.image) {
-          try {
-            const storage = getStorage();
-            const oldImageRef = ref(storage, oldProduct.image);
-            await deleteObject(oldImageRef);
-          } catch (error) {
-            console.error("Error deleting old image:", error);
-            // Continue with update even if old image deletion fails
-          }
-        }
-      }
-
-      const productData = {
-        ...updatedProduct,
-        image: imageUrl,
-        company_id: updatedProduct.company_id || null,
-        origin: {
-          ...updatedProduct.origin,
-          manufacturer: updatedProduct.company_id ? companies[updatedProduct.company_id]?.name : ""
-        },
-        updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ""
-      };
-
-      await updateDoc(productRef, productData);
-
-      setProducts((prevProducts) => prevProducts.map((p) => (p._id === editingProduct._id ? { ...productData, _id: editingProduct._id } : p)));
-      setEditingProduct(null);
-      showMessage("Product updated successfully");
-    } catch (error) {
-      console.error("Error updating product:", error);
-      setError("Failed to update product. Please try again.");
-    }
-  };
-
-  const handleAddProduct = async () => {
-    try {
-      if (!newProduct.name || !newProduct.category) {
-        setError("Name and category are required");
-        return;
-      }
-
-      const productRef = await addDoc(collection(db, "products"), {
-        ...newProduct,
-        image: "", // Initialize with empty image URL
-        created_at: new Date(),
-        created_by: auth.currentUser?.uid || "",
-        updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ""
-      });
-
-      // If there's an image (in base64), upload it to storage
-      if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
-        const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
-        
-        // Update the product with the image URL
-        await updateDoc(productRef, { image: imageUrl });
-        newProduct.image = imageUrl;
-      }
-
-      const productWithId = { ...newProduct as Product, _id: productRef.id };
-      setProducts((prevProducts) => [...prevProducts, productWithId]);
-      
-      setNewProduct({
-        name: "",
-        brand: "",
-        category: "Food & Beverage",
-        company_id: "",
-        origin: {
-          country: "Canada",
-          province: "",
-          city: ""
-        },
-        product_tags: {},
-        prices: [],
-        image: ""
-      });
-      
-      setAddDialogOpen(false);
-      showMessage("Product added successfully");
-    } catch (error) {
-      console.error("Error adding product:", error);
-      setError("Failed to add product. Please try again.");
     }
   };
 
@@ -1153,10 +1145,7 @@ export default function ProductList() {
         _id: companyRef.id
       } as Company;
 
-      setCompanies((prev) => ({
-        ...prev,
-        [companyRef.id]: newCompany
-      }));
+      setCompanies((prev) => [...prev, newCompany]);
 
       // Select the new company
       handleCompanySelect(companyRef.id);
@@ -1236,6 +1225,56 @@ export default function ProductList() {
   if (error) {
     return renderError();
   }
+
+  const handleAddProduct = async () => {
+    try {
+      if (!newProduct.name || !newProduct.category) {
+        setError("Name and category are required");
+        return;
+      }
+
+      const productRef = await addDoc(collection(db, "products"), {
+        ...newProduct,
+        image: "", // Initialize with empty image URL
+        created_at: new Date(),
+        created_by: auth.currentUser?.uid || "",
+        updated_at: new Date(),
+        updated_by: auth.currentUser?.uid || ""
+      });
+
+      // If there's an image (in base64), upload it to storage
+      if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
+        const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
+        
+        // Update the product with the image URL
+        await updateDoc(productRef, { image: imageUrl });
+        newProduct.image = imageUrl;
+      }
+
+      const productWithId = { ...newProduct, _id: productRef.id };
+      setProducts((prevProducts) => [...prevProducts, productWithId]);
+      
+      setNewProduct({
+        name: "",
+        brand: "",
+        category: "Food & Beverage",
+        company_id: "",
+        origin: {
+          country: "Canada",
+          province: "",
+          city: ""
+        },
+        product_tags: {},
+        prices: [],
+        image: ""
+      });
+      setAddDialogOpen(false); // Fix dialog closing
+      showMessage("Product added successfully");
+    } catch (error) {
+      console.error("Error adding product:", error);
+      setError("Failed to add product. Please try again.");
+    }
+  };
 
   return (
     <Box sx={{ width: "100%", padding: 0 }}>
@@ -1519,7 +1558,7 @@ export default function ProductList() {
                               borderRadius: '4px',
                               cursor: 'pointer'
                             }}
-                            onClick={() => handleEditProduct(product)}
+                            onClick={() => handleEditClick(product)}
                           />
                         ) : (
                           <Box 
@@ -1556,32 +1595,50 @@ export default function ProductList() {
                     {/* Details */}
                     <TableCell>
                       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                        {product.category && (
+                          <Typography variant="body2" color="textSecondary">
+                            {product.category}
+                          </Typography>
+                        )}
                         {product.description && (
                           <Typography variant="body2" color="textSecondary">
                             {product.description}
                           </Typography>
                         )}
-                        {product.origin?.country && (
+                        {product.canadianOriginType && (
                           <Typography variant="body2" color="textSecondary">
-                            {`${product.origin.country}${product.origin.province ? `, ${product.origin.province}` : ''}`}
+                            {product.canadianOriginType === 'product_of_canada' && '🍁 Product of Canada (98%+)'}
+                            {product.canadianOriginType === 'made_in_canada' && '🍁 Made in Canada (51%+)'}
+                            {product.canadianOriginType === 'made_in_canada_imported' && '🍁 Made in Canada (with imports)'}
+                            {!['product_of_canada', 'made_in_canada', 'made_in_canada_imported'].includes(product.canadianOriginType) && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <img 
+                                  src={`/flags/${product.canadianOriginType}.png`} 
+                                  alt={product.canadianOriginType}
+                                  style={{ width: '20px', height: '15px', objectFit: 'contain' }}
+                                />
+                                {product.canadianOriginType}
+                              </Box>
+                            )}
                           </Typography>
                         )}
                       </Box>
                     </TableCell>
                     <TableCell>
-                      {product.category && (
+                      {product.product_tags && Object.entries(product.product_tags).map(([key, value]) => (
                         <Chip
-                          label={product.category}
+                          key={key}
+                          label={`${key}: ${value}`}
                           size="small"
-                          sx={{ mr: 1 }}
+                          sx={{ mr: 1, mb: 0.5 }}
                         />
-                      )}
+                      ))}
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                         <IconButton
                           size="small"
-                          onClick={() => handleEditProduct(product)}
+                          onClick={() => handleEditClick(product)}
                           sx={{ color: 'primary.main' }}
                         >
                           <EditIcon fontSize="small" />
@@ -1606,7 +1663,7 @@ export default function ProductList() {
                   <TableRow>
                     <TableCell
                       style={{ paddingBottom: 0, paddingTop: 0 }}
-                      colSpan={5}
+                      colSpan={6}
                       sx={{
                         backgroundColor: "rgba(188, 188, 188, 0.4)",
                         borderBottom: "none"
@@ -1715,7 +1772,7 @@ export default function ProductList() {
               ))}
               {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     <Typography variant="body2" color="textSecondary">
                       No products found
                     </Typography>
@@ -1766,7 +1823,12 @@ export default function ProductList() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!editingProduct} onClose={() => setEditingProduct(null)} maxWidth="md" fullWidth>
+      <Dialog open={!!editingProduct} onClose={() => {
+        console.log('Closing edit dialog');
+        setEditDialogOpen(false);
+        setFlagPickerOpen(false);
+        setEditingProduct(null);
+      }} maxWidth="md" fullWidth>
         <DialogTitle>Edit Product</DialogTitle>
         <DialogContent>
           {editingProduct && (
@@ -1848,51 +1910,86 @@ export default function ProductList() {
                 )}
               </Box>
 
-       
-              {/* <Typography variant="subtitle1" gutterBottom>
-                Origin
-              </Typography> */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <TextField
-                  label="Country"
-                  defaultValue="Canada"
-                  value={editingProduct.origin.country}
-                  onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: e.target.value } } : null))}
-                />
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <img 
-                    src="/flags/Canada.png" 
-                    alt="Canada" 
-                    style={{ width: '30px', cursor: 'pointer' }}
-                    onClick={() => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: 'Canada' } } : null))}
-                  />
-                  <img 
-                    src="/flags/United States.png" 
-                    alt="USA" 
-                    style={{ width: '30px', cursor: 'pointer' }}
-                    onClick={() => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: 'USA' } } : null))}
-                  />
-                  <Box 
-                    sx={{ 
-                      width: '30px', 
-                      height: '30px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '20px'
+              {/* Canadian Origin Type */}
+              <Box sx={{ mt: 0 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ color: 'error.main' }}>
+                  Canadian Content *
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    variant={editingProduct.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
+                    size="small"
+                    onClick={() => {
+                      console.log('Setting product_of_canada');
+                      setEditingProduct({
+                        ...editingProduct,
+                        canadianOriginType: 'product_of_canada'
+                      });
                     }}
-                    onClick={() => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, country: 'Other' } } : null))}
+                    sx={{ borderColor: 'success.main', color: 'success.main' }}
                   >
-                    🌐
-                  </Box>
+                    🍁 Product of Canada (98%+)
+                  </Button>
+                  <Button
+                    variant={editingProduct.canadianOriginType === 'made_in_canada' ? 'contained' : 'outlined'}
+                    size="small"
+                    onClick={() => {
+                      console.log('Setting made_in_canada');
+                      setEditingProduct({
+                        ...editingProduct,
+                        canadianOriginType: 'made_in_canada'
+                      });
+                    }}
+                    sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                  >
+                    🍁 Made in Canada (51%+)
+                  </Button>
+                  <Button
+                    variant={editingProduct.canadianOriginType === 'made_in_canada_imported' ? 'contained' : 'outlined'}
+                    size="small"
+                    onClick={() => {
+                      console.log('Setting made_in_canada_imported');
+                      setEditingProduct({
+                        ...editingProduct,
+                        canadianOriginType: 'made_in_canada_imported'
+                      });
+                    }}
+                    sx={{ borderColor: 'info.main', color: 'info.main' }}
+                  >
+                    🍁 Made in Canada (with imports)
+                  </Button>
+                  <Button
+                    variant={editingProduct.canadianOriginType === null ? 'contained' : 'outlined'}
+                    size="small"
+                    onClick={() => {
+                      console.log('Setting null');
+                      setEditingProduct({
+                        ...editingProduct,
+                        canadianOriginType: null
+                      });
+                    }}
+                    sx={{ borderColor: 'grey.500', color: 'grey.500' }}
+                  >
+                    Not Canadian Made
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setFlagPickerOpen(true)}
+                    sx={{ borderColor: 'grey.500', color: 'grey.500' }}
+                  >
+                    🌐 Select Country
+                  </Button>
                 </Box>
+                {!editingProduct.canadianOriginType && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                    Please select Canadian content type
+                  </Typography>
+                )}
               </Box>
 
-                     {/* Camera Button and Image Preview */}
-                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {/* Camera Button and Image Preview */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Button
                   variant="outlined"
                   startIcon={<CameraAltIcon />}
@@ -1909,21 +2006,20 @@ export default function ProductList() {
                 )}
               </Box>
 
-
               {/* COMPANY SELECT */}
               <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
                 <FormControl fullWidth>
                   <InputLabel>Company</InputLabel>
                   <Select
                     value={editingProduct.company_id || ""}
-                    onChange={(e) => handleCompanySelect(e.target.value)}
+                    onChange={(e) => setEditingProduct(prev => ({ ...prev, company_id: e.target.value }))}
                     label="Company"
                   >
                     <MenuItem value="">
                       <em>None</em>
                     </MenuItem>
-                    {Object.entries(companies).map(([id, company]) => (
-                      <MenuItem key={id} value={id}>
+                    {companies.map((company) => (
+                      <MenuItem key={company._id} value={company._id}>
                         {company.name}
                       </MenuItem>
                     ))}
@@ -1944,19 +2040,6 @@ export default function ProductList() {
                   )}
                 </Box>
               </Box>
-
-              {/* Commented out province and city fields
-              <TextField
-                label="Province"
-                defaultValue={editingProduct.origin.province}
-                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, province: e.target.value } } : null))}
-              />
-              <TextField
-                label="City"
-                defaultValue={editingProduct.origin.city}
-                onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, origin: { ...prev.origin, city: e.target.value } } : null))}
-              />
-              */}
 
               <Box sx={{ mt: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
@@ -2012,9 +2095,27 @@ export default function ProductList() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditingProduct(null)}>Cancel</Button>
-          <Button onClick={() => editingProduct && handleUpdateProduct(editingProduct)} color="primary">
-            Save Changes
+          <Button 
+            onClick={() => {
+              setEditDialogOpen(false);
+              setFlagPickerOpen(false);
+              setEditingProduct(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (editingProduct) {
+                console.log('Saving edited product:', editingProduct);
+                handleUpdateProduct(editingProduct, true);
+              }
+            }}
+            disabled={updating || !editingProduct}
+            color="primary"
+          >
+            {updating ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2101,46 +2202,104 @@ export default function ProductList() {
               )}
             </Box>
 
-            {/* <Typography variant="subtitle1" gutterBottom>
-              Origin
-            </Typography> */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <TextField
-                label="Country"
-                defaultValue="Canada"
-                value={newProduct.origin.country}
-                onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: e.target.value } }))}
-              />
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <img 
-                  src="/flags/Canada.png" 
-                  alt="Canada" 
-                  style={{ width: '30px', cursor: 'pointer' }}
-                  onClick={() => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: 'Canada' } }))}
-                />
-                <img 
-                  src="/flags/United States.png" 
-                  alt="USA" 
-                  style={{ width: '30px', cursor: 'pointer' }}
-                  onClick={() => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: 'USA' } }))}
-                />
-                <Box 
+            {/* Canadian Origin Type */}
+            <Box sx={{ mt: 0 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: 'error.main' }}>
+                Canadian Content *
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                
+                <Button
+                  variant={newProduct.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setNewProduct(prev => ({
+                    ...prev,
+                    canadianOriginType: 'product_of_canada'
+                  }))}
                   sx={{ 
-                    width: '30px', 
-                    height: '30px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '20px'
+                    borderColor: 'success.main',
+                    color: newProduct.canadianOriginType === 'product_of_canada' ? 'white' : 'success.main',
+                    bgcolor: newProduct.canadianOriginType === 'product_of_canada' ? 'success.main' : 'transparent',
+                    '&:hover': {
+                      bgcolor: newProduct.canadianOriginType === 'product_of_canada' ? 'success.dark' : 'success.light',
+                      borderColor: 'success.main'
+                    }
                   }}
-                  onClick={() => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, country: 'Other' } }))}
                 >
-                  🌐
-                </Box>
+                  🍁 Product of Canada (98%+)
+                </Button>
+
+                <Button
+                  variant={newProduct.canadianOriginType === 'made_in_canada' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setNewProduct(prev => ({
+                    ...prev,
+                    canadianOriginType: 'made_in_canada'
+                  }))}
+                  sx={{ 
+                    borderColor: 'primary.main',
+                    color: newProduct.canadianOriginType === 'made_in_canada' ? 'white' : 'primary.main',
+                    bgcolor: newProduct.canadianOriginType === 'made_in_canada' ? 'primary.main' : 'transparent',
+                    '&:hover': {
+                      bgcolor: newProduct.canadianOriginType === 'made_in_canada' ? 'primary.dark' : 'primary.light',
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                >
+                  🍁 Made in Canada (51%+)
+                </Button>
+                <Button
+                  variant={newProduct.canadianOriginType === 'made_in_canada_imported' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setNewProduct(prev => ({
+                    ...prev,
+                    canadianOriginType: 'made_in_canada_imported'
+                  }))}
+                  sx={{ 
+                    borderColor: 'info.main',
+                    color: newProduct.canadianOriginType === 'made_in_canada_imported' ? 'white' : 'info.main',
+                    bgcolor: newProduct.canadianOriginType === 'made_in_canada_imported' ? 'info.main' : 'transparent',
+                    '&:hover': {
+                      bgcolor: newProduct.canadianOriginType === 'made_in_canada_imported' ? 'info.dark' : 'info.light',
+                      borderColor: 'info.main'
+                    }
+                  }}
+                >
+                  🍁 Made in Canada (with imports)
+                </Button>
+                <Button
+                  variant={newProduct.canadianOriginType === null ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setNewProduct(prev => ({
+                    ...prev,
+                    canadianOriginType: null
+                  }))}
+                  sx={{ 
+                    borderColor: 'grey.500',
+                    color: newProduct.canadianOriginType === null ? 'white' : 'grey.500',
+                    bgcolor: newProduct.canadianOriginType === null ? 'grey.500' : 'transparent',
+                    '&:hover': {
+                      bgcolor: newProduct.canadianOriginType === null ? 'grey.600' : 'grey.100',
+                      borderColor: 'grey.500'
+                    }
+                  }}
+                >
+                  Not Canadian Made
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setFlagPickerOpen(true)}
+                  sx={{ borderColor: 'grey.500', color: 'grey.500' }}
+                >
+                  🌐 Select Country
+                </Button>
               </Box>
+              {!newProduct.canadianOriginType && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                  Please select Canadian content type
+                </Typography>
+              )}
             </Box>
 
             {/* COMPANY SELECT */}
@@ -2149,14 +2308,14 @@ export default function ProductList() {
                 <InputLabel>Company</InputLabel>
                 <Select
                   value={newProduct.company_id || ""}
-                  onChange={(e) => handleCompanySelect(e.target.value)}
+                  onChange={(e) => setNewProduct(prev => ({ ...prev, company_id: e.target.value }))}
                   label="Company"
                 >
                   <MenuItem value="">
                     <em>None</em>
                   </MenuItem>
-                  {Object.entries(companies).map(([id, company]) => (
-                    <MenuItem key={id} value={id}>
+                  {companies.map((company) => (
+                    <MenuItem key={company._id} value={company._id}>
                       {company.name}
                     </MenuItem>
                   ))}
@@ -2192,7 +2351,7 @@ export default function ProductList() {
             */}
 
             <Box sx={{ p: 0 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {/* Existing form fields */}
                 {/* Camera Button */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
@@ -2234,7 +2393,7 @@ export default function ProductList() {
                   />
                 ))}
               </Box>
-              <Box sx={{ display: "flex", gap: 1, mb: 0 }}>
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
                 <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
                 <Button
@@ -2260,8 +2419,6 @@ export default function ProductList() {
                 </Button>
               </Box>
             </Box>
-
-        
           </Box>
         </DialogContent>
         <DialogActions>
@@ -2307,7 +2464,11 @@ export default function ProductList() {
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Unit</InputLabel>
-                <Select value={newPrice.unit} label="Unit" onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}>
+                <Select
+                  value={newPrice.unit}
+                  label="Unit"
+                  onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}
+                >
                   {PRODUCT_UNITS.map((unit) => (
                     <MenuItem key={unit} value={unit}>
                       {unit}
@@ -2602,7 +2763,6 @@ export default function ProductList() {
                 label="Sales Link"
                 value={editedPrice.sales_link || ""}
                 onChange={(e) => setEditedPrice((prev) => ({ ...prev, sales_link: e.target.value }))}
-                sx={{ mb: 2 }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -2676,7 +2836,6 @@ export default function ProductList() {
         </DialogActions>
       </Dialog>
 
-      {/* Add Company Dialog */}
       <Dialog open={showCompanyDialog} onClose={handleCompanyDialogClose}>
         <DialogTitle>Add New Company</DialogTitle>
         <DialogContent>
@@ -2690,6 +2849,75 @@ export default function ProductList() {
         onClose={() => setEditCameraDialogOpen(false)}
         onCapture={handleEditImageCapture}
       />
+
+      {/* Flag Picker Dialog */}
+      <Dialog 
+        open={flagPickerOpen} 
+        onClose={() => setFlagPickerOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { minHeight: '80vh' }
+        }}
+      >
+        <DialogTitle>Select Country of Origin</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 1, p: 1 }}>
+            {countries.map((country) => (
+              <Box
+                key={country}
+                onClick={() => {
+                  if (editingProduct) {
+                    setEditingProduct({
+                      ...editingProduct,
+                      canadianOriginType: country
+                    });
+                  } else {
+                    setNewProduct({
+                      ...newProduct,
+                      canadianOriginType: country
+                    });
+                  }
+                  setFlagPickerOpen(false);
+                }}
+                sx={{ 
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  p: 0.5,
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                    borderRadius: 1
+                  }
+                }}
+              >
+                <Box sx={{ height: '30px', width: '40px', mb: 0.5 }}>
+                  <img
+                    src={`/flags/${country}.png`}
+                    alt={country}
+                    loading="lazy"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
+                </Box>
+                <Typography 
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.7rem',
+                    textAlign: 'center',
+                    width: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {country}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

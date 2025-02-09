@@ -679,6 +679,90 @@ export default function CompanyList() {
             }}
             isSubmitting={isSubmitting}
           />
+          {/* Canadian Origin Type */}
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Canadian Origin Type
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant={editingCompany?.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setEditingCompany(prev => ({
+                  ...prev,
+                  canadianOriginType: 'product_of_canada'
+                }))}
+                sx={{ 
+                  borderColor: 'success.main',
+                  color: editingCompany?.canadianOriginType === 'product_of_canada' ? 'white' : 'success.main',
+                  bgcolor: editingCompany?.canadianOriginType === 'product_of_canada' ? 'success.main' : 'transparent',
+                  '&:hover': {
+                    bgcolor: editingCompany?.canadianOriginType === 'product_of_canada' ? 'success.dark' : 'success.light',
+                    borderColor: 'success.main'
+                  }
+                }}
+              >
+                Product of Canada (98%+)
+              </Button>
+              <Button
+                variant={editingCompany?.canadianOriginType === 'made_in_canada' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setEditingCompany(prev => ({
+                  ...prev,
+                  canadianOriginType: 'made_in_canada'
+                }))}
+                sx={{ 
+                  borderColor: 'primary.main',
+                  color: editingCompany?.canadianOriginType === 'made_in_canada' ? 'white' : 'primary.main',
+                  bgcolor: editingCompany?.canadianOriginType === 'made_in_canada' ? 'primary.main' : 'transparent',
+                  '&:hover': {
+                    bgcolor: editingCompany?.canadianOriginType === 'made_in_canada' ? 'primary.dark' : 'primary.light',
+                    borderColor: 'primary.main'
+                  }
+                }}
+              >
+                Made in Canada (51%+)
+              </Button>
+              <Button
+                variant={editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setEditingCompany(prev => ({
+                  ...prev,
+                  canadianOriginType: 'made_in_canada_imported'
+                }))}
+                sx={{ 
+                  borderColor: 'info.main',
+                  color: editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'white' : 'info.main',
+                  bgcolor: editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'info.main' : 'transparent',
+                  '&:hover': {
+                    bgcolor: editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'info.dark' : 'info.light',
+                    borderColor: 'info.main'
+                  }
+                }}
+              >
+                Made in Canada (with imports)
+              </Button>
+              <Button
+                variant={editingCompany?.canadianOriginType === null ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setEditingCompany(prev => ({
+                  ...prev,
+                  canadianOriginType: null
+                }))}
+                sx={{ 
+                  borderColor: 'grey.500',
+                  color: editingCompany?.canadianOriginType === null ? 'white' : 'grey.500',
+                  bgcolor: editingCompany?.canadianOriginType === null ? 'grey.500' : 'transparent',
+                  '&:hover': {
+                    bgcolor: editingCompany?.canadianOriginType === null ? 'grey.600' : 'grey.100',
+                    borderColor: 'grey.500'
+                  }
+                }}
+              >
+                Not Canadian Made
+              </Button>
+            </Box>
+          </Box>
         </DialogContent>
       </Dialog>
 

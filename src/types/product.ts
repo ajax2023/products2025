@@ -80,6 +80,7 @@ export interface Product {
   rejection_reason?: string;
   is_active: boolean;
   version: number;
+  canadianOriginType: string;  // Can be 'product_of_canada', 'made_in_canada', 'made_in_canada_imported', or a country name
 }
 
 export const COMMON_ATTRIBUTES = {
@@ -128,7 +129,8 @@ export const createProduct = (data: Partial<Product>): Product => {
     approved_at: data.approved_at,
     rejection_reason: data.rejection_reason,
     is_active: data.is_active ?? true,
-    version: data.version || 1
+    version: data.version || 1,
+    canadianOriginType: data.canadianOriginType || 'not_canadian'
   };
 };
 
@@ -142,6 +144,7 @@ export const validateProduct = (product: Partial<Product>): string[] => {
   if (!product.origin?.country) errors.push('Country is required');
   if (!product.origin?.state) errors.push('State is required');
   if (!product.origin?.city) errors.push('City is required');
+  if (!product.canadianOriginType) errors.push('Canadian Origin Type is required');
 
   return errors;
 };

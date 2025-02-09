@@ -99,13 +99,13 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             </Link>
 
             {/* Receipts */}
-            <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
+            {/* <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton color="inherit">
                 <Tooltip title="Receipts">
                   <ReceiptIcon />
                 </Tooltip>
               </IconButton>
-            </Link>
+            </Link> */}
 
             {/* Companies */}
             <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -117,7 +117,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             </Link>
 
             {/* Admin Users - Only show if admin */}
-            {isAdmin && (
+            {/* {isAdmin && (
               <Link to="/admin" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit">
                   <Tooltip title="Admin">
@@ -125,7 +125,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                   </Tooltip>
                 </IconButton>
               </Link>
-            )}
+            )} */}
 
             {/* User Management - Only show if admin */}
             {isAdmin && (

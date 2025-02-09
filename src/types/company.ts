@@ -18,6 +18,7 @@ export interface Company {
   website?: string;
   founded_year?: number;
   description?: string;
+  canadianOriginType?: 'product_of_canada' | 'made_in_canada' | 'made_in_canada_imported' | null;
   created_at?: Date;
   created_by?: string;
   updated_at?: Date;
