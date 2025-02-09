@@ -15,14 +15,5 @@ service firebase.storage {
       // For testing, allow all operations for authenticated users
       allow read, write, delete: if request.auth != null;
     }
-
-    match /product_pictures/{userId}/{fileName} {
-      // Allow read access to anyone (since these are product images)
-      allow read: if true;
-      
-      // Allow write/delete only for the owner
-      allow write, delete: if request.auth != null 
-                          && request.auth.uid == userId;
-    }
   }
 }

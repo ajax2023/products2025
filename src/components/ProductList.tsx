@@ -53,7 +53,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CameraDialog from './CameraDialog';
 
-import { auth, db, storage } from "../firebaseConfig";
+import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -71,7 +71,7 @@ import {
   arrayRemove,
   addDoc
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Product, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../types/product";
 import { UserSettings } from "../types/userSettings";
 import { Company } from "../types/company";
@@ -488,87 +488,77 @@ export default function ProductList() {
   })();
 
   const filterPricesByLocation = (prices: ProductPrice[]) => {
-    if (!filters.locationEnabled || !prices) return prices;
-    if (!userSettings?.location) return prices;
+    if (!filters.locationEnabled || !prices || !userSettings?.location) return prices;
 
-    const userCountry = userSettings.location.country;
-    const userProvince = userSettings.location.province;
-    const userCity = userSettings.location.city;
-
-    // Debug raw prices first
-    // console.log('Raw prices:', prices.map(p => ({
-    //   amount: p.amount,
-    //   store: p.store_name,
-    //   link: p.product_link,
-    //   sales_link: p.sales_link,
-    //   isOnline: p.store_name?.toLowerCase() === 'online'
-    // })));
+    const userCountry = userSettings.location.country?.trim();
+    const userProvince = userSettings.location.province?.trim();
+    const userCity = userSettings.location.city?.trim();
 
     return prices.filter((price) => {
-      // Check for any type of link
-      const hasLink = price.product_link || price.sales_link;
-      const isOnline = price.store_name?.toLowerCase() === "online";
+      try {
+        // Always include online prices or prices with links
+        const hasLink = price.product_link || price.sales_link;
+        const isOnline = price.store_name?.toLowerCase().trim() === "online";
+        if (hasLink || isOnline) return true;
 
-      // Show all prices with links or online store
-      if (hasLink || isOnline) {
-        // console.log('Keeping price with link/online:', {
-        //   amount: price.amount,
-        //   store: price.store_name,
-        //   hasProductLink: !!price.product_link,
-        //   hasSalesLink: !!price.sales_link,
-        //   isOnline
-        // });
-        return true;
+        // For local store prices, check location matching
+        if (!price.location) return false;
+
+        const priceCountry = price.location.country?.trim();
+        const priceProvince = price.location.province?.trim();
+        const priceCity = price.location.city?.trim();
+
+        // Match based on available location information
+        // If user hasn't specified a location field, don't filter on it
+        const countryMatch = !userCountry || (priceCountry && priceCountry.toLowerCase() === userCountry.toLowerCase());
+        const provinceMatch = !userProvince || (priceProvince && priceProvince.toLowerCase() === userProvince.toLowerCase());
+        const cityMatch = !userCity || (priceCity && priceCity.toLowerCase() === userCity.toLowerCase());
+
+        return countryMatch && provinceMatch && cityMatch;
+      } catch (error) {
+        console.error("Error filtering price by location:", error, "Price:", price);
+        return false;
       }
-
-      // For local store prices, apply location filtering
-      if (!price.location) return false;
-
-      const priceCountry = price.location.country;
-      const priceProvince = price.location.province;
-      const priceCity = price.location.city;
-
-      const matches =
-        (!userCountry || userCountry === priceCountry) && (!userProvince || userProvince === priceProvince) && (!userCity || userCity === priceCity);
-
-      // if (!matches) {
-      //   console.log('Filtered out local price:', {
-      //     amount: price.amount,
-      //     store: price.store_name,
-      //     location: price.location
-      //   });
-      // }
-
-      return matches;
     });
   };
 
   const filterProductsBySearch = (products: Product[]) => {
-    if (!searchQuery) return products;
-    if (!products) return [];
+    if (!searchQuery || !products) return products || [];
+
+    const query = searchQuery.toLowerCase().trim();
 
     return products.filter((product) => {
       try {
+        // Basic product info match
         const productMatch =
-          (product.name?.toLowerCase() || "").includes(searchQuery) ||
-          (product.description?.toLowerCase() || "").includes(searchQuery) ||
-          (product.brand?.toLowerCase() || "").includes(searchQuery) ||
-          (product.category?.toLowerCase() || "").includes(searchQuery) ||
-          (product.tags || []).some((tag) => (tag?.toLowerCase() || "").includes(searchQuery));
+          (product.name?.toLowerCase().trim() || "").includes(query) ||
+          (product.description?.toLowerCase().trim() || "").includes(query) ||
+          (product.brand?.toLowerCase().trim() || "").includes(query) ||
+          (product.category?.toLowerCase().trim() || "").includes(query) ||
+          (product.tags || []).some((tag) => (tag?.toLowerCase().trim() || "").includes(query));
 
-        const priceMatch = filterPricesByLocation(product.prices || []).some(
-          (price) =>
-            (price.name?.toLowerCase() || "").includes(searchQuery) ||
-            (price.notes?.toLowerCase() || "").includes(searchQuery) ||
-            (price.location?.country?.toLowerCase() || "").includes(searchQuery) ||
-            (price.location?.province?.toLowerCase() || "").includes(searchQuery) ||
-            (price.location?.city?.toLowerCase() || "").includes(searchQuery) ||
-            (price.store_name?.toLowerCase() || "").includes(searchQuery)
+        // Price and location match
+        const priceMatch = (product.prices || []).some(
+          (price) => {
+            // First check if this price should be included based on location filters
+            const shouldIncludePrice = !filters.locationEnabled || filterPricesByLocation([price]).length > 0;
+            
+            if (!shouldIncludePrice) return false;
+
+            return (
+              (price.name?.toLowerCase().trim() || "").includes(query) ||
+              (price.notes?.toLowerCase().trim() || "").includes(query) ||
+              (price.location?.country?.toLowerCase().trim() || "").includes(query) ||
+              (price.location?.province?.toLowerCase().trim() || "").includes(query) ||
+              (price.location?.city?.toLowerCase().trim() || "").includes(query) ||
+              (price.store_name?.toLowerCase().trim() || "").includes(query)
+            );
+          }
         );
 
         return productMatch || priceMatch;
       } catch (error) {
-        console.error("Error filtering product:", product, error);
+        console.error("Error filtering product:", error, "Product:", product);
         return false;
       }
     });
@@ -828,18 +818,12 @@ export default function ProductList() {
       // If product has an image, delete it from storage first
       if (productToDelete.image) {
         try {
-          // Extract the path from the image URL
-          const imageUrl = new URL(productToDelete.image);
-          const pathWithQuery = imageUrl.pathname.split('/o/')[1];
-          const imagePath = decodeURIComponent(pathWithQuery.split('?')[0]);
-          console.log('Deleting image at path:', imagePath);
-          
-          // Use the imported storage instance
-          const imageRef = ref(storage, imagePath);
+          const storage = getStorage();
+          const imageRef = ref(storage, productToDelete.image);
           await deleteObject(imageRef);
-          console.log('Image deleted successfully');
+          console.log("Product image deleted successfully");
         } catch (error) {
-          console.error('Error deleting image:', error);
+          console.error("Error deleting product image:", error);
           // Continue with product deletion even if image deletion fails
         }
       }
@@ -857,59 +841,20 @@ export default function ProductList() {
   };
 
   const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
-    try {
-      if (!auth.currentUser) {
-        throw new Error('User must be authenticated to upload images');
-      }
-
-      console.log('Starting image upload process...');
-      
-      // Convert base64 to blob
-      const base64Response = await fetch(imageDataUrl);
-      if (!base64Response.ok) {
-        throw new Error('Failed to process image data');
-      }
-      const blob = await base64Response.blob();
-      console.log('Image converted to blob:', blob.size, 'bytes');
-      
-      // Use the imported storage instance directly
-      const timestamp = Date.now();
-      const userId = auth.currentUser.uid;
-      const imagePath = `product_pictures/${userId}/${productId}_${timestamp}.jpg`;
-      console.log('Creating storage reference:', imagePath);
-      
-      const imageRef = ref(storage, imagePath);
-      
-      // Upload the image with metadata
-      const metadata = {
-        contentType: 'image/jpeg',
-        customMetadata: {
-          'uploadedBy': auth.currentUser.uid,
-          'productId': productId,
-          'uploadedAt': new Date().toISOString()
-        }
-      };
-      
-      console.log('Uploading image with metadata:', metadata);
-      const uploadResult = await uploadBytes(imageRef, blob, metadata);
-      console.log('Upload completed:', uploadResult.metadata);
-      
-      // Get the download URL
-      const downloadUrl = await getDownloadURL(imageRef);
-      console.log('Generated download URL:', downloadUrl);
-      
-      return downloadUrl;
-    } catch (error) {
-      console.error('Error in uploadImageToStorage:', error);
-      // Log additional context
-      console.error('Context:', {
-        isAuthenticated: !!auth.currentUser,
-        userId: auth.currentUser?.uid,
-        productId,
-        timestamp: new Date().toISOString()
-      });
-      throw error;
-    }
+    // Convert base64 to blob
+    const response = await fetch(imageDataUrl);
+    const blob = await response.blob();
+    
+    // Create a reference to the storage location
+    const storage = getStorage();
+    const imagePath = `products/${productId}_${Date.now()}.jpg`;
+    const imageRef = ref(storage, imagePath);
+    
+    // Upload the image
+    await uploadBytes(imageRef, blob);
+    
+    // Get the download URL
+    return await getDownloadURL(imageRef);
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
@@ -975,35 +920,25 @@ export default function ProductList() {
         return;
       }
 
-      console.log('Starting product creation...');
       const productRef = await addDoc(collection(db, "products"), {
         ...newProduct,
         image: "", // Initialize with empty image URL
         created_at: new Date(),
-        created_by: auth.currentUser?.uid,
+        created_by: auth.currentUser?.uid || "",
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid
+        updated_by: auth.currentUser?.uid || ""
       });
-      console.log('Product created with ID:', productRef.id);
 
-      let finalImageUrl = "";
       // If there's an image (in base64), upload it to storage
       if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
-        console.log('Image detected, starting upload...');
-        finalImageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
-        console.log('Image uploaded successfully:', finalImageUrl);
+        const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
         
         // Update the product with the image URL
-        await updateDoc(productRef, { image: finalImageUrl });
-        console.log('Product updated with image URL');
+        await updateDoc(productRef, { image: imageUrl });
+        newProduct.image = imageUrl;
       }
 
-      const productWithId = { 
-        ...newProduct as Product, 
-        _id: productRef.id,
-        image: finalImageUrl 
-      };
-      
+      const productWithId = { ...newProduct as Product, _id: productRef.id };
       setProducts((prevProducts) => [...prevProducts, productWithId]);
       
       setNewProduct({
@@ -1025,30 +960,18 @@ export default function ProductList() {
       showMessage("Product added successfully");
     } catch (error) {
       console.error("Error adding product:", error);
-      setError(error instanceof Error ? error.message : "Failed to add product. Please try again.");
+      setError("Failed to add product. Please try again.");
     }
   };
 
   const handleImageCapture = async (imageUrl: string) => {
-    try {
-      console.log('Captured image, setting in state');
-      setNewProduct(prev => ({ ...prev, image: imageUrl }));
-      setShowCameraDialog(false);
-    } catch (error) {
-      console.error('Error handling image capture:', error);
-      setError('Failed to process captured image');
-    }
+    setNewProduct(prev => ({ ...prev, image: imageUrl }));
+    setShowCameraDialog(false);
   };
 
   const handleEditImageCapture = async (imageUrl: string) => {
-    try {
-      console.log('Captured image for edit, setting in state');
-      setEditingProduct(prev => prev ? { ...prev, image: imageUrl } : null);
-      setEditCameraDialogOpen(false);
-    } catch (error) {
-      console.error('Error handling edit image capture:', error);
-      setError('Failed to process captured image');
-    }
+    setEditingProduct(prev => prev ? { ...prev, image: imageUrl } : null);
+    setEditCameraDialogOpen(false);
   };
 
   const toggleRow = (productId: string) => {
@@ -1543,26 +1466,11 @@ export default function ProductList() {
 
                     {/* NAME / BRAND */}
                     <TableCell sx={{ width: "25%", textAlign: "left" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        {product.image && (
-                          <Box
-                            component="img"
-                            src={product.image}
-                            alt={product.name}
-                            sx={{
-                              width: 50,
-                              height: 50,
-                              objectFit: "cover",
-                              borderRadius: 1
-                            }}
-                          />
-                        )}
-                        <Box sx={{ display: "flex", flexDirection: "column" }}>
-                          <Typography variant="body1">{product.name}</Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {product.brand}
-                          </Typography>
-                        </Box>
+                      <Box sx={{ display: "flex", flexDirection: "column" }}>
+                        <Typography variant="body1">{product.name}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {product.brand}
+                        </Typography>
                       </Box>
                     </TableCell>
 
@@ -2317,11 +2225,7 @@ export default function ProductList() {
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Unit</InputLabel>
-                <Select
-                  value={newPrice.unit}
-                  label="Unit"
-                  onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}
-                >
+                <Select value={newPrice.unit} label="Unit" onChange={(e) => setNewPrice((prev) => ({ ...prev, unit: e.target.value }))}>
                   {PRODUCT_UNITS.map((unit) => (
                     <MenuItem key={unit} value={unit}>
                       {unit}
