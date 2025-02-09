@@ -841,20 +841,67 @@ export default function ProductList() {
   };
 
   const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
-    // Convert base64 to blob
-    const response = await fetch(imageDataUrl);
-    const blob = await response.blob();
+    console.log('Starting image upload process for product:', productId);
     
-    // Create a reference to the storage location
-    const storage = getStorage();
-    const imagePath = `products/${productId}_${Date.now()}.jpg`;
-    const imageRef = ref(storage, imagePath);
-    
-    // Upload the image
-    await uploadBytes(imageRef, blob);
-    
-    // Get the download URL
-    return await getDownloadURL(imageRef);
+    try {
+      // Convert base64 to blob
+      console.log('Converting base64 to blob...');
+      const response = await fetch(imageDataUrl);
+      const blob = await response.blob();
+      console.log('Blob created successfully:', {
+        size: blob.size,
+        type: blob.type
+      });
+      
+      // Create a reference to the storage location
+      console.log('Getting storage reference...');
+      const storage = getStorage();
+      const imagePath = `products/${productId}_${Date.now()}.jpg`;
+      const imageRef = ref(storage, imagePath);
+      
+      // Create metadata including CORS headers
+      const metadata = {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          uploadedBy: auth.currentUser?.uid || 'anonymous',
+          uploadedAt: new Date().toISOString()
+        }
+      };
+      
+      // Upload the image
+      console.log('Starting upload to Firebase Storage...');
+      const uploadResult = await uploadBytes(imageRef, blob, metadata);
+      console.log('Upload completed successfully');
+      
+      // Get download URL with retry logic
+      console.log('Getting download URL...');
+      let downloadURL = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (!downloadURL && retryCount < maxRetries) {
+        try {
+          downloadURL = await getDownloadURL(imageRef);
+          console.log('Download URL obtained successfully');
+          break;
+        } catch (error) {
+          console.warn(`Attempt ${retryCount + 1} failed to get download URL:`, error);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
+          }
+        }
+      }
+      
+      if (!downloadURL) {
+        throw new Error('Failed to get download URL after multiple attempts');
+      }
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('Error in uploadImageToStorage:', error);
+      throw error;
+    }
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
@@ -874,20 +921,47 @@ export default function ProductList() {
       let imageUrl = updatedProduct.image;
       
       // If image is a base64 string, upload it to storage
-      if (updatedProduct.image && updatedProduct.image.startsWith('data:image')) {
-        imageUrl = await uploadImageToStorage(updatedProduct.image, editingProduct._id);
+      if (updatedProduct.image && typeof updatedProduct.image === 'string' && updatedProduct.image.startsWith('data:image')) {
+        console.log('Detected new image upload in product update:', {
+          productId: editingProduct._id,
+          hasOldImage: !!oldProduct?.image
+        });
         
-        // If old image exists, delete it from storage
-        if (oldProduct?.image) {
-          try {
-            const storage = getStorage();
-            const oldImageRef = ref(storage, oldProduct.image);
-            await deleteObject(oldImageRef);
-          } catch (error) {
-            console.error("Error deleting old image:", error);
-            // Continue with update even if old image deletion fails
+        try {
+          imageUrl = await uploadImageToStorage(updatedProduct.image, editingProduct._id);
+          console.log('New image uploaded successfully:', imageUrl.substring(0, 100) + '...');
+          
+          // If old image exists, delete it from storage
+          if (oldProduct?.image) {
+            console.log('Attempting to delete old image:', oldProduct.image);
+            try {
+              const storage = getStorage();
+              const oldImageRef = ref(storage, oldProduct.image);
+              await deleteObject(oldImageRef);
+              console.log('Old image deleted successfully');
+            } catch (error) {
+              console.error('Error deleting old image:', {
+                error,
+                errorMessage: error.message,
+                errorCode: error.code,
+                oldImagePath: oldProduct.image
+              });
+            }
           }
+        } catch (uploadError) {
+          console.error('Error during image upload in product update:', {
+            error: uploadError,
+            errorMessage: uploadError.message,
+            errorCode: uploadError.code,
+            productId: editingProduct._id
+          });
+          throw uploadError;
         }
+      } else {
+        console.log('No new image to upload:', {
+          hasImage: !!updatedProduct.image,
+          imageStart: updatedProduct.image?.substring(0, 30)
+        });
       }
 
       const productData = {
@@ -2444,77 +2518,75 @@ export default function ProductList() {
                 sx={{ mb: 2 }}
               />
             </Grid>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={4}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Country"
-                    value={editedPrice.location?.country || "Canada"}
-                    onChange={(e) =>
-                      setEditedPrice((prev) => ({
-                        ...prev,
-                        location: { ...(prev.location || {}), country: e.target.value }
-                      }))
-                    }
+            <Grid item xs={12} sm={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Country"
+                  value={editedPrice.location?.country || "Canada"}
+                  onChange={(e) =>
+                    setEditedPrice((prev) => ({
+                      ...prev,
+                      location: { ...(prev.location || {}), country: e.target.value }
+                    }))
+                  }
+                />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <img 
+                    src="/flags/Canada.png" 
+                    alt="Canada" 
+                    style={{ width: '30px', cursor: 'pointer' }}
+                    onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Canada' } }))}
                   />
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <img 
-                      src="/flags/Canada.png" 
-                      alt="Canada" 
-                      style={{ width: '30px', cursor: 'pointer' }}
-                      onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Canada' } }))}
-                    />
-                    <img 
-                      src="/flags/United States.png" 
-                      alt="USA" 
-                      style={{ width: '30px', cursor: 'pointer' }}
-                      onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'USA' } }))}
-                    />
-                    <Box 
-                      sx={{ 
-                        width: '30px', 
-                        height: '30px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '20px'
-                      }}
-                      onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Other' } }))}
-                    >
-                      🌐
-                    </Box>
+                  <img 
+                    src="/flags/United States.png" 
+                    alt="USA" 
+                    style={{ width: '30px', cursor: 'pointer' }}
+                    onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'USA' } }))}
+                  />
+                  <Box 
+                    sx={{ 
+                      width: '30px', 
+                      height: '30px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '20px'
+                    }}
+                    onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Other' } }))}
+                  >
+                    🌐
                   </Box>
                 </Box>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Province"
-                  value={editedPrice.location?.province || ""}
-                  onChange={(e) =>
-                    setEditedPrice((prev) => ({
-                      ...prev,
-                      location: { ...(prev.location || {}), province: e.target.value }
-                    }))
-                  }
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="City"
-                  value={editedPrice.location?.city || ""}
-                  onChange={(e) =>
-                    setEditedPrice((prev) => ({
-                      ...prev,
-                      location: { ...(prev.location || {}), city: e.target.value }
-                    }))
-                  }
-                />
-              </Grid>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="Province"
+                value={editedPrice.location?.province || ""}
+                onChange={(e) =>
+                  setEditedPrice((prev) => ({
+                    ...prev,
+                    location: { ...(prev.location || {}), province: e.target.value }
+                  }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="City"
+                value={editedPrice.location?.city || ""}
+                onChange={(e) =>
+                  setEditedPrice((prev) => ({
+                    ...prev,
+                    location: { ...(prev.location || {}), city: e.target.value }
+                  }))
+                }
+              />
             </Grid>
             <Grid item xs={12}>
               <TextField
