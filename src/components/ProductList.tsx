@@ -51,6 +51,7 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import InfoIcon from "@mui/icons-material/Info";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import ImageIcon from "@mui/icons-material/Image";
 import CameraDialog from './CameraDialog';
 
 import { auth, db } from "../firebaseConfig";
@@ -841,65 +842,41 @@ export default function ProductList() {
   };
 
   const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
-    console.log('Starting image upload process for product:', productId);
-    
     try {
+      console.log('Starting upload for product:', productId);
+      
       // Convert base64 to blob
-      console.log('Converting base64 to blob...');
       const response = await fetch(imageDataUrl);
       const blob = await response.blob();
-      console.log('Blob created successfully:', {
-        size: blob.size,
-        type: blob.type
-      });
+      console.log('Blob created:', { size: blob.size, type: blob.type });
       
       // Create a reference to the storage location
-      console.log('Getting storage reference...');
       const storage = getStorage();
       const imagePath = `products/${productId}_${Date.now()}.jpg`;
       const imageRef = ref(storage, imagePath);
-      
-      // Create metadata including CORS headers
-      const metadata = {
-        contentType: 'image/jpeg',
-        customMetadata: {
-          uploadedBy: auth.currentUser?.uid || 'anonymous',
-          uploadedAt: new Date().toISOString()
-        }
-      };
+      console.log('Storage reference created:', { path: imagePath });
       
       // Upload the image
-      console.log('Starting upload to Firebase Storage...');
-      const uploadResult = await uploadBytes(imageRef, blob, metadata);
-      console.log('Upload completed successfully');
+      console.log('Starting upload...');
+      const result = await uploadBytes(imageRef, blob);
+      console.log('Upload completed:', { 
+        fullPath: result.metadata.fullPath,
+        size: result.metadata.size,
+        generation: result.metadata.generation 
+      });
       
-      // Get download URL with retry logic
+      // Get the download URL
       console.log('Getting download URL...');
-      let downloadURL = null;
-      let retryCount = 0;
-      const maxRetries = 3;
+      const url = await getDownloadURL(imageRef);
+      console.log('Download URL obtained:', url.substring(0, 100) + '...');
       
-      while (!downloadURL && retryCount < maxRetries) {
-        try {
-          downloadURL = await getDownloadURL(imageRef);
-          console.log('Download URL obtained successfully');
-          break;
-        } catch (error) {
-          console.warn(`Attempt ${retryCount + 1} failed to get download URL:`, error);
-          retryCount++;
-          if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-          }
-        }
-      }
-      
-      if (!downloadURL) {
-        throw new Error('Failed to get download URL after multiple attempts');
-      }
-      
-      return downloadURL;
+      return url;
     } catch (error) {
-      console.error('Error in uploadImageToStorage:', error);
+      console.error('Upload error:', { 
+        code: error.code,
+        message: error.message,
+        name: error.name
+      });
       throw error;
     }
   };
@@ -921,47 +898,20 @@ export default function ProductList() {
       let imageUrl = updatedProduct.image;
       
       // If image is a base64 string, upload it to storage
-      if (updatedProduct.image && typeof updatedProduct.image === 'string' && updatedProduct.image.startsWith('data:image')) {
-        console.log('Detected new image upload in product update:', {
-          productId: editingProduct._id,
-          hasOldImage: !!oldProduct?.image
-        });
+      if (updatedProduct.image && updatedProduct.image.startsWith('data:image')) {
+        imageUrl = await uploadImageToStorage(updatedProduct.image, editingProduct._id);
         
-        try {
-          imageUrl = await uploadImageToStorage(updatedProduct.image, editingProduct._id);
-          console.log('New image uploaded successfully:', imageUrl.substring(0, 100) + '...');
-          
-          // If old image exists, delete it from storage
-          if (oldProduct?.image) {
-            console.log('Attempting to delete old image:', oldProduct.image);
-            try {
-              const storage = getStorage();
-              const oldImageRef = ref(storage, oldProduct.image);
-              await deleteObject(oldImageRef);
-              console.log('Old image deleted successfully');
-            } catch (error) {
-              console.error('Error deleting old image:', {
-                error,
-                errorMessage: error.message,
-                errorCode: error.code,
-                oldImagePath: oldProduct.image
-              });
-            }
+        // If old image exists, delete it from storage
+        if (oldProduct?.image) {
+          try {
+            const storage = getStorage();
+            const oldImageRef = ref(storage, oldProduct.image);
+            await deleteObject(oldImageRef);
+          } catch (error) {
+            console.error("Error deleting old image:", error);
+            // Continue with update even if old image deletion fails
           }
-        } catch (uploadError) {
-          console.error('Error during image upload in product update:', {
-            error: uploadError,
-            errorMessage: uploadError.message,
-            errorCode: uploadError.code,
-            productId: editingProduct._id
-          });
-          throw uploadError;
         }
-      } else {
-        console.log('No new image to upload:', {
-          hasImage: !!updatedProduct.image,
-          imageStart: updatedProduct.image?.substring(0, 30)
-        });
       }
 
       const productData = {
@@ -1508,15 +1458,27 @@ export default function ProductList() {
               }}
             >
               <TableRow>
+                {/* Expand/Collapse */}
                 <TableCell padding="none" sx={{ width: "28px" }} />
-                <TableCell sx={{ width: "25%", textAlign: "left" }}>Product</TableCell>
-                <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
-                  Details
+                
+                {/* IMAGE */}
+                <TableCell padding="none" sx={{ width: "60px" }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '40px' }}>
+                    <ImageIcon sx={{ color: 'white.400', fontSize: 20 }} />
+                  </Box>
                 </TableCell>
-                <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
-                  Tags
-                </TableCell>
-                <TableCell sx={{ width: "10%", textAlign: "right" }}>Actions</TableCell>
+
+                {/* Product Name Column */}
+                <TableCell sx={{ width: "35%" }}>Product</TableCell>
+
+                {/* Details Column */}
+                <TableCell sx={{ width: "35%" }}>Details</TableCell>
+
+                {/* Tags Column */}
+                <TableCell sx={{ width: "15%" }}>Tags</TableCell>
+
+                {/* Actions Column */}
+                <TableCell align="right" sx={{ width: "15%" }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1532,71 +1494,112 @@ export default function ProductList() {
                       }
                     }}
                   >
-                    <TableCell padding="none" sx={{ width: "48px" }}>
-                      <IconButton aria-label="expand row" size="small" onClick={() => toggleRow(product._id)}>
+                    {/* Expand/Collapse */}
+                    <TableCell padding="none">
+                      <IconButton
+                        aria-label="expand row"
+                        size="small"
+                        onClick={() => toggleRow(product._id)}
+                      >
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
 
-                    {/* NAME / BRAND */}
-                    <TableCell sx={{ width: "25%", textAlign: "left" }}>
-                      <Box sx={{ display: "flex", flexDirection: "column" }}>
-                        <Typography variant="body1">{product.name}</Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {product.brand}
-                        </Typography>
+                    {/* Product Image */}
+                    <TableCell padding="none">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '40px' }}>
+                        {product.image ? (
+                          <img 
+                            src={product.image} 
+                            alt={product.name}
+                            style={{ 
+                              width: '40px', 
+                              height: '40px', 
+                              objectFit: 'cover', 
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => handleEditProduct(product)}
+                          />
+                        ) : (
+                          <Box 
+                            sx={{ 
+                              width: '40px', 
+                              height: '40px', 
+                              bgcolor: 'grey.100',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <ImageIcon sx={{ color: 'grey.400', fontSize: 20 }} />
+                          </Box>
+                        )}
                       </Box>
                     </TableCell>
 
-                    {/* DETAILS */}
-                    <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <Typography variant="body2">{product.category}</Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {product.company_id && companies[product.company_id]?.name}
-                          {product.origin?.city && product.origin?.province && (
-                            <span>
-                              {product.company_id ? " - " : ""}
-                              {`${product.origin.city}, ${product.origin.province}`}
-                            </span>
-                          )}
+                    {/* Product Name/Brand */}
+                    <TableCell>
+                      <Box sx={{ display: "flex", flexDirection: "column" }}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {product.name}
                         </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ width: "30%", textAlign: "center" }} className="hide-on-mobile">
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                        {Object.entries(product.product_tags || {}).map(([key, value]) => (
-                          <Chip
-                            key={key}
-                            label={`${key}: ${value}`}
-                            size="small"
-                            sx={{ margin: "2px" }}
-                          />
-                        ))}
-                        {(!product.product_tags || Object.keys(product.product_tags).length === 0) && (
+                        {product.brand && (
                           <Typography variant="body2" color="textSecondary">
-                            NA
+                            {product.brand}
                           </Typography>
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ width: "15%", textAlign: "right" }}>
-                      <Box className="action-buttons">
-                        {(isAdmin || isContributor) && (
-                          <IconButton size="small" onClick={() => handleOpenPriceDialog(product)} color="primary">
-                            <AttachMoneyIcon />
-                          </IconButton>
+
+                    {/* Details */}
+                    <TableCell>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                        {product.description && (
+                          <Typography variant="body2" color="textSecondary">
+                            {product.description}
+                          </Typography>
                         )}
-                        {(isAdmin || isContributor) && (
-                          <IconButton size="small" onClick={() => handleEditProduct(product)} color="primary">
-                            <EditIcon />
-                          </IconButton>
+                        {product.origin?.country && (
+                          <Typography variant="body2" color="textSecondary">
+                            {`${product.origin.country}${product.origin.province ? `, ${product.origin.province}` : ''}`}
+                          </Typography>
                         )}
-                        {isAdmin && (
-                          <IconButton size="small" onClick={() => handleDeleteProduct(product)} color="error">
-                            <DeleteIcon />
-                          </IconButton>
-                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {product.category && (
+                        <Chip
+                          label={product.category}
+                          size="small"
+                          sx={{ mr: 1 }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditProduct(product)}
+                          sx={{ color: 'primary.main' }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleAddPrice(product)}
+                          sx={{ color: 'success.main' }}
+                        >
+                          <AttachMoneyIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteProduct(product)}
+                          sx={{ color: 'error.main' }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -1768,23 +1771,7 @@ export default function ProductList() {
         <DialogContent>
           {editingProduct && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-              {/* Camera Button and Image Preview */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<CameraAltIcon />}
-                  onClick={() => setEditCameraDialogOpen(true)}
-                >
-                  {editingProduct.image ? 'Change Picture' : 'Take Picture'}
-                </Button>
-                {editingProduct.image && (
-                  <img 
-                    src={editingProduct.image} 
-                    alt="Product" 
-                    style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
-                  />
-                )}
-              </Box>
+              
 
               {/* NAME AND BRAND INPUT */}
               <Box sx={{ display: "flex", gap: 2 }}>
@@ -1861,9 +1848,10 @@ export default function ProductList() {
                 )}
               </Box>
 
-              <Typography variant="subtitle1" gutterBottom>
+       
+              {/* <Typography variant="subtitle1" gutterBottom>
                 Origin
-              </Typography>
+              </Typography> */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <TextField
                   label="Country"
@@ -1902,6 +1890,25 @@ export default function ProductList() {
                   </Box>
                 </Box>
               </Box>
+
+                     {/* Camera Button and Image Preview */}
+                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<CameraAltIcon />}
+                  onClick={() => setEditCameraDialogOpen(true)}
+                >
+                  {editingProduct.image ? 'Change Picture' : 'Take Picture'}
+                </Button>
+                {editingProduct.image && (
+                  <img 
+                    src={editingProduct.image} 
+                    alt="Product" 
+                    style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                  />
+                )}
+              </Box>
+
 
               {/* COMPANY SELECT */}
               <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
@@ -2183,7 +2190,8 @@ export default function ProductList() {
               onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, city: e.target.value } }))}
             />
             */}
-                <Box sx={{ p: 0 }}>
+
+            <Box sx={{ p: 0 }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {/* Existing form fields */}
                 {/* Camera Button */}

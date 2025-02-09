@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,12 +29,5 @@ const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-
-// Log storage configuration for debugging
-console.log('Firebase Storage Configuration:', {
-  bucket: storage.app.options.storageBucket,
-  authDomain: storage.app.options.authDomain,
-  projectId: storage.app.options.projectId
-});
 
 export { app, auth, db, storage, analytics };
