@@ -276,7 +276,7 @@ export default function ProductList() {
     setError(null);
 
     try {
-      console.log("Starting data fetch...");
+      // console.log("Starting data fetch...");
 
       // Fetch companies first
       const fetchCompanies = async () => {
@@ -287,7 +287,7 @@ export default function ProductList() {
             _id: doc.id,
             ...doc.data()
           })) as Company[];
-          console.log('Companies fetched:', companiesData);
+          // console.log('Companies fetched:', companiesData);
           setCompanies(companiesData);
         } catch (error) {
           console.error("Error fetching companies:", error);
@@ -299,7 +299,7 @@ export default function ProductList() {
 
       // Fetch products
       const productsSnapshot = await getDocs(collection(db, "products"));
-      console.log("Products fetched:", productsSnapshot.size);
+      // console.log("Products fetched:", productsSnapshot.size);
       const productsList = productsSnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -321,7 +321,7 @@ export default function ProductList() {
         filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
       }
 
-      console.log("Products filtered:", filteredProducts.length);
+      // console.log("Products filtered:", filteredProducts.length);
       setProducts(filteredProducts);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -340,7 +340,7 @@ export default function ProductList() {
 
   useEffect(() => {
     const refreshProducts = async () => {
-      console.log("Full refresh triggered");
+      // console.log("Full refresh triggered");
       setLoading(true);
       setError(null);
 
@@ -358,7 +358,7 @@ export default function ProductList() {
           _id: doc.id,
           ...doc.data()
         })) as Company[];
-        console.log('Companies fetched:', companiesData);
+        // console.log('Companies fetched:', companiesData);
         setCompanies(companiesData);
 
         const productsSnapshot = await getDocs(collection(db, "products"));
@@ -382,7 +382,7 @@ export default function ProductList() {
           filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
         }
 
-        console.log("Full refresh completed");
+        // console.log("Full refresh completed");
         setProducts(filteredProducts);
       } catch (error) {
         console.error("Error during full refresh:", error);
@@ -467,7 +467,7 @@ export default function ProductList() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("Auth state changed:", user?.uid);
+      // console.log("Auth state changed:", user?.uid);
       setAuthChecked(true);
       if (user) {
         // Load user settings
@@ -486,7 +486,7 @@ export default function ProductList() {
         const userRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userRef);
 
-        console.log("User document:", userDoc.exists() ? userDoc.data() : "No user doc");
+        // console.log("User document:", userDoc.exists() ? userDoc.data() : "No user doc");
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
@@ -494,12 +494,12 @@ export default function ProductList() {
           const isUserSuperAdmin = userData.role === "super_admin";
           const isUserContributor = userData.role === "contributor" || isUserAdmin || isUserSuperAdmin;
 
-          console.log("User roles:", {
-            role: userData.role,
-            isAdmin: isUserAdmin,
-            isSuperAdmin: isUserSuperAdmin,
-            isContributor: isUserContributor
-          });
+          // console.log("User roles:", {
+          //   role: userData.role,
+          //   isAdmin: isUserAdmin,
+          //   isSuperAdmin: isUserSuperAdmin,
+          //   isContributor: isUserContributor
+          // });
 
           setIsAdmin(isUserAdmin);
           setIsSuperAdmin(isUserSuperAdmin);
@@ -511,17 +511,17 @@ export default function ProductList() {
             // Use token for API calls
           }
         } else {
-          console.log("No user document found in Firestore");
+          // console.log("No user document found in Firestore");
           setIsAdmin(false);
           setIsSuperAdmin(false);
           setIsContributor(false);
         }
 
         // Always fetch data if user is logged in, regardless of role
-        console.log("Fetching data for logged in user");
+        // console.log("Fetching data for logged in user");
         fetchData();
       } else {
-        console.log("No user logged in");
+        // console.log("No user logged in");
         setProducts([]);
         setIsAdmin(false);
         setIsSuperAdmin(false);
@@ -540,7 +540,7 @@ export default function ProductList() {
         clearTimeout(timeout);
       }
       timeout = setTimeout(() => {
-        console.log(message, data);
+        // console.log(message, data);
         timeout = null;
       }, 100);
     };
@@ -809,11 +809,11 @@ export default function ProductList() {
 
     try {
       const token = await auth.currentUser.getIdTokenResult();
-      console.log("Attempting price update with roles:", {
-        admin: token.claims.admin,
-        superAdmin: token.claims.superAdmin,
-        contributor: token.claims.contributor
-      });
+      // console.log("Attempting price update with roles:", {
+      //   admin: token.claims.admin,
+      //   superAdmin: token.claims.superAdmin,
+      //   contributor: token.claims.contributor
+      // });
 
       const product = products.find((p) => p._id === editingPrice.productId);
       if (!product) return;
@@ -861,7 +861,7 @@ export default function ProductList() {
   };
 
   const handleEditClick = (product: Product) => {
-    console.log('Starting edit for product:', product);
+    // console.log('Starting edit for product:', product);
     setEditingProduct({ ...product, _id: product._id });
     setEditDialogOpen(true);
   };
@@ -882,7 +882,7 @@ export default function ProductList() {
         updated_by: auth.currentUser?.uid || ""
       };
 
-      console.log('Saving product:', cleanProduct);
+      // console.log('Saving product:', cleanProduct);
       await updateDoc(productRef, cleanProduct);
       
       // Update local state
@@ -943,32 +943,32 @@ export default function ProductList() {
 
   const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
     try {
-      console.log('Starting upload for product:', productId);
+      // console.log('Starting upload for product:', productId);
       
       // Convert base64 to blob
       const response = await fetch(imageDataUrl);
       const blob = await response.blob();
-      console.log('Blob created:', { size: blob.size, type: blob.type });
+      // console.log('Blob created:', { size: blob.size, type: blob.type });
       
       // Create a reference to the storage location
       const storage = getStorage();
       const imagePath = `products/${productId}_${Date.now()}.jpg`;
       const imageRef = ref(storage, imagePath);
-      console.log('Storage reference created:', { path: imagePath });
+      // console.log('Storage reference created:', { path: imagePath });
       
       // Upload the image
-      console.log('Starting upload...');
+      // console.log('Starting upload...');
       const result = await uploadBytes(imageRef, blob);
-      console.log('Upload completed:', { 
-        fullPath: result.metadata.fullPath,
-        size: result.metadata.size,
-        generation: result.metadata.generation 
-      });
+      // console.log('Upload completed:', { 
+      //   fullPath: result.metadata.fullPath,
+      //   size: result.metadata.size,
+      //   generation: result.metadata.generation 
+      // });
       
       // Get the download URL
-      console.log('Getting download URL...');
+      // console.log('Getting download URL...');
       const url = await getDownloadURL(imageRef);
-      console.log('Download URL obtained:', url.substring(0, 100) + '...');
+      // console.log('Download URL obtained:', url.substring(0, 100) + '...');
       
       return url;
     } catch (error) {
@@ -1107,16 +1107,16 @@ export default function ProductList() {
   }, [location.search]);
 
   const handleCompanySelect = async (companyId: string) => {
-    console.log("Selected company:", companyId);
+    // console.log("Selected company:", companyId);
 
     setEditingProduct((prev) => {
       if (!prev) return null;
-      console.log("Previous state:", prev);
+      // console.log("Previous state:", prev);
       const newState = {
         ...prev,
         company_id: companyId
       };
-      console.log("New state:", newState);
+      // console.log("New state:", newState);
       return newState;
     });
   };
@@ -1190,13 +1190,13 @@ export default function ProductList() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("Auth state changed:", user?.uid);
+      // console.log("Auth state changed:", user?.uid);
       setAuthChecked(true);
       if (user) {
         await checkUserRole(user.uid);
         fetchData();
       } else {
-        console.log("No user logged in");
+        // console.log("No user logged in");
         setProducts([]);
         setIsAdmin(false);
         setIsSuperAdmin(false);
@@ -1827,7 +1827,7 @@ export default function ProductList() {
       </Dialog>
 
       <Dialog open={!!editingProduct} onClose={() => {
-        console.log('Closing edit dialog');
+        // console.log('Closing edit dialog');
         setEditDialogOpen(false);
         setFlagPickerOpen(false);
         setEditingProduct(null);
@@ -1923,7 +1923,7 @@ export default function ProductList() {
                     variant={editingProduct.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
                     size="small"
                     onClick={() => {
-                      console.log('Setting product_of_canada');
+                      // console.log('Setting product_of_canada');
                       setEditingProduct({
                         ...editingProduct,
                         canadianOriginType: 'product_of_canada'
@@ -1937,7 +1937,7 @@ export default function ProductList() {
                     variant={editingProduct.canadianOriginType === 'made_in_canada' ? 'contained' : 'outlined'}
                     size="small"
                     onClick={() => {
-                      console.log('Setting made_in_canada');
+                      // console.log('Setting made_in_canada');
                       setEditingProduct({
                         ...editingProduct,
                         canadianOriginType: 'made_in_canada'
@@ -1951,7 +1951,7 @@ export default function ProductList() {
                     variant={editingProduct.canadianOriginType === 'canada_with_imports' ? 'contained' : 'outlined'}
                     size="small"
                     onClick={() => {
-                      console.log('Setting canada_with_imports');
+                      // console.log('Setting canada_with_imports');
                       setEditingProduct({
                         ...editingProduct,
                         canadianOriginType: 'canada_with_imports'
@@ -1965,7 +1965,7 @@ export default function ProductList() {
                     variant={editingProduct.canadianOriginType === null ? 'contained' : 'outlined'}
                     size="small"
                     onClick={() => {
-                      console.log('Setting null');
+                      // console.log('Setting null');
                       setEditingProduct({
                         ...editingProduct,
                         canadianOriginType: 'not sure - please check'
@@ -2114,7 +2114,7 @@ export default function ProductList() {
             variant="contained"
             onClick={() => {
               if (editingProduct) {
-                console.log('Saving edited product:', editingProduct);
+                // console.log('Saving edited product:', editingProduct);
                 handleUpdateProduct(editingProduct, true);
               }
             }}

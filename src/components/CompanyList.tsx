@@ -96,14 +96,14 @@ export default function CompanyList() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user?.uid);
+      // console.log('Auth state changed:', user?.uid);
       setAuthChecked(true);
       if (user) {
-        console.log('User is authenticated, checking role...');
+        // console.log('User is authenticated, checking role...');
         await checkUserRole(user.uid);
         fetchCompanies();
       } else {
-        console.log('No user logged in');
+        // console.log('No user logged in');
         setError('Please log in to view companies');
         setLoading(false);
       }
@@ -141,7 +141,7 @@ export default function CompanyList() {
 
   const filterCompanies = () => {
     let filtered = [...companies];
-    console.log('Initial companies:', filtered.length);
+    // console.log('Initial companies:', filtered.length);
 
     // Apply search filter
     if (searchTerm) {
@@ -167,13 +167,13 @@ export default function CompanyList() {
 
         return false;
       });
-      console.log('After search filter:', filtered.length);
+      // console.log('After search filter:', filtered.length);
     }
 
     // Apply industry filter if not "All"
     if (selectedIndustry && selectedIndustry !== 'All') {
       filtered = filtered.filter(company => company.industry === selectedIndustry);
-      console.log('After industry filter:', filtered.length);
+      // console.log('After industry filter:', filtered.length);
     }
 
     setFilteredCompanies(filtered);
@@ -182,17 +182,17 @@ export default function CompanyList() {
 
   const fetchCompanies = async () => {
     try {
-      console.log('Starting companies fetch...');
+      // console.log('Starting companies fetch...');
       const q = query(collection(db, 'companies'), orderBy('name', 'asc'));
       const querySnapshot = await getDocs(q);
-      console.log('Companies fetched:', querySnapshot.size);
+      // console.log('Companies fetched:', querySnapshot.size);
       
       const companiesData = querySnapshot.docs.map(doc => ({
         _id: doc.id,
         ...doc.data()
       })) as Company[];
       
-      console.log('Companies processed:', companiesData.length);
+      // console.log('Companies processed:', companiesData.length);
       setCompanies(companiesData);
       setFilteredCompanies(companiesData);
       setLoading(false);
@@ -517,7 +517,7 @@ export default function CompanyList() {
                             <IconButton
                               size="small"
                               onClick={() => {
-                                console.log('Opening edit form with company:', company);
+                                // console.log('Opening edit form with company:', company);
                                 setEditingCompany(company);
                                 setIsFormOpen(true);
                               }}

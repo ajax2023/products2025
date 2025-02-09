@@ -121,7 +121,7 @@ export default function UserManagement() {
           ...doc.data(),
           createdAt: doc.data().createdAt?.toDate()
         }));
-        console.log('Fetched contributor requests:', requests); // Debug log
+        // console.log('Fetched contributor requests:', requests); // Debug log
         setContributorRequests(requests);
       }, (error) => {
         console.error('Error in contributor requests listener:', error);
