@@ -151,7 +151,8 @@ export default function ProductList() {
     },
     product_tags: {},
     prices: [],
-    image: ""
+    image: "",
+    canadianOriginType: null
   });
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -1266,7 +1267,8 @@ export default function ProductList() {
         },
         product_tags: {},
         prices: [],
-        image: ""
+        image: "",
+        canadianOriginType: null
       });
       setAddDialogOpen(false); // Fix dialog closing
       showMessage("Product added successfully");
@@ -1551,13 +1553,7 @@ export default function ProductList() {
                           <img 
                             src={product.image} 
                             alt={product.name}
-                            style={{ 
-                              width: '40px', 
-                              height: '40px', 
-                              objectFit: 'cover', 
-                              borderRadius: '4px',
-                              cursor: 'pointer'
-                            }}
+                            style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                             onClick={() => handleEditClick(product)}
                           />
                         ) : (
@@ -1609,8 +1605,15 @@ export default function ProductList() {
                           <Typography variant="body2" color="textSecondary">
                             {product.canadianOriginType === 'product_of_canada' && '🍁 Product of Canada (98%+)'}
                             {product.canadianOriginType === 'made_in_canada' && '🍁 Made in Canada (51%+)'}
-                            {product.canadianOriginType === 'made_in_canada_imported' && '🍁 Made in Canada (with imports)'}
-                            {!['product_of_canada', 'made_in_canada', 'made_in_canada_imported'].includes(product.canadianOriginType) && (
+                            {product.canadianOriginType === 'canada_with_imports' && '🍁 Made in Canada (with imports)'}
+                            {product.canadianOriginType === 'not sure - please check' && (
+                              <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <span role="img" aria-label="question mark">❓</span>
+                                <span>Unknown</span>
+                              </Box>
+                            )}
+                            {product.canadianOriginType && 
+                             !['product_of_canada', 'made_in_canada', 'canada_with_imports', 'not sure - please check'].includes(product.canadianOriginType) && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <img 
                                   src={`/flags/${product.canadianOriginType}.png`} 
@@ -1912,10 +1915,10 @@ export default function ProductList() {
 
               {/* Canadian Origin Type */}
               <Box sx={{ mt: 0 }}>
-                <Typography variant="subtitle2" gutterBottom sx={{ color: 'error.main' }}>
-                  Canadian Content *
+                <Typography variant="subtitle2" gutterBottom sx={{ color: 'textSecondary' }}>
+                  Made in:  {editingProduct.canadianOriginType}
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
                   <Button
                     variant={editingProduct.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
                     size="small"
@@ -1926,7 +1929,7 @@ export default function ProductList() {
                         canadianOriginType: 'product_of_canada'
                       });
                     }}
-                    sx={{ borderColor: 'success.main', color: 'success.main' }}
+                    sx={{ borderColor: 'success.main', color: '#444'  }}
                   >
                     🍁 Product of Canada (98%+)
                   </Button>
@@ -1940,23 +1943,23 @@ export default function ProductList() {
                         canadianOriginType: 'made_in_canada'
                       });
                     }}
-                    sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                    sx={{ borderColor: 'primary.main', color: '#444' }}
                   >
                     🍁 Made in Canada (51%+)
                   </Button>
                   <Button
-                    variant={editingProduct.canadianOriginType === 'made_in_canada_imported' ? 'contained' : 'outlined'}
+                    variant={editingProduct.canadianOriginType === 'canada_with_imports' ? 'contained' : 'outlined'}
                     size="small"
                     onClick={() => {
-                      console.log('Setting made_in_canada_imported');
+                      console.log('Setting canada_with_imports');
                       setEditingProduct({
                         ...editingProduct,
-                        canadianOriginType: 'made_in_canada_imported'
+                        canadianOriginType: 'canada_with_imports'
                       });
                     }}
-                    sx={{ borderColor: 'info.main', color: 'info.main' }}
+                    sx={{ borderColor: 'info.main', color: '#444' }}
                   >
-                    🍁 Made in Canada (with imports)
+                    🍁 Made in Canada w imports)
                   </Button>
                   <Button
                     variant={editingProduct.canadianOriginType === null ? 'contained' : 'outlined'}
@@ -1965,27 +1968,30 @@ export default function ProductList() {
                       console.log('Setting null');
                       setEditingProduct({
                         ...editingProduct,
-                        canadianOriginType: null
+                        canadianOriginType: 'not sure - please check'
                       });
                     }}
-                    sx={{ borderColor: 'grey.500', color: 'grey.500' }}
+                    sx={{ borderColor: 'grey.500', color: '#444' }}
                   >
-                    Not Canadian Made
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <span role="img" aria-label="question mark">❓</span>
+                      <span>Unknown</span>
+                    </Box>
                   </Button>
                   <Button
                     variant="outlined"
                     size="small"
                     onClick={() => setFlagPickerOpen(true)}
-                    sx={{ borderColor: 'grey.500', color: 'grey.500' }}
+                    sx={{ borderColor: 'grey.500', color: '#444' }}
                   >
                     🌐 Select Country
                   </Button>
                 </Box>
-                {!editingProduct.canadianOriginType && (
+                {/* {!editingProduct.canadianOriginType && (
                   <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
                     Please select Canadian content type
                   </Typography>
-                )}
+                )} */}
               </Box>
 
               {/* Camera Button and Image Preview */}
@@ -2033,11 +2039,11 @@ export default function ProductList() {
                   </Button>
 
                   {/* VIEW COMPANY */}
-                  {editingProduct.company_id && (
+                  {/* {editingProduct.company_id && (
                     <Button size="small" onClick={() => handleViewCompany(editingProduct.company_id!)} variant="outlined">
                       View Company Details
                     </Button>
-                  )}
+                  )} */}
                 </Box>
               </Box>
 
@@ -2249,18 +2255,18 @@ export default function ProductList() {
                   🍁 Made in Canada (51%+)
                 </Button>
                 <Button
-                  variant={newProduct.canadianOriginType === 'made_in_canada_imported' ? 'contained' : 'outlined'}
+                  variant={newProduct.canadianOriginType === 'canada_with_imports' ? 'contained' : 'outlined'}
                   size="small"
                   onClick={() => setNewProduct(prev => ({
                     ...prev,
-                    canadianOriginType: 'made_in_canada_imported'
+                    canadianOriginType: 'canada_with_imports'
                   }))}
                   sx={{ 
                     borderColor: 'info.main',
-                    color: newProduct.canadianOriginType === 'made_in_canada_imported' ? 'white' : 'info.main',
-                    bgcolor: newProduct.canadianOriginType === 'made_in_canada_imported' ? 'info.main' : 'transparent',
+                    color: newProduct.canadianOriginType === 'canada_with_imports' ? 'white' : 'info.main',
+                    bgcolor: newProduct.canadianOriginType === 'canada_with_imports' ? 'info.main' : 'transparent',
                     '&:hover': {
-                      bgcolor: newProduct.canadianOriginType === 'made_in_canada_imported' ? 'info.dark' : 'info.light',
+                      bgcolor: newProduct.canadianOriginType === 'canada_with_imports' ? 'info.dark' : 'info.light',
                       borderColor: 'info.main'
                     }
                   }}
@@ -2272,7 +2278,7 @@ export default function ProductList() {
                   size="small"
                   onClick={() => setNewProduct(prev => ({
                     ...prev,
-                    canadianOriginType: null
+                    canadianOriginType: 'not sure - please check'
                   }))}
                   sx={{ 
                     borderColor: 'grey.500',
@@ -2284,7 +2290,10 @@ export default function ProductList() {
                     }
                   }}
                 >
-                  Not Canadian Made
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <span role="img" aria-label="question mark">❓</span>
+                    <span>Unknown</span>
+                  </Box>
                 </Button>
                 <Button
                   variant="outlined"
@@ -2329,11 +2338,11 @@ export default function ProductList() {
                 </Button>
 
                 {/* VIEW COMPANY */}
-                {newProduct.company_id && (
+                {/* {newProduct.company_id && (
                   <Button size="small" onClick={() => handleViewCompany(newProduct.company_id!)} variant="outlined">
                     View Company Details
                   </Button>
-                )}
+                )} */}
               </Box>
             </Box>
 

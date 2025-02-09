@@ -43,22 +43,41 @@ const INDUSTRIES = [
 
 export default function CompanyForm({ company, onSubmit, onCancel, isSubmitting }: CompanyFormProps) {
   const [formData, setFormData] = useState<Partial<Company>>({
-    name: '',
+    name: company?.name || '',
     headquarters: {
-      country: '',
-      state: '',
-      city: ''
+      country: company?.headquarters?.country || '',
+      state: company?.headquarters?.state || '',
+      city: company?.headquarters?.city || ''
     },
-    brands: [],
-    employee_count: 0,
-    industry: '',
-    website: '',
-    founded_year: null,
-    description: '',
-    ...company
+    brands: company?.brands || [],
+    employee_count: company?.employee_count || 0,
+    industry: company?.industry || '',
+    website: company?.website || '',
+    founded_year: company?.founded_year || null,
+    description: company?.description || ''
   });
   const [newBrand, setNewBrand] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Update form data when company changes
+  useEffect(() => {
+    if (company) {
+      setFormData({
+        name: company.name || '',
+        headquarters: {
+          country: company.headquarters?.country || '',
+          state: company.headquarters?.state || '',
+          city: company.headquarters?.city || ''
+        },
+        brands: company.brands || [],
+        employee_count: company.employee_count || 0,
+        industry: company.industry || '',
+        website: company.website || '',
+        founded_year: company.founded_year || null,
+        description: company.description || ''
+      });
+    }
+  }, [company]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

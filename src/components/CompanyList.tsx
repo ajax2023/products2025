@@ -141,21 +141,39 @@ export default function CompanyList() {
 
   const filterCompanies = () => {
     let filtered = [...companies];
+    console.log('Initial companies:', filtered.length);
 
     // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(company => 
-        company.name.toLowerCase().includes(searchLower) ||
-        company.brands?.some(brand => brand.toLowerCase().includes(searchLower)) ||
-        company.headquarters.city.toLowerCase().includes(searchLower) ||
-        company.headquarters.country.toLowerCase().includes(searchLower)
-      );
+      filtered = filtered.filter(company => {
+        // Basic text fields
+        if (company.name.toLowerCase().includes(searchLower)) return true;
+        if ((company.description || '').toLowerCase().includes(searchLower)) return true;
+        if ((company.industry || '').toLowerCase().includes(searchLower)) return true;
+        if ((company.website || '').toLowerCase().includes(searchLower)) return true;
+        
+        // Location fields
+        if (company.headquarters?.city?.toLowerCase().includes(searchLower)) return true;
+        if (company.headquarters?.state?.toLowerCase().includes(searchLower)) return true;
+        if (company.headquarters?.country?.toLowerCase().includes(searchLower)) return true;
+
+        // Numeric fields as strings
+        if (company.employee_count && String(company.employee_count).includes(searchLower)) return true;
+        if (company.founded_year && String(company.founded_year).includes(searchLower)) return true;
+
+        // Array fields
+        if (company.brands?.some(brand => brand.toLowerCase().includes(searchLower))) return true;
+
+        return false;
+      });
+      console.log('After search filter:', filtered.length);
     }
 
-    // Apply industry filter
-    if (selectedIndustry !== 'All') {
+    // Apply industry filter if not "All"
+    if (selectedIndustry && selectedIndustry !== 'All') {
       filtered = filtered.filter(company => company.industry === selectedIndustry);
+      console.log('After industry filter:', filtered.length);
     }
 
     setFilteredCompanies(filtered);
@@ -169,22 +187,18 @@ export default function CompanyList() {
       const querySnapshot = await getDocs(q);
       console.log('Companies fetched:', querySnapshot.size);
       
-      const companiesList = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        _id: doc.id
+      const companiesData = querySnapshot.docs.map(doc => ({
+        _id: doc.id,
+        ...doc.data()
       })) as Company[];
       
-      setCompanies(companiesList);
-      setFilteredCompanies(companiesList);
+      console.log('Companies processed:', companiesData.length);
+      setCompanies(companiesData);
+      setFilteredCompanies(companiesData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching companies:', error);
-      // @ts-ignore
-      if (error.code === 'permission-denied') {
-        setError('Permission denied. Please make sure you have the correct access rights.');
-      } else {
-        setError('Error loading companies. Please try again.');
-      }
+      setError('Error loading companies. Please try again.');
       setLoading(false);
     }
   };
@@ -330,6 +344,12 @@ export default function CompanyList() {
       }
       return newSet;
     });
+  };
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingCompany(undefined);
+    setError(null);
   };
 
   if (!authChecked) {
@@ -497,6 +517,7 @@ export default function CompanyList() {
                             <IconButton
                               size="small"
                               onClick={() => {
+                                console.log('Opening edit form with company:', company);
                                 setEditingCompany(company);
                                 setIsFormOpen(true);
                               }}
@@ -652,117 +673,20 @@ export default function CompanyList() {
       </Paper>
 
       {/* Company Form Dialog */}
-      <Dialog
-        open={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false);
-          setEditingCompany(undefined);
-        }}
+      <Dialog 
+        open={isFormOpen} 
+        onClose={handleCloseForm}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
-          {editingCompany ? 'Edit Company' : 'Add New Company'}
-        </DialogTitle>
+        <DialogTitle>{editingCompany ? 'Edit Company' : 'Add Company'}</DialogTitle>
         <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
           <CompanyForm
-            initialData={editingCompany}
+            company={editingCompany}
             onSubmit={editingCompany ? handleUpdateCompany : handleCreateCompany}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingCompany(undefined);
-            }}
+            onCancel={handleCloseForm}
             isSubmitting={isSubmitting}
           />
-          {/* Canadian Origin Type */}
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              Canadian Origin Type
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button
-                variant={editingCompany?.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setEditingCompany(prev => ({
-                  ...prev,
-                  canadianOriginType: 'product_of_canada'
-                }))}
-                sx={{ 
-                  borderColor: 'success.main',
-                  color: editingCompany?.canadianOriginType === 'product_of_canada' ? 'white' : 'success.main',
-                  bgcolor: editingCompany?.canadianOriginType === 'product_of_canada' ? 'success.main' : 'transparent',
-                  '&:hover': {
-                    bgcolor: editingCompany?.canadianOriginType === 'product_of_canada' ? 'success.dark' : 'success.light',
-                    borderColor: 'success.main'
-                  }
-                }}
-              >
-                Product of Canada (98%+)
-              </Button>
-              <Button
-                variant={editingCompany?.canadianOriginType === 'made_in_canada' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setEditingCompany(prev => ({
-                  ...prev,
-                  canadianOriginType: 'made_in_canada'
-                }))}
-                sx={{ 
-                  borderColor: 'primary.main',
-                  color: editingCompany?.canadianOriginType === 'made_in_canada' ? 'white' : 'primary.main',
-                  bgcolor: editingCompany?.canadianOriginType === 'made_in_canada' ? 'primary.main' : 'transparent',
-                  '&:hover': {
-                    bgcolor: editingCompany?.canadianOriginType === 'made_in_canada' ? 'primary.dark' : 'primary.light',
-                    borderColor: 'primary.main'
-                  }
-                }}
-              >
-                Made in Canada (51%+)
-              </Button>
-              <Button
-                variant={editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setEditingCompany(prev => ({
-                  ...prev,
-                  canadianOriginType: 'made_in_canada_imported'
-                }))}
-                sx={{ 
-                  borderColor: 'info.main',
-                  color: editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'white' : 'info.main',
-                  bgcolor: editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'info.main' : 'transparent',
-                  '&:hover': {
-                    bgcolor: editingCompany?.canadianOriginType === 'made_in_canada_imported' ? 'info.dark' : 'info.light',
-                    borderColor: 'info.main'
-                  }
-                }}
-              >
-                Made in Canada (with imports)
-              </Button>
-              <Button
-                variant={editingCompany?.canadianOriginType === null ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setEditingCompany(prev => ({
-                  ...prev,
-                  canadianOriginType: null
-                }))}
-                sx={{ 
-                  borderColor: 'grey.500',
-                  color: editingCompany?.canadianOriginType === null ? 'white' : 'grey.500',
-                  bgcolor: editingCompany?.canadianOriginType === null ? 'grey.500' : 'transparent',
-                  '&:hover': {
-                    bgcolor: editingCompany?.canadianOriginType === null ? 'grey.600' : 'grey.100',
-                    borderColor: 'grey.500'
-                  }
-                }}
-              >
-                Not Canadian Made
-              </Button>
-            </Box>
-          </Box>
         </DialogContent>
       </Dialog>
 
