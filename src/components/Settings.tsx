@@ -30,7 +30,7 @@ const getModifiedPhotoUrl = (url: string | null) => {
 };
 
 export default function Settings() {
-  const [userSettings, setUserSettings] = useState<UserSettings>({
+  const defaultSettings: UserSettings = {
     _id: '',
     email: '',
     displayName: '',
@@ -49,11 +49,14 @@ export default function Settings() {
     sharing: {
       showPicture: true,
       showUsername: true,
-      showCountry: true
+      showCountry: true,
+      showOnLeaderboard: false
     },
     created_at: new Date().toISOString(),
     created_by: ''
-  });
+  };
+
+  const [userSettings, setUserSettings] = useState<UserSettings>(defaultSettings);
 
   const [loading, setLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState('');
@@ -94,35 +97,27 @@ export default function Settings() {
         const settingsDoc = await getDoc(settingsRef);
         
         if (!settingsDoc.exists()) {
-          const defaultSettings = {
+          const newSettings = {
+            ...defaultSettings,
             _id: auth.currentUser.uid,
             email: auth.currentUser.email || '',
             displayName: auth.currentUser.displayName || '',
             role: userData.role,
-            status: 'active',
-            location: {
-              country: 'Canada',
-              province: '',
-              city: ''
-            },
-            preferences: {
-              language: 'English',
-              currency: 'CAD',
-              useLocation: false
-            },
-            sharing: {
-              showPicture: true,
-              showUsername: true,
-              showCountry: true
-            },
-            created_at: new Date().toISOString(),
             created_by: auth.currentUser.uid
           };
-          await setDoc(settingsRef, defaultSettings);
-          setUserSettings(defaultSettings);
+          await setDoc(settingsRef, newSettings);
+          setUserSettings(newSettings);
         } else {
           const settingsData = settingsDoc.data() as UserSettings;
-          setUserSettings(settingsData);
+          // Ensure all new fields have defaults
+          setUserSettings({
+            ...defaultSettings,
+            ...settingsData,
+            sharing: {
+              ...defaultSettings.sharing,
+              ...settingsData.sharing
+            }
+          });
         }
 
         setLoading(false);
@@ -145,6 +140,7 @@ export default function Settings() {
     if (!auth.currentUser) return;
 
     try {
+      console.log('Saving user settings:', userSettings);
       setLoading(true);
       await setDoc(doc(db, 'userSettings', auth.currentUser.uid), {
         ...userSettings,
@@ -426,7 +422,7 @@ export default function Settings() {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={userSettings.sharing.showPicture}
+                      checked={userSettings.sharing.showPicture ?? true}
                       onChange={(e) => setUserSettings(prev => ({
                         ...prev,
                         sharing: {
@@ -441,7 +437,7 @@ export default function Settings() {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={userSettings.sharing.showUsername}
+                      checked={userSettings.sharing.showUsername ?? true}
                       onChange={(e) => setUserSettings(prev => ({
                         ...prev,
                         sharing: {
@@ -456,7 +452,7 @@ export default function Settings() {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={userSettings.sharing.showCountry}
+                      checked={userSettings.sharing.showCountry ?? true}
                       onChange={(e) => setUserSettings(prev => ({
                         ...prev,
                         sharing: {
@@ -467,6 +463,21 @@ export default function Settings() {
                     />
                   }
                   label="Show country to others"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={userSettings.sharing.showOnLeaderboard ?? false}
+                      onChange={(e) => setUserSettings(prev => ({
+                        ...prev,
+                        sharing: {
+                          ...prev.sharing,
+                          showOnLeaderboard: e.target.checked
+                        }
+                      }))}
+                    />
+                  }
+                  label="Show my contributions on leaderboard"
                 />
               </FormGroup>
             </Card>

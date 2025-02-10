@@ -16,6 +16,7 @@ import UserManagement from './components/admin/UserManagement';
 import { ViewState } from './types/navigation';
 import BackgroundImage from './components/BackgroundImage';
 import Receipts from './components/Receipts';
+import Leaderboard from './components/Leaderboard';
 
 const theme = createTheme({
   palette: {
@@ -65,7 +66,6 @@ function App() {
       <>
         <BackgroundImage />
         <div className="login-container">
-          {/* i want a leaf image (/maple-leaf.svg) here: */}
           <img src="/maple-leaf.svg" alt="Leaf" className="leaf-image" />
           <h1>CanadianBuddy.ca</h1>
           <Login />
@@ -95,6 +95,7 @@ function App() {
               <Route path="/receipts" element={<Receipts />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin/users" element={<UserManagement />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
             </Routes>
           </main>
         </div>

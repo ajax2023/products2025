@@ -3,6 +3,7 @@ import { addDoc, collection, getDocs, updateDoc, doc, setDoc } from 'firebase/fi
 import { db, auth } from '../firebaseConfig';
 import { Product, ProductOrigin, ProductPrice, PRODUCT_CATEGORIES, PRODUCT_UNITS, COMMON_ATTRIBUTES } from '../types/product';
 import { Company } from '../types/company';
+import { updateUserStats } from '../utils/userStats';
 import {
   TextField,
   Button,
@@ -95,6 +96,9 @@ export default function ProductForm() {
 
       // Create the product
       const productRef = await addDoc(collection(db, 'products'), productData);
+
+      // Update user stats
+      await updateUserStats(auth.currentUser.uid);
 
       setSuccess('Product saved as draft. You can submit it for approval when ready.');
       setFormData({

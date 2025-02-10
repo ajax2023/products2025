@@ -38,17 +38,32 @@ const createUserDocument = async (user: any) => {
     await setDoc(userRef, {
       _id: user.uid,
       email: user.email,
-      displayName: user.displayName,
-      role: 'contributor', // Default role for new users
-      status: 'active', // Changed from 'pending' to 'active'
+      name: user.displayName,  
+      photoURL: user.photoURL,
+      role: 'contributor', 
+      status: 'active', 
       created_at: new Date(),
       created_by: user.uid,
       last_login: new Date()
     });
+
+    // Initialize user settings
+    const userSettingsRef = doc(db, 'userSettings', user.uid);
+    await setDoc(userSettingsRef, {
+      _id: user.uid,
+      sharing: {
+        showPicture: true,
+        showUsername: true,
+        showCountry: true,
+        showOnLeaderboard: true  
+      }
+    });
   } else {
     // Existing user - update last login
     await setDoc(userRef, {
-      last_login: new Date()
+      last_login: new Date(),
+      name: user.displayName,  
+      photoURL: user.photoURL  
     }, { merge: true });
   }
 };

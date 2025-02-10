@@ -50,7 +50,19 @@ service cloud.firestore {
         // Only super_admin can change any roles
         isSuperAdmin()
       );
-      allow delete: if isSignedIn() && (isUser(userId) || isSuperAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // User Settings collection
+    match /userSettings/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isUser(userId);
+    }
+
+    // User Stats collection
+    match /user_stats/{userId} {
+      allow read: if isSignedIn();  // Anyone signed in can view stats
+      allow write: if isAdmin();    // Only admins can update stats
     }
 
     // Contributor requests collection
@@ -75,12 +87,6 @@ service cloud.firestore {
         // Admins can delete any request
         isAdmin()
       );
-    }
-
-    // UserSettings collection
-    match /userSettings/{userId} {
-      allow read: if isSignedIn() && isUser(userId);
-      allow write: if isSignedIn() && isUser(userId);
     }
 
     // Receipts collection

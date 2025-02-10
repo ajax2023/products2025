@@ -17,6 +17,8 @@ import BusinessIcon from '@mui/icons-material/Business';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PeopleIcon from '@mui/icons-material/People';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import SportsTrophyIcon from '@mui/icons-material/SportsTrophy';
 
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -112,6 +114,15 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
               <IconButton color="inherit">
                 <Tooltip title="Companies">
                   <BusinessIcon />
+                </Tooltip>
+              </IconButton>
+            </Link>
+
+            {/* Leaderboard */}
+            <Link to="/leaderboard" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton color="inherit">
+                <Tooltip title="Leaderboard">
+                  <EmojiEventsIcon />
                 </Tooltip>
               </IconButton>
             </Link>

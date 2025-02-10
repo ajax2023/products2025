@@ -57,7 +57,7 @@ import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import ImageIcon from "@mui/icons-material/Image";
 import CameraDialog from './CameraDialog';
 
-import { auth, db } from "../firebaseConfig";
+import { auth, db, storage } from '../firebaseConfig';
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -82,6 +82,7 @@ import { Company } from "../types/company";
 import ProductImport from "./admin/ProductImport";
 import PriceImport from "./admin/PriceImport"; // Update PriceImport path to use CSV version
 import CompanyForm from "./CompanyForm";
+import { updateUserStats } from '../utils/userStats';
 
 export default function ProductList() {
   const location = useLocation();
@@ -726,6 +727,11 @@ export default function ProductList() {
 
       setProducts((prevProducts) => prevProducts.map((p) => (p._id === selectedProduct._id ? { ...p, prices: updatedPrices } : p)));
 
+      // Update user stats
+      if (auth.currentUser?.uid) {
+        await updateUserStats(auth.currentUser.uid);
+      }
+
       showMessage("Price added successfully");
       handleClosePriceDialog();
     } catch (error) {
@@ -852,6 +858,11 @@ export default function ProductList() {
 
       setProducts((prevProducts) => prevProducts.map((p) => (p._id === editingPrice.productId ? { ...p, prices: prices } : p)));
 
+      // Update user stats
+      if (auth.currentUser?.uid) {
+        await updateUserStats(auth.currentUser.uid);
+      }
+
       showMessage("Price updated successfully", "success");
       handleCloseEditPriceDialog();
     } catch (error) {
@@ -889,6 +900,11 @@ export default function ProductList() {
       setProducts(prevProducts => 
         prevProducts.map(p => p._id === product._id ? cleanProduct : p)
       );
+
+      // Update user stats
+      if (auth.currentUser?.uid) {
+        await updateUserStats(auth.currentUser.uid);
+      }
 
       showMessage('Product updated successfully');
       
@@ -930,6 +946,11 @@ export default function ProductList() {
       // Delete the product document
       await deleteDoc(doc(db, "products", product._id));
       
+      // Update user stats
+      if (auth.currentUser?.uid) {
+        await updateUserStats(auth.currentUser.uid);
+      }
+
       setProducts((prevProducts) => 
         prevProducts.filter((p) => p._id !== product._id)
       );
@@ -1250,6 +1271,11 @@ export default function ProductList() {
         // Update the product with the image URL
         await updateDoc(productRef, { image: imageUrl });
         newProduct.image = imageUrl;
+
+        // Update user stats
+        if (auth.currentUser?.uid) {
+          await updateUserStats(auth.currentUser.uid);
+        }
       }
 
       const productWithId = { ...newProduct, _id: productRef.id };
