@@ -169,6 +169,7 @@ export default function ProductList() {
   const [snackbarSeverity, setSnackbarSeverity] = useState<AlertColor>("success");
   const [updating, setUpdating] = useState(false);
   const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
 
   // Add filter states
   const [filters, setFilters] = useState({
@@ -208,8 +209,6 @@ export default function ProductList() {
     autoHideDuration: 3000
   });
 
-  const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
-
   // Get list of countries from flags folder
   const countries = [
     'Afghanistan', 'Albania', 'Algeria', 'American Samoa', 'Andorra', 'Angola', 'Anguilla', 'Antarctica', 
@@ -240,6 +239,42 @@ export default function ProductList() {
     'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 
     'Zambia', 'Zimbabwe'
   ].sort();
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setNewProduct(prev => ({ ...prev, image: base64String }));
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showMessage('Failed to upload image', 'error');
+    }
+  };
+
+  const handleEditImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setEditingProduct(prev => prev ? { ...prev, image: base64String } : null);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showMessage('Failed to upload image', 'error');
+    }
+  };
 
   // Function to show snackbar
   const showMessage = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
@@ -447,7 +482,8 @@ export default function ProductList() {
             sharing: {
               showPicture: true,
               showUsername: true,
-              showCountry: true
+              showCountry: true,
+              showOnLeaderboard: false
             },
             created_at: new Date().toISOString(),
             created_by: auth.currentUser.uid
@@ -922,43 +958,46 @@ export default function ProductList() {
   };
 
   const handleDeleteProduct = async (product: Product) => {
+    setDeleteConfirmProduct(product);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmProduct || !auth.currentUser) return;
+
     try {
-      // Get the product to check if it has an image
-      const productDoc = await getDoc(doc(db, "products", product._id));
-      if (!productDoc.exists()) {
-        showMessage("Product not found", "error");
-        return;
-      }
+      setUpdating(true);
 
-      const productData = productDoc.data();
-
-      // If product has an image, delete it from storage
-      if (productData.image) {
+      // If there's an image, try to delete it from storage first
+      if (deleteConfirmProduct.image) {
         try {
-          const imageRef = ref(storage, productData.image);
+          // Extract the path from the URL
+          const storage = getStorage();
+          const imageUrl = new URL(deleteConfirmProduct.image);
+          const imagePath = decodeURIComponent(imageUrl.pathname.split('/o/')[1].split('?')[0]);
+          const imageRef = ref(storage, imagePath);
           await deleteObject(imageRef);
         } catch (error) {
           console.error("Error deleting image:", error);
-          // Continue with product deletion even if image deletion fails
+          // Continue even if image deletion fails
         }
       }
 
       // Delete the product document
-      await deleteDoc(doc(db, "products", product._id));
+      await deleteDoc(doc(db, "products", deleteConfirmProduct._id));
+
+      // Update products list
+      setProducts((prevProducts) => prevProducts.filter((p) => p._id !== deleteConfirmProduct._id));
       
       // Update user stats
-      if (auth.currentUser?.uid) {
-        await updateUserStats(auth.currentUser.uid);
-      }
-
-      setProducts((prevProducts) => 
-        prevProducts.filter((p) => p._id !== product._id)
-      );
+      await updateUserStats(auth.currentUser.uid);
       
-      showMessage("Product deleted successfully");
+      showMessage("Product deleted successfully", "success");
     } catch (error) {
       console.error("Error deleting product:", error);
       showMessage("Failed to delete product", "error");
+    } finally {
+      setUpdating(false);
+      setDeleteConfirmProduct(null);
     }
   };
 
@@ -1631,7 +1670,7 @@ export default function ProductList() {
                           <Typography variant="body2" color="textSecondary">
                             {product.canadianOriginType === 'product_of_canada' && '🍁 Product of Canada (98%+)'}
                             {product.canadianOriginType === 'made_in_canada' && '🍁 Made in Canada (51%+)'}
-                            {product.canadianOriginType === 'canada_with_imports' && '🍁 Made in Canada (with imports)'}
+                            {product.canadianOriginType === 'canada_with_imports' && '🍁 Made in Canada w imports'}
                             {product.canadianOriginType === 'not sure - please check' && (
                               <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <span role="img" aria-label="question mark">❓</span>
@@ -1829,26 +1868,28 @@ export default function ProductList() {
       </Paper>
 
       <Dialog open={!!deleteConfirmProduct} onClose={() => setDeleteConfirmProduct(null)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>Delete Product</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to delete {deleteConfirmProduct?.name}? This action cannot be undone.</Typography>
+          <DialogContentText>
+            Are you sure you want to delete "{deleteConfirmProduct?.name}"? This action cannot be undone.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmProduct(null)}>Cancel</Button>
-          {isAdmin && (
-            <Button
-              onClick={() => {
-                if (deleteConfirmProduct) {
-                  confirmDelete();
-                }
-                setDeleteConfirmProduct(null);
-              }}
-              color="error"
-              variant="contained"
-            >
-              Delete
-            </Button>
-          )}
+          <Button 
+            onClick={() => setDeleteConfirmProduct(null)}
+            disabled={updating}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDelete}
+            color="error"
+            variant="contained"
+            disabled={updating}
+            startIcon={updating ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {updating ? 'Deleting...' : 'Delete'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -1999,7 +2040,7 @@ export default function ProductList() {
                     }}
                     sx={{ borderColor: 'grey.500', color: '#444' }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <span role="img" aria-label="question mark">❓</span>
                       <span>Unknown</span>
                     </Box>
@@ -2022,13 +2063,28 @@ export default function ProductList() {
 
               {/* Camera Button and Image Preview */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<CameraAltIcon />}
-                  onClick={() => setEditCameraDialogOpen(true)}
-                >
-                  {editingProduct.image ? 'Change Picture' : 'Take Picture'}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<CameraAltIcon />}
+                    onClick={() => setEditCameraDialogOpen(true)}
+                  >
+                    Take Picture
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<ImageIcon />}
+                  >
+                    Upload Image
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleEditImageUpload}
+                    />
+                  </Button>
+                </Box>
                 {editingProduct.image && (
                   <img 
                     src={editingProduct.image} 
@@ -2099,7 +2155,6 @@ export default function ProductList() {
                   <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
                   <Button
                     variant="outlined"
-                    size="small"
                     onClick={() => {
                       const name = attributeNameRef.current?.value;
                       const value = attributeValueRef.current?.value;
@@ -2397,6 +2452,19 @@ export default function ProductList() {
                   >
                     Take Product Picture
                   </Button>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<ImageIcon />}
+                  >
+                    Upload Image
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                    />
+                  </Button>
                   {newProduct.image && (
                     <img 
                       src={newProduct.image} 
@@ -2433,7 +2501,6 @@ export default function ProductList() {
                 <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
                 <Button
                   variant="outlined"
-                  size="small"
                   onClick={() => {
                     const name = attributeNameRef.current?.value;
                     const value = attributeValueRef.current?.value;
@@ -2463,13 +2530,6 @@ export default function ProductList() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Camera Dialog */}
-      <CameraDialog
-        open={showCameraDialog}
-        onClose={() => setShowCameraDialog(false)}
-        onCapture={handleImageCapture}
-      />
 
       <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
         <DialogTitle>Add Price for {selectedProduct?.name}</DialogTitle>
@@ -2878,12 +2938,23 @@ export default function ProductList() {
         </DialogContent>
       </Dialog>
 
-      {/* Camera Dialog for Edit */}
+      {/* Camera Dialog */}
       <CameraDialog
-        open={editCameraDialogOpen}
-        onClose={() => setEditCameraDialogOpen(false)}
-        onCapture={handleEditImageCapture}
+        open={showCameraDialog}
+        onClose={() => setShowCameraDialog(false)}
+        onCapture={handleImageCapture}
       />
+
+      <Dialog open={editCameraDialogOpen} onClose={() => setEditCameraDialogOpen(false)}>
+        <DialogTitle>Take Product Picture</DialogTitle>
+        <DialogContent>
+          <CameraDialog
+            open={editCameraDialogOpen}
+            onClose={() => setEditCameraDialogOpen(false)}
+            onCapture={handleEditImageCapture}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Flag Picker Dialog */}
       <Dialog 

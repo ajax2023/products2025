@@ -55,7 +55,7 @@ const createUserDocument = async (user: any) => {
         showPicture: true,
         showUsername: true,
         showCountry: true,
-        showOnLeaderboard: true  
+        showOnLeaderboard: false  // Default to not showing on leaderboard
       }
     });
   } else {

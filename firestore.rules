@@ -62,7 +62,7 @@ service cloud.firestore {
     // User Stats collection
     match /user_stats/{userId} {
       allow read: if isSignedIn();  // Anyone signed in can view stats
-      allow write: if isAdmin();    // Only admins can update stats
+      allow write: if isSignedIn() && (isUser(userId) || isAdmin());  // Users can update their own stats, admins can update any
     }
 
     // Contributor requests collection
@@ -99,7 +99,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isContributor();
       allow update: if isContributor();
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn() && (
+        // Allow deletion if user is the creator or an admin
+        isAdmin() || 
+        (exists(resource) && request.auth.uid == resource.data.created_by)
+      );
     }
     
     match /companies/{companyId} {
