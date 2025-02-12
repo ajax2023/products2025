@@ -34,4 +34,24 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    port: 3000,
+    // Add history API fallback for client-side routing
+    historyApiFallback: true,
+  },
+  preview: {
+    port: 3000,
+    // Also add for preview mode
+    historyApiFallback: true,
+  },
+  build: {
+    // Ensure proper handling of dynamic imports
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
 })
