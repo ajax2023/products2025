@@ -16,7 +16,7 @@ import './components/Login.css';
 import UserManagement from './components/admin/UserManagement';
 import { ViewState } from './types/navigation';
 import BackgroundImage from './components/BackgroundImage';
-import Receipts from './components/Receipts';
+// import Receipts from './components/Receipts';
 import Leaderboard from './components/Leaderboard';
 import Home from './components/Home';
 import { AuthProvider } from './auth';
@@ -49,7 +49,7 @@ function App() {
                       <Route path="/companies/:id" element={<CompanyInfo />} />
                       <Route path="/brands" element={<BrandList />} />
                       <Route path="/admin/users" element={<UserManagement />} />
-                      <Route path="/receipts" element={<Receipts />} />
+                      {/* <Route path="/receipts" element={<Receipts />} /> */}
                       <Route path="/leaderboard" element={<Leaderboard />} />
                       <Route path="/home" element={<Home />} />
                     </Routes>
