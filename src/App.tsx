@@ -24,6 +24,7 @@ import { AuthProvider } from './auth';
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
 
+  
   return (
     <ThemeProvider theme={theme}>
       <AuthProvider>
