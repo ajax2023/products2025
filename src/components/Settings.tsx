@@ -16,12 +16,28 @@ import {
   Alert
 } from '@mui/material';
 import { auth, db } from '../firebaseConfig';
-import { getDoc, setDoc, doc, deleteDoc, collection, addDoc, getDocs, query, where } from 'firebase/firestore';
-import { updateProfile, reauthenticateWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
+import { 
+  GoogleAuthProvider, 
+  reauthenticateWithPopup,
+  deleteUser 
+} from 'firebase/auth';
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  writeBatch
+} from 'firebase/firestore';
 import { UserSettings, User } from '../types/user';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import WorkIcon from '@mui/icons-material/Work';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import SettingsIcon from '@mui/icons-material/Settings';
+import { useAuth } from '../auth/useAuth';
 
 const getModifiedPhotoUrl = (url: string | null) => {
   if (!url) return '';
@@ -30,6 +46,7 @@ const getModifiedPhotoUrl = (url: string | null) => {
 };
 
 export default function Settings() {
+  const { user, loading: authLoading } = useAuth();
   const defaultSettings: UserSettings = {
     _id: '',
     email: '',
@@ -66,7 +83,7 @@ export default function Settings() {
 
   useEffect(() => {
     const loadSettings = async () => {
-      if (!auth.currentUser) {
+      if (!user) {
         setLoading(false);
         return;
       }
@@ -79,7 +96,7 @@ export default function Settings() {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Get user document
-        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
@@ -93,17 +110,17 @@ export default function Settings() {
         setUserRole(userData.role);
 
         // Then handle settings
-        const settingsRef = doc(db, 'userSettings', auth.currentUser.uid);
+        const settingsRef = doc(db, 'userSettings', user.uid);
         const settingsDoc = await getDoc(settingsRef);
         
         if (!settingsDoc.exists()) {
           const newSettings = {
             ...defaultSettings,
-            _id: auth.currentUser.uid,
-            email: auth.currentUser.email || '',
-            displayName: auth.currentUser.displayName || '',
+            _id: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || '',
             role: userData.role,
-            created_by: auth.currentUser.uid
+            created_by: user.uid
           };
           await setDoc(settingsRef, newSettings);
           setUserSettings(newSettings);
@@ -129,23 +146,63 @@ export default function Settings() {
       }
     };
 
-    if (auth.currentUser) {
+    if (!authLoading) {
       loadSettings();
-    } else {
-      setLoading(false);
     }
-  }, [auth.currentUser]);
+  }, [user, authLoading]);
 
   const handleSave = async () => {
-    if (!auth.currentUser) return;
+    if (!user) return;
 
     try {
-      console.log('Saving user settings:', userSettings);
+      console.log('Current user settings:', userSettings);
       setLoading(true);
-      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), {
-        ...userSettings,
-        role: userRole // Ensure role is saved with settings
-      });
+
+      // Update display name in Firebase Auth if it changed
+      if (userSettings.displayName !== user.displayName) {
+        await updateProfile(user, {
+          displayName: userSettings.displayName
+        });
+
+        // Also update the users collection
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, {
+          displayName: userSettings.displayName,
+          updated_at: new Date().toISOString(),
+          updated_by: user.uid
+        }, { merge: true });
+      }
+
+      // First get the existing document
+      const settingsRef = doc(db, 'userSettings', user.uid);
+      const existingDoc = await getDoc(settingsRef);
+      const existingData = existingDoc.exists() ? existingDoc.data() : {};
+
+      const settingsToSave = {
+        ...existingData, // Preserve existing fields
+        _id: user.uid,
+        email: userSettings.email || existingData.email,
+        displayName: userSettings.displayName,
+        role: userRole,
+        status: userSettings.status || existingData.status,
+        location: {
+          ...existingData.location,
+          ...userSettings.location
+        },
+        preferences: {
+          ...existingData.preferences,
+          ...userSettings.preferences
+        },
+        sharing: {
+          ...existingData.sharing,
+          ...userSettings.sharing
+        },
+        updated_at: new Date().toISOString(),
+        updated_by: user.uid
+      };
+
+      console.log('Saving settings with preserved structure:', settingsToSave);
+      await setDoc(doc(db, 'userSettings', user.uid), settingsToSave);
       setSaveMessage('Settings saved successfully!');
       setError(''); // Clear any error
       setTimeout(() => setSaveMessage(''), 3000);
@@ -157,12 +214,21 @@ export default function Settings() {
     }
   };
 
-  const handleSignOut = () => {
-    auth.signOut();
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setError('Failed to sign out. Please try again.');
+    }
   };
 
   const handleDeleteAccount = async () => {
-    if (!auth.currentUser) return;
+    if (!user) {
+      setError('You must be logged in to delete your account');
+      return;
+    }
 
     const confirmDelete = window.confirm(
       'Are you sure you want to delete your account? This action cannot be undone.'
@@ -173,24 +239,58 @@ export default function Settings() {
     try {
       setLoading(true);
       
+      // Get the current user's ID
+      const uid = user.uid;
+      console.log('Current UID:', uid);
+      
       // Reauthenticate first
       const provider = new GoogleAuthProvider();
-      await reauthenticateWithPopup(auth.currentUser, provider);
-      
-      // Delete user document from Firestore
-      await deleteDoc(doc(db, 'userSettings', auth.currentUser.uid));
-      await deleteDoc(doc(db, 'users', auth.currentUser.uid));
-      
-      // Delete user from Firebase Auth
-      await deleteUser(auth.currentUser);
-      
-      // User will be automatically signed out
+      try {
+        const result = await reauthenticateWithPopup(user, provider);
+        console.log('Reauthentication successful:', result.user.uid);
+      } catch (error: any) {
+        console.error('Error reauthenticating:', error);
+        setError('Failed to reauthenticate. Please try signing in again.');
+        return;
+      }
+
+      // Delete Firestore documents first while we're still authenticated
+      try {
+        console.log('Attempting to delete user data...');
+        
+        // Delete userSettings if it exists
+        const userSettingsRef = doc(db, 'userSettings', uid);
+        await deleteDoc(userSettingsRef);
+        console.log('UserSettings document deleted');
+
+        // Delete user document
+        const userRef = doc(db, 'users', uid);
+        await deleteDoc(userRef);
+        console.log('User document deleted');
+
+      } catch (error: any) {
+        console.error('Error deleting Firestore documents:', error);
+        throw new Error(`Failed to delete user data: ${error.message}`);
+      }
+
+      // Then delete Auth user
+      try {
+        console.log('Attempting to delete Auth user...');
+        await deleteUser(user);
+        console.log('Auth user deleted successfully');
+        
+        // Redirect to login page immediately
+        window.location.replace('/login');
+      } catch (error: any) {
+        console.error('Error deleting auth user:', error);
+        throw new Error(`Auth user deletion failed: ${error.message}`);
+      }
     } catch (error: any) {
-      console.error('Error deleting account:', error);
+      console.error('Error in deletion process:', error);
       if (error.code === 'auth/requires-recent-login') {
         setError('Please sign out and sign in again before deleting your account.');
       } else {
-        setError('Failed to delete account. Please try again.');
+        setError(`Failed to delete account: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -198,14 +298,14 @@ export default function Settings() {
   };
 
   const handleContributorRequest = async () => {
-    if (!auth.currentUser) return;
+    if (!user) return;
 
     try {
       // Create a contributor request
       await addDoc(collection(db, 'contributorRequests'), {
-        userId: auth.currentUser.uid,
-        userEmail: auth.currentUser.email,
-        userName: auth.currentUser.displayName,
+        userId: user.uid,
+        userEmail: user.email,
+        userName: user.displayName,
         status: 'pending',
         createdAt: new Date(),
         currentRole: userRole
@@ -222,23 +322,23 @@ export default function Settings() {
   };
 
   if (loading) {
-    return <Box sx={{ p: 2 }}>Loading settings...</Box>;
+    return <Box sx={{ p: 1 }}>Loading settings...</Box>;
   }
 
   return (
-    <Box sx={{ p: 2, maxWidth: 800, margin: '0 auto' }}>
-      <Paper elevation={0} sx={{ p: 2 }}>
+    <Box sx={{ p: 1, maxWidth: 900, margin: '0 auto' }}>
+      <Paper elevation={10} sx={{ p: 1 }}>
         <Grid container spacing={2}>
           {/* Profile Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 2 }}>
+            <Card sx={{ p: 1 }}>
               <Grid container spacing={2}>
                 <Grid item>
                   <Box sx={{ textAlign: 'center' }}>
                     <Avatar
                       sx={{ width: 70, height: 70, mb: 0.5 }}
-                      src={auth.currentUser?.photoURL || ''}
-                      alt={auth.currentUser?.displayName || 'User'}
+                      src={user?.photoURL || ''}
+                      alt={user?.displayName || 'User'}
                       imgProps={{
                         referrerPolicy: "no-referrer",
                         crossOrigin: "anonymous",
@@ -250,7 +350,7 @@ export default function Settings() {
                       <PersonIcon />
                     </Avatar>
                     <Typography variant="body2" color="textSecondary">
-                      {auth.currentUser?.displayName || auth.currentUser?.email || 'User'}
+                      {user?.displayName || user?.email || 'User'}
                     </Typography>
                   </Box>
                 </Grid>
@@ -260,16 +360,20 @@ export default function Settings() {
                       <TextField
                         fullWidth
                         label="Display Name"
-                        value={auth.currentUser?.displayName || ''}
+                        value={userSettings.displayName}
+                        onChange={(e) => setUserSettings(prev => ({
+                          ...prev,
+                          displayName: e.target.value
+                        }))}
                         size="small"
-                        disabled
+                        helperText="This name will be shown to other users"
                       />
                     </Grid>
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
                         label="Email"
-                        value={auth.currentUser?.email || ''}
+                        value={user?.email || ''}
                         size="small"
                         disabled
                       />
@@ -280,11 +384,41 @@ export default function Settings() {
             </Card>
           </Grid>
 
-          {/* Location and Preferences Section */}
+          {/* Location Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 2 }}>
-              <Grid container spacing={2}>
-                {/* Location Fields */}
+            <Card sx={{ p: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <LocationOnIcon color="primary" />
+                <Typography variant="h6">Location</Typography>
+
+                <FormControlLabel
+                    control={
+                      <Switch
+                        checked={userSettings.preferences.useLocation}
+                        onChange={(e) => setUserSettings(prev => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences,
+                            useLocation: e.target.checked
+                          }
+                        }))}
+                        disabled={!userSettings.location.country || !userSettings.location.province || !userSettings.location.city}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography>Use My Location</Typography>
+                        {(!userSettings.location.country || !userSettings.location.province || !userSettings.location.city) && (
+                          <Typography variant="caption" color="text.secondary">
+                            Fill in your location details above to enable this option
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
+          
+              </Box>
+              <Grid container spacing={1}>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
@@ -304,7 +438,7 @@ export default function Settings() {
                   <TextField
                     fullWidth
                     required
-                    label="Province"
+                    label="Province/State"
                     value={userSettings.location.province}
                     onChange={(e) => setUserSettings(prev => ({
                       ...prev,
@@ -330,7 +464,21 @@ export default function Settings() {
                     }))}
                   />
                 </Grid>
+                {/* <Grid item xs={12}>
+                  
+                </Grid> */}
+              </Grid>
+            </Card>
+          </Grid>
 
+          {/* Preferences Section */}
+          <Grid item xs={12}>
+            <Card sx={{ p: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <SettingsIcon color="primary" />
+                <Typography variant="h6">Preferences</Typography>
+              </Box>
+              <Grid container spacing={2}>
                 {/* Preferences Fields */}
                 <Grid item xs={12} sm={6}>
                   <TextField
@@ -368,7 +516,7 @@ export default function Settings() {
 
           {/* Role Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 2 }}>
+            <Card sx={{ p: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <WorkIcon color="primary" />
                 <Typography variant="h6">Role & Permissions</Typography>
@@ -411,7 +559,7 @@ export default function Settings() {
 
           {/* Sharing Preferences Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 2 }}>
+            <Card sx={{ p: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <LockIcon sx={{ fontSize: '1rem', mr: 1, color: 'text.secondary' }} />
                 <Typography variant="h6" gutterBottom>

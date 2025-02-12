@@ -94,15 +94,14 @@ service cloud.firestore {
       allow read, write: if true;  // For testing, allow all access
     }
 
-    // Existing rules for other collections...
+    // Products collection
     match /products/{productId} {
       allow read: if isSignedIn();
       allow create: if isContributor();
       allow update: if isContributor();
       allow delete: if isSignedIn() && (
-        // Allow deletion if user is the creator or an admin
         isAdmin() || 
-        (exists(resource) && request.auth.uid == resource.data.created_by)
+        resource.data.created_by == request.auth.uid
       );
     }
     

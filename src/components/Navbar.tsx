@@ -19,6 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import PeopleIcon from '@mui/icons-material/People';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import SportsTrophyIcon from '@mui/icons-material/SportsTrophy';
+import HomeIcon from '@mui/icons-material/Home';
 
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -91,6 +92,15 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
               }
             }}
           >
+            {/* Home */}
+            <Link to="/home" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton color="inherit">
+                <Tooltip title="Home">
+                  <HomeIcon />
+                </Tooltip>
+              </IconButton>
+            </Link>
+           
             {/* Products */}
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton color="inherit">
@@ -157,10 +167,12 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 </Tooltip>
               </IconButton>
             </Link>
+
+           
           </Box>
         </Toolbar>
       </AppBar>
-      <Toolbar /> {/* Spacer for fixed AppBar */}
+      <Toolbar />  {/* Spacer for fixed AppBar */}
     </Box>
   );
 }

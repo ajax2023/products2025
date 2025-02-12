@@ -11,8 +11,8 @@ import {
   where,
   getDoc,
 } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth';
+import { db } from '../firebaseConfig';
+import { useAuth } from '../auth';
 import { Company } from '../types/company';
 import CompanyForm from './CompanyForm';
 import CompanyImport from './admin/CompanyImport';
@@ -72,16 +72,19 @@ const INDUSTRIES = [
 ];
 
 export default function CompanyList() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [authChecked, setAuthChecked] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isContributor, setIsContributor] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<Company | undefined>();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('All');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -90,32 +93,36 @@ export default function CompanyList() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editingBrands, setEditingBrands] = useState<Record<string, string[]>>({});
   const [newBrandInputs, setNewBrandInputs] = useState<Record<string, string>>({});
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isContributor, setIsContributor] = useState(false);
+
+  const { user, loading: authLoading, isAdmin: isAuthAdmin, isContributor: isAuthContributor, isSuperAdmin: isAuthSuperAdmin } = useAuth();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // console.log('Auth state changed:', user?.uid);
+    if (authLoading) return;
+    
+    if (user) {
       setAuthChecked(true);
-      if (user) {
-        // console.log('User is authenticated, checking role...');
-        await checkUserRole(user.uid);
-        fetchCompanies();
-      } else {
-        // console.log('No user logged in');
-        setError('Please log in to view companies');
-        setLoading(false);
-      }
-    });
+      checkUserRole(user.uid);
+      fetchCompanies();
+    } else {
+      setAuthChecked(true);
+      setIsAdmin(false);
+      setIsSuperAdmin(false);
+      setIsContributor(false);
+      setError('Please log in to view companies');
+      setLoading(false);
+    }
+  }, [user, authLoading]);
 
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    setIsAdmin(isAuthAdmin);
+    setIsSuperAdmin(isAuthSuperAdmin);
+    setIsContributor(isAuthContributor);
+  }, [isAuthAdmin, isAuthSuperAdmin, isAuthContributor]);
 
   const checkUserRole = async (userId: string) => {
     try {
       // Special case for super admin
-      if (auth.currentUser?.email === 'ajax@online101.ca') {
+      if (user?.email === 'ajax@online101.ca') {
         setIsSuperAdmin(true);
         setIsAdmin(true);
         setIsContributor(true);
@@ -209,7 +216,7 @@ export default function CompanyList() {
       const docRef = await addDoc(collection(db, 'companies'), {
         ...companyData,
         created_at: new Date(),
-        created_by: auth.currentUser?.uid
+        created_by: user?.uid
       });
       await fetchCompanies();
       setIsFormOpen(false);
@@ -228,11 +235,11 @@ export default function CompanyList() {
       await updateDoc(doc(db, 'companies', editingCompany._id), {
         ...companyData,
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid
+        updated_by: user?.uid
       });
       await fetchCompanies();
       setIsFormOpen(false);
-      setEditingCompany(undefined);
+      setEditingCompany(null);
       setIsSubmitting(false);
     } catch (error) {
       console.error('Error updating company:', error);
@@ -259,7 +266,7 @@ export default function CompanyList() {
       await updateDoc(doc(db, 'companies', companyId), {
         brands,
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid
+        updated_by: user?.uid
       });
       await fetchCompanies();
       // Reset editing state
@@ -348,7 +355,7 @@ export default function CompanyList() {
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
-    setEditingCompany(undefined);
+    setEditingCompany(null);
     setError(null);
   };
 
@@ -370,23 +377,23 @@ export default function CompanyList() {
 
   if (error) {
     return (
-      <Box sx={{ p: 2, color: 'error.main' }}>
+      <Box sx={{ p: 1, color: 'error.main' }}>
         <Typography color="error">{error}</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: '100%', p: 3 }}>
+    <Box sx={{ width: "99%", p: 1 }}>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5" component="h1">
           Companies
         </Typography>
-        {(isAdmin || isContributor) && (
+        {(isAuthAdmin || isAuthContributor) && (
           <Box sx={{ display: 'flex', gap: 2 }}>
-            {(isAdmin) && (
+            {(isAuthAdmin) && (
               <Button
                 variant="outlined"
                 onClick={() => setIsImportOpen(true)}
@@ -406,7 +413,7 @@ export default function CompanyList() {
         )}
       </Box>
       
-      <Paper elevation={0} sx={{ width: '100%', overflow: 'hidden' }}>
+      <Paper elevation={10} sx={{ width: '100%', overflow: 'hidden' }}>
         <Box sx={{ p: 1 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={4}>
@@ -461,7 +468,7 @@ export default function CompanyList() {
                 <TableCell sx={{ width: '30%' }}>Name / Location</TableCell>
                 <TableCell sx={{ width: '25%' }}>Industry / Employees</TableCell>
                 <TableCell sx={{ width: '25%' }}>Founded / Website</TableCell>
-                {(isAdmin || isContributor) && <TableCell sx={{ width: '15%' }} align="right">Actions</TableCell>}
+                {(isAuthAdmin || isAuthContributor) && <TableCell sx={{ width: '15%' }} align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -511,7 +518,7 @@ export default function CompanyList() {
                           )}
                         </Box>
                       </TableCell>
-                      {(isAdmin || isContributor) && (
+                      {(isAuthAdmin || isAuthContributor) && (
                         <TableCell align="right">
                           <Tooltip title="Edit">
                             <IconButton
@@ -525,7 +532,7 @@ export default function CompanyList() {
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
-                          {(isAdmin) && (
+                          {(isAuthAdmin) && (
                             <Tooltip title="Delete">
                               <IconButton
                                 size="small"
@@ -544,7 +551,7 @@ export default function CompanyList() {
                     </TableRow>
                     {expandedRows.has(company._id) && (
                       <TableRow>
-                        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={(isAdmin || isContributor) ? 5 : 4}>
+                        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={(isAuthAdmin || isAuthContributor) ? 5 : 4}>
                           <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                             <Typography variant="body2" color="textSecondary" gutterBottom>
                               {company.description || 'No description available'}
@@ -645,7 +652,7 @@ export default function CompanyList() {
                 ))}
               {filteredCompanies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={(isAdmin || isContributor) ? 5 : 4} align="center">
+                  <TableCell colSpan={(isAuthAdmin || isAuthContributor) ? 5 : 4} align="center">
                     <Typography variant="body2" color="textSecondary">
                       No companies found
                     </Typography>
@@ -719,7 +726,7 @@ export default function CompanyList() {
       </Dialog>
 
       {/* Import Dialog - Only for Admins */}
-      {isAdmin && (
+      {isAuthAdmin && (
         <Dialog
           open={isImportOpen}
           onClose={() => setIsImportOpen(false)}

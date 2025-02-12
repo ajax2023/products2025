@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { collection, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { db } from '../firebaseConfig';
+import { useAuth } from '../auth/useAuth';
 import { Company } from '../types/company';
 import {
   Box,
@@ -28,6 +29,7 @@ import CompanyForm from './CompanyForm';
 
 export default function CompanyInfo() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +67,13 @@ export default function CompanyInfo() {
 
   useEffect(() => {
     const checkUserRole = async () => {
-      if (!auth.currentUser) return;
-      const token = await auth.currentUser.getIdTokenResult();
+      if (!user) return;
+      const token = await user.getIdTokenResult();
       const role = token.claims.admin ? 'admin' : token.claims.contributor ? 'contributor' : 'viewer';
       setUserRole(role);
     };
     checkUserRole();
-  }, []);
+  }, [user]);
 
   const formatEmployeeCount = (count: number) => {
     if (count >= 1000000) {
@@ -91,7 +93,7 @@ export default function CompanyInfo() {
       await updateDoc(companyRef, {
         ...updatedCompany,
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ''
+        updated_by: user?.uid || ''
       });
 
       // Update local state
@@ -127,7 +129,7 @@ export default function CompanyInfo() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <BusinessIcon fontSize="large" color="primary" />
-            <Typography variant="h4" component="h1">
+            <Typography variant="h5" component="h1">
               {company.name}
             </Typography>
           </Box>

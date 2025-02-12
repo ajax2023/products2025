@@ -1,6 +1,7 @@
 // FORMAT TEST
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from '../auth/useAuth';
 import {
   Box,
   Button,
@@ -37,7 +38,8 @@ import {
   Autocomplete,
   ImageList,
   ImageListItem,
-  ImageListItemBar
+  ImageListItemBar,
+  useMediaQuery
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -58,7 +60,6 @@ import ImageIcon from "@mui/icons-material/Image";
 import CameraDialog from './CameraDialog';
 
 import { auth, db, storage } from '../firebaseConfig';
-import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   doc,
@@ -85,61 +86,97 @@ import CompanyForm from "./CompanyForm";
 import { updateUserStats } from '../utils/userStats';
 
 export default function ProductList() {
-  const location = useLocation();
+  // Router hooks
   const navigate = useNavigate();
-  const searchParams = new URLSearchParams(location.search);
+  const location = useLocation();
+  const isSmallScreen = useMediaQuery("(max-width:600px)");
+  // Auth context and state
+  const { user, loading: authLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isContributor, setIsContributor] = useState(false);
+
+  // Update admin status when claims or user changes
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // First check claims
+      if (user) {
+        setIsAdmin(user.claims?.admin === true);
+        setIsSuperAdmin(user.claims?.superAdmin === true);
+        setIsContributor(user.claims?.contributor === true || user.claims?.admin === true || user.claims?.superAdmin === true);
+      }
+
+      try {
+        // Then check Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setIsAdmin(userData.role === 'admin' || userData.role === 'super_admin');
+          setIsSuperAdmin(userData.role === 'super_admin');
+          setIsContributor(userData.role === 'contributor' || userData.role === 'admin' || userData.role === 'super_admin');
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error);
+      }
+    };
+
+    checkUserRole();
+  }, [user]);
+
+  // Search params
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
-  const brandFilter = location.state?.brandFilter;
+
+  // Update search when URL changes
+  useEffect(() => {
+    const query = searchParams.get("search")?.toLowerCase() || "";
+    setSearchQuery(query);
+  }, [searchParams]);
+
+  // Handle search input
+  const handleSearchInput = useCallback((value: string) => {
+    if (value) {
+      navigate(`/?search=${encodeURIComponent(value)}`, { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
+  }, [navigate]);
+
+  // Basic state
   const [products, setProducts] = useState<Product[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [priceDialogOpen, setPriceDialogOpen] = useState(false);
-  const [newPrice, setNewPrice] = useState<Partial<ProductPrice>>({
-    amount: 0,
-    unit: "each",
-    store: "",
-    name: "",
-    location: {
-      country: "Canada",
-      province: "",
-      city: ""
-    },
-    date: new Date().toISOString(),
-    source: "manual",
-    notes: "",
-    sales_link: "",
-    price_tags: {}
-  });
-  const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isContributor, setIsContributor] = useState(false);
-  const [editingPrice, setEditingPrice] = useState<{ productId: string; priceIndex: number } | null>(null);
-  const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
-  const [editedPrice, setEditedPrice] = useState<Partial<ProductPrice>>({
-    name: "",
-    amount: 0,
-    unit: "each",
-    store: "",
-    location: {
-      country: "Canada",
-      province: "",
-      city: ""
-    },
-    notes: "",
-    sales_link: "",
-    price_tags: {}
-  });
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  
+  // Search and filters
+  const [selectedCompany, setSelectedCompany] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedOrigin, setSelectedOrigin] = useState<string>("");
+  const [selectedCanadianOriginType, setSelectedCanadianOriginType] = useState<string>("");
+  const brandFilter = location.state?.brandFilter;
+
+  // Basic state
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showProductImport, setShowProductImport] = useState(false);
   const [showPriceImport, setShowPriceImport] = useState(false);
+  const [priceDialogOpen, setPriceDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [flagPickerOpen, setFlagPickerOpen] = useState(false);
+  
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  // Form states
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: "",
     brand: "",
@@ -155,32 +192,15 @@ export default function ProductList() {
     image: "",
     canadianOriginType: null
   });
-  const [newDialogOpen, setNewDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [flagPickerOpen, setFlagPickerOpen] = useState(false);
+  
   const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [userCompanies, setUserCompanies] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [selectedOrigin, setSelectedOrigin] = useState<string>("");
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<AlertColor>("success");
-  const [updating, setUpdating] = useState(false);
-  const [showCameraDialog, setShowCameraDialog] = useState(false);
-  const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
-
-  // Add filter states
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [useMyLocation, setUseMyLocation] = useState(false);
   const [filters, setFilters] = useState({
     locationEnabled: true,
     showAllPrices: false
   });
-
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-  const [useMyLocation, setUseMyLocation] = useState(false);
-
-  // Add unique location lists - removed location related lists
   const [uniqueLocations, setUniqueLocations] = useState<{
     countries: string[];
     provinces: string[];
@@ -190,26 +210,50 @@ export default function ProductList() {
     provinces: [],
     cities: []
   });
-
-  const attributeNameRef = React.createRef<HTMLInputElement>();
-  const attributeValueRef = React.createRef<HTMLInputElement>();
-
+  const [newPrice, setNewPrice] = useState<Partial<ProductPrice>>({
+    amount: 0,
+    unit: "each",
+    store: "",
+    store_location: "",
+    name: "",
+    location: {
+      country: "Canada",
+      province: "",
+      city: ""
+    },
+    date: new Date().toISOString(),
+    source: "manual",
+    notes: "",
+    sales_link: "",
+    price_tags: {}
+  });
+  const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
+  const [editingPrice, setEditingPrice] = useState<{ productId: string; priceIndex: number } | null>(null);
+  const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
+  const [editedPrice, setEditedPrice] = useState<Partial<ProductPrice>>({
+    name: "",
+    amount: 0,
+    unit: "",
+    store: "",
+    store_location: "",
+    location: {
+      country: "Canada",
+      province: "",
+      city: ""
+    },
+    notes: ""
+  });
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<AlertColor>("success");
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
-
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: "success" | "error" | "info" | "warning";
-    autoHideDuration: number;
-  }>({
-    open: false,
-    message: "",
-    severity: "success",
-    autoHideDuration: 3000
-  });
-
-  // Get list of countries from flags folder
+  const [updating, setUpdating] = useState(false);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
+  const attributeNameRef = React.createRef<HTMLInputElement>();
+  const attributeValueRef = React.createRef<HTMLInputElement>();
+  
   const countries = [
     'Afghanistan', 'Albania', 'Algeria', 'American Samoa', 'Andorra', 'Angola', 'Anguilla', 'Antarctica', 
     'Antigua Barbuda', 'Argentina', 'Armenia', 'Aruba', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 
@@ -239,7 +283,7 @@ export default function ProductList() {
     'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 
     'Zambia', 'Zimbabwe'
   ].sort();
-
+  
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -277,19 +321,17 @@ export default function ProductList() {
   };
 
   // Function to show snackbar
-  const showMessage = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-      autoHideDuration: 3000
-    });
-  };
+  const showMessage = useCallback((message: string, severity: AlertColor = "success") => {
+    console.log(message, severity)
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }, []);
 
   // Handle snackbar close
-  const handleSnackbarClose = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  };
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbarOpen(false);
+  }, []);
 
   const getAuthToken = async (user: any) => {
     try {
@@ -306,8 +348,6 @@ export default function ProductList() {
 
   // Initial data fetch
   const fetchData = async () => {
-    if (!authChecked) return;
-
     setLoading(true);
     setError(null);
 
@@ -327,7 +367,8 @@ export default function ProductList() {
           setCompanies(companiesData);
         } catch (error) {
           console.error("Error fetching companies:", error);
-          setError("Failed to fetch companies");
+          
+          showMessage("Failed to fetch companies", "error");
         }
       };
 
@@ -361,7 +402,8 @@ export default function ProductList() {
       setProducts(filteredProducts);
     } catch (error) {
       console.error("Error fetching data:", error);
-      setError("Failed to load products. Please try refreshing the page.");
+      
+      showMessage("Failed to load products. Please try refreshing the page.", "error");
     } finally {
       setLoading(false);
     }
@@ -369,10 +411,8 @@ export default function ProductList() {
 
   // Initial data load
   useEffect(() => {
-    if (authChecked) {
-      fetchData();
-    }
-  }, [authChecked]);
+    fetchData();
+  }, []);
 
   useEffect(() => {
     const refreshProducts = async () => {
@@ -381,48 +421,60 @@ export default function ProductList() {
       setError(null);
 
       try {
-        if (auth.currentUser) {
-          const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-          if (userDoc.exists()) {
-            setUserSettings(userDoc.data() as UserSettings);
+        if (user) {
+          // Load user settings
+          const userSettingsRef = doc(db, "userSettings", user.uid);
+          const userSettingsDoc = await getDoc(userSettingsRef);
+          if (userSettingsDoc.exists()) {
+            const settings = userSettingsDoc.data() as UserSettings;
+            setUserSettings(settings);
+            setFilters((prev) => ({
+              ...prev,
+              locationEnabled: settings?.preferences?.useLocation ?? true
+            }));
           }
-        }
 
-        const companiesCollection = collection(db, "companies");
-        const companiesSnapshot = await getDocs(companiesCollection);
-        const companiesData = companiesSnapshot.docs.map(doc => ({
-          _id: doc.id,
-          ...doc.data()
-        })) as Company[];
-        // console.log('Companies fetched:', companiesData);
-        setCompanies(companiesData);
-
-        const productsSnapshot = await getDocs(collection(db, "products"));
-        const productsList = productsSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            ...data,
+          // Fetch companies
+          const companiesCollection = collection(db, "companies");
+          const companiesSnapshot = await getDocs(companiesCollection);
+          const companiesData = companiesSnapshot.docs.map(doc => ({
             _id: doc.id,
-            prices: data.prices || [],
-            name: data.name || "",
-            description: data.description || "",
-            brand: data.brand || "",
-            category: data.category || "",
-            tags: data.tags || [],
-            product_tags: data.product_tags || {}
-          };
-        }) as Product[];
+            ...doc.data()
+          })) as Company[];
+          // console.log('Companies fetched:', companiesData);
+          setCompanies(companiesData);
 
-        let filteredProducts = filterProductsBySearch(productsList);
-        if (brandFilter) {
-          filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
+          // Fetch products
+          const productsSnapshot = await getDocs(collection(db, "products"));
+          const productsList = productsSnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              ...data,
+              _id: doc.id,
+              prices: data.prices || [],
+              name: data.name || "",
+              description: data.description || "",
+              brand: data.brand || "",
+              category: data.category || "",
+              tags: data.tags || [],
+              product_tags: data.product_tags || {}
+            };
+          }) as Product[];
+
+          let filteredProducts = filterProductsBySearch(productsList);
+          if (brandFilter) {
+            filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
+          }
+
+          // console.log("Full refresh completed");
+          setProducts(filteredProducts);
+        } else {
+          setProducts([]);
+          setCompanies([]);
         }
-
-        // console.log("Full refresh completed");
-        setProducts(filteredProducts);
       } catch (error) {
         console.error("Error during full refresh:", error);
-        setError("Failed to refresh data. Please try again.");
+        showMessage("Failed to refresh data. Please try again.", "error");
       } finally {
         setLoading(false);
       }
@@ -452,21 +504,20 @@ export default function ProductList() {
     const checkAuthAndSettings = async () => {
       try {
         // Wait for auth to initialize
-        if (!auth.currentUser) {
-          setAuthChecked(true);
+        if (!user) {
           return;
         }
 
         // Get user settings
-        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           setUserSettings(userDoc.data() as UserSettings);
         } else {
           // Create default user settings if none exist
           const defaultSettings: UserSettings = {
-            _id: auth.currentUser.uid,
-            email: auth.currentUser.email || "",
-            displayName: auth.currentUser.displayName || "",
+            _id: user.uid,
+            email: user.email || "",
+            displayName: user.displayName || "",
             role: "contributor",
             status: "active",
             preferences: {
@@ -486,102 +537,28 @@ export default function ProductList() {
               showOnLeaderboard: false
             },
             created_at: new Date().toISOString(),
-            created_by: auth.currentUser.uid
+            created_by: user.uid
           };
-          await setDoc(doc(db, "users", auth.currentUser.uid), defaultSettings);
+          await setDoc(doc(db, "users", user.uid), defaultSettings);
           setUserSettings(defaultSettings);
         }
-        setAuthChecked(true);
       } catch (error) {
         console.error("Error checking auth and settings:", error);
-        setError("Error loading user settings. Please refresh the page.");
-        setAuthChecked(true);
+        showMessage("Error loading user settings. Please refresh the page.", "error");
       }
     };
 
     checkAuthAndSettings();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // console.log("Auth state changed:", user?.uid);
-      setAuthChecked(true);
-      if (user) {
-        // Load user settings
-        const userSettingsRef = doc(db, "userSettings", user.uid);
-        const userSettingsDoc = await getDoc(userSettingsRef);
-        if (userSettingsDoc.exists()) {
-          const settings = userSettingsDoc.data() as UserSettings;
-          setUserSettings(settings);
-          setFilters((prev) => ({
-            ...prev,
-            locationEnabled: settings?.preferences?.useLocation ?? true
-          }));
-        }
-
-        // Check roles from Firestore first
-        const userRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userRef);
-
-        // console.log("User document:", userDoc.exists() ? userDoc.data() : "No user doc");
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const isUserAdmin = userData.role === "admin" || userData.role === "super_admin";
-          const isUserSuperAdmin = userData.role === "super_admin";
-          const isUserContributor = userData.role === "contributor" || isUserAdmin || isUserSuperAdmin;
-
-          // console.log("User roles:", {
-          //   role: userData.role,
-          //   isAdmin: isUserAdmin,
-          //   isSuperAdmin: isUserSuperAdmin,
-          //   isContributor: isUserContributor
-          // });
-
-          setIsAdmin(isUserAdmin);
-          setIsSuperAdmin(isUserSuperAdmin);
-          setIsContributor(isUserContributor);
-
-          // Get token to check claims
-          const token = await getAuthToken(user);
-          if (token) {
-            // Use token for API calls
-          }
-        } else {
-          // console.log("No user document found in Firestore");
-          setIsAdmin(false);
-          setIsSuperAdmin(false);
-          setIsContributor(false);
-        }
-
-        // Always fetch data if user is logged in, regardless of role
-        // console.log("Fetching data for logged in user");
-        fetchData();
-      } else {
-        // console.log("No user logged in");
-        setProducts([]);
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
-        setIsContributor(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Debounced log function
-  const debouncedLog = (() => {
-    let timeout: NodeJS.Timeout | null = null;
-    return (message: string, data: any) => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      timeout = setTimeout(() => {
-        // console.log(message, data);
-        timeout = null;
-      }, 100);
-    };
-  })();
+    if (userSettings?.preferences) {
+      setFilters((prev) => ({
+        ...prev,
+        locationEnabled: userSettings.preferences.useLocation ?? true
+      }));
+    }
+  }, [userSettings]);
 
   const filterPricesByLocation = (prices: ProductPrice[]) => {
     if (!filters.locationEnabled || !prices || !userSettings?.location) return prices;
@@ -689,31 +666,71 @@ export default function ProductList() {
     setPage(0);
   };
 
-  const handleOpenPriceDialog = (product: Product) => {
+  const handleOpenPriceDialog = useCallback((product: Product) => {
     setSelectedProduct(product);
-    resetNewPrice();
+    setNewPrice({
+      amount: 0,
+      unit: "each",
+      store: "",
+      store_location: "",
+      name: "",
+      location: {
+        country: "Canada",
+        province: "",
+        city: ""
+      },
+      date: new Date().toISOString(),
+      source: "manual",
+      notes: "",
+      sales_link: "",
+      price_tags: {}
+    });
     setPriceDialogOpen(true);
-  };
+  }, []);
 
-  const resetNewPrice = () => {
-    const location =
-      filters.locationEnabled && userSettings?.location
-        ? {
-            country: userSettings.location.country || "Canada",
-            province: userSettings.location.province || "",
-            city: userSettings.location.city || ""
-          }
-        : {
-            country: "Canada",
-            province: "",
-            city: ""
-          };
+  const handleClosePriceDialog = useCallback(() => {
+    setSelectedProduct(null);
+    setPriceDialogOpen(false);
+    setPriceError(null);
+    setNewPrice({
+      amount: 0,
+      unit: "each",
+      store: "",
+      store_location: "",
+      name: "",
+      location: {
+        country: "Canada",
+        province: "",
+        city: ""
+      },
+      date: new Date().toISOString(),
+      source: "manual",
+      notes: "",
+      sales_link: "",
+      price_tags: {}
+    });
+  }, []);
+
+  const handleAddPrice = (product: Product) => {
+    setSelectedProduct(product);
+    
+    // Initialize with user's location if "Use My Location" is enabled
+    const location = userSettings?.preferences?.useLocation === true && userSettings.location ? {
+      country: userSettings.location.country,
+      province: userSettings.location.province,
+      city: userSettings.location.city
+    } : {
+      country: "Canada",
+      province: "",
+      city: ""
+    };
 
     setNewPrice({
       amount: 0,
       unit: "each",
       store: "",
-      name: "",
+      store_location: "",
+      name: product.name,
       location,
       date: new Date().toISOString(),
       source: "manual",
@@ -721,20 +738,18 @@ export default function ProductList() {
       sales_link: "",
       price_tags: {}
     });
-    setError(null);
+    setPriceDialogOpen(true);
   };
 
-  const handleClosePriceDialog = () => {
-    setSelectedProduct(null);
-    setPriceDialogOpen(false);
-    resetNewPrice();
-    setError(null);
-  };
+  const handleSubmitPrice = async () => {
+    if (!selectedProduct || !user) return;
 
-  const handleAddPrice = async () => {
-    if (!selectedProduct || !auth.currentUser) return;
-    if (!newPrice.amount || !newPrice.unit || !newPrice.location.country || !newPrice.location.city) {
-      showMessage("Please fill in all required price fields (amount, unit, country, and city)", "error");
+    // Clear any previous errors
+    setPriceError(null);
+
+    // Validate required fields
+    if (!newPrice.amount || !newPrice.unit || !newPrice.location.country || !newPrice.location.city || !newPrice.store || !newPrice.store_location) {
+      setPriceError("Please fill in all required fields (amount, unit, store, store location, country, and city)");
       return;
     }
 
@@ -746,33 +761,27 @@ export default function ProductList() {
         {
           ...newPrice,
           date: now,
-          created_by: auth.currentUser.uid,
-          created_by_email: auth.currentUser.email || "unknown",
-          created_by_name: auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "unknown",
-          created_at: now,
-          source: "manual"
-        } as ProductPrice
+          created_by: user.uid,
+          created_by_email: user.email || "unknown",
+          created_by_name: user.displayName || user.email?.split("@")[0] || "unknown",
+        }
       ];
 
-      await updateDoc(productRef, {
-        prices: updatedPrices,
-        modified_at: now,
-        modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || "unknown"
-      });
+      await updateDoc(productRef, { prices: updatedPrices });
 
-      setProducts((prevProducts) => prevProducts.map((p) => (p._id === selectedProduct._id ? { ...p, prices: updatedPrices } : p)));
+      // Update local state
+      setProducts(prevProducts => prevProducts.map(p => 
+        p._id === selectedProduct._id 
+          ? { ...p, prices: updatedPrices }
+          : p
+      ));
 
-      // Update user stats
-      if (auth.currentUser?.uid) {
-        await updateUserStats(auth.currentUser.uid);
-      }
-
-      showMessage("Price added successfully");
+      // Only close dialog and reset on success
       handleClosePriceDialog();
     } catch (error) {
       console.error("Error adding price:", error);
-      showMessage(`Error adding price: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+      setPriceError("Failed to add price. Please try again.");
+      // Don't close dialog on error
     }
   };
 
@@ -788,22 +797,23 @@ export default function ProductList() {
       await updateDoc(productRef, {
         prices: updatedPrices,
         modified_at: new Date().toISOString(),
-        modified_by: auth.currentUser?.uid || ""
+        modified_by: user.uid,
+        modified_by_name: user.displayName || user.email || "unknown"
       });
 
       setProducts((prevProducts) => prevProducts.map((p) => (p._id === productId ? { ...p, prices: updatedPrices } : p)));
     } catch (error) {
       console.error("Error deleting price:", error);
-      setError("Failed to delete price. Please try again.");
+      showMessage("Failed to delete price. Please try again.", "error");
     }
   };
 
-  const handleOpenEditPriceDialog = (productId: string, priceIndex: number, price: ProductPrice) => {
-    if (!auth.currentUser) return;
+  const handleOpenEditPriceDialog = useCallback((productId: string, priceIndex: number, price: ProductPrice) => {
+    if (!user) return;
 
-    const canEdit = isAdmin || isSuperAdmin || (auth.currentUser && price.created_by === auth.currentUser.uid);
+    const canEdit = isAdmin || (isContributor && price.created_by === user.uid); // TODO: implement permission check
     if (!canEdit) {
-      setError("You can only edit prices that you created");
+      showMessage("You can only edit prices that you created", "error");
       return;
     }
 
@@ -814,43 +824,41 @@ export default function ProductList() {
       amount: price.amount,
       unit: price.unit,
       store: price.store,
+      store_location: price.store_location,
       location: { ...price.location },
       notes: price.notes || "",
-      sales_link: price.sales_link || "",
-      price_tags: { ...price.price_tags }
     });
     setEditPriceDialogOpen(true);
-  };
+  }, [isAdmin, isContributor, user]);
 
-  const handleCloseEditPriceDialog = () => {
+  const handleCloseEditPriceDialog = useCallback(() => {
     setEditPriceDialogOpen(false);
     setEditingPrice(null);
     setEditedPrice({
       name: "",
       amount: 0,
-      unit: "each",
+      unit: "",
       store: "",
+      store_location: "",
       location: {
         country: "Canada",
         province: "",
         city: ""
       },
-      notes: "",
-      sales_link: "",
-      price_tags: {}
+      notes: ""
     });
-    setError(null);
-  };
+  }, []);
 
   const handleSaveEditedPrice = async () => {
-    if (!editingPrice || !auth.currentUser) return;
-    if (!editedPrice.amount || !editedPrice.unit || !editedPrice.location.country || !editedPrice.location.city) {
-      setError("Please fill in all required price fields (amount, unit, country, and city)");
+    if (!editingPrice || !user) return;
+    if (!editedPrice.amount || !editedPrice.unit || !editedPrice.location.country || !editedPrice.location.city || !editedPrice.store || !editedPrice.store_location) {
+      
+      showMessage("Please fill in all required price fields (amount, unit, store, store location, country, and city)", "error");
       return;
     }
 
     try {
-      const token = await auth.currentUser.getIdTokenResult();
+      const token = await user.getIdTokenResult();
       // console.log("Attempting price update with roles:", {
       //   admin: token.claims.admin,
       //   superAdmin: token.claims.superAdmin,
@@ -862,15 +870,15 @@ export default function ProductList() {
 
       const originalPrice = product.prices?.[editingPrice.priceIndex];
       if (!originalPrice) {
-        setError("Original price not found");
+        showMessage("Original price not found", "error");
         return;
       }
 
       const updatedPrice = {
         ...originalPrice,
         ...editedPrice,
-        modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "unknown",
+        modified_by: user.uid,
+        modified_by_name: user.displayName || user.email?.split("@")[0] || "unknown",
         modified_at: new Date().toISOString()
       };
 
@@ -878,7 +886,7 @@ export default function ProductList() {
 
       const currentDoc = await getDoc(productRef);
       if (!currentDoc.exists()) {
-        setError("Product not found");
+        showMessage("Product not found", "error");
         return;
       }
 
@@ -888,22 +896,22 @@ export default function ProductList() {
       await updateDoc(productRef, {
         prices: prices,
         modified_at: new Date(),
-        modified_by: auth.currentUser.uid,
-        modified_by_name: auth.currentUser.displayName || auth.currentUser.email || "unknown"
+        modified_by: user.uid,
+        modified_by_name: user.displayName || user.email || "unknown"
       });
 
       setProducts((prevProducts) => prevProducts.map((p) => (p._id === editingPrice.productId ? { ...p, prices: prices } : p)));
 
       // Update user stats
-      if (auth.currentUser?.uid) {
-        await updateUserStats(auth.currentUser.uid);
+      if (user.uid) {
+        await updateUserStats(user.uid);
       }
 
       showMessage("Price updated successfully", "success");
       handleCloseEditPriceDialog();
     } catch (error) {
       console.error("Error updating price:", error);
-      setError("Failed to update price. Please try again.");
+      showMessage("Failed to update price. Please try again.", "error");
     }
   };
 
@@ -926,7 +934,8 @@ export default function ProductList() {
       const cleanProduct = {
         ...product,
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ""
+        updated_by: user.uid,
+        updated_by_name: user.displayName || user.email || "unknown"
       };
 
       // console.log('Saving product:', cleanProduct);
@@ -938,11 +947,11 @@ export default function ProductList() {
       );
 
       // Update user stats
-      if (auth.currentUser?.uid) {
-        await updateUserStats(auth.currentUser.uid);
+      if (user.uid) {
+        await updateUserStats(user.uid);
       }
 
-      showMessage('Product updated successfully');
+      showMessage('Product updated successfully', 'success');
       
       if (closeDialog) {
         setEditDialogOpen(false);
@@ -958,43 +967,173 @@ export default function ProductList() {
   };
 
   const handleDeleteProduct = async (product: Product) => {
+    console.log('Delete requested for product:', {
+      id: product._id,
+      name: product.name,
+      created_at: product.created_at,
+      created_by: product.created_by
+    });
     setDeleteConfirmProduct(product);
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirmProduct || !auth.currentUser) return;
+    const logs: any[] = [];
+    const logStep = (step: string, data: any) => {
+      const log = { timestamp: new Date().toISOString(), step, data };
+      logs.push(log);
+      console.log('%c[DELETE LOG]', 'background: #222; color: #bada55; font-size: 12px; padding: 2px 5px;', log);
+      // Also log expanded data for better visibility
+      console.log('%c[DELETE DATA]', 'color: #bada55;', data);
+      // On error, dump all logs to help debugging
+      console.error('%c[FULL LOG HISTORY]', 'background: #222; color: #ff6b6b; font-size: 14px; padding: 2px 5px;');
+      logs.forEach((log, index) => {
+        console.error(`%cStep ${index + 1}: ${log.step}`, 'color: #ff6b6b; font-weight: bold;');
+        console.error(log.data);
+      });
+    };
+
+    if (!deleteConfirmProduct || !user) {
+      logError('VALIDATION_FAILED', {
+        hasProduct: !!deleteConfirmProduct,
+        hasUser: !!user,
+        userId: user?.uid,
+        productId: deleteConfirmProduct?._id
+      });
+      return;
+    }
 
     try {
-      setUpdating(true);
+      logStep('STARTING_DELETE', {
+        currentUser: user ? {
+          uid: user.uid,
+          email: user.email,
+          isAnonymous: user.isAnonymous,
+        } : null,
+        product: deleteConfirmProduct ? {
+          id: deleteConfirmProduct._id,
+          name: deleteConfirmProduct.name,
+          created_by: deleteConfirmProduct.created_by
+        } : null
+      });
 
-      // If there's an image, try to delete it from storage first
-      if (deleteConfirmProduct.image) {
-        try {
-          // Extract the path from the URL
-          const storage = getStorage();
-          const imageUrl = new URL(deleteConfirmProduct.image);
-          const imagePath = decodeURIComponent(imageUrl.pathname.split('/o/')[1].split('?')[0]);
-          const imageRef = ref(storage, imagePath);
-          await deleteObject(imageRef);
-        } catch (error) {
-          console.error("Error deleting image:", error);
-          // Continue even if image deletion fails
-        }
+      if (!deleteConfirmProduct || !user) {
+        logError('VALIDATION_FAILED', {
+          hasProduct: !!deleteConfirmProduct,
+          hasUser: !!user,
+          userId: user?.uid,
+          productId: deleteConfirmProduct?._id
+        });
+        return;
       }
 
-      // Delete the product document
-      await deleteDoc(doc(db, "products", deleteConfirmProduct._id));
+      // First verify the user's token is valid
+      logStep('VERIFYING_TOKEN', { userId: user.uid });
+      const token = await user.getIdToken(true);
+      const decodedToken = await user.getIdTokenResult();
+      logStep('TOKEN_INFO', {
+        userId: user.uid,
+        email: user.email,
+        tokenExpiration: decodedToken.expirationTime,
+        tokenIssuedAt: decodedToken.issuedAtTime,
+        claims: decodedToken.claims
+      });
 
-      // Update products list
+      // Check user role
+      const userRef = doc(db, "users", user.uid);
+      logStep('FETCHING_USER', {
+        userRef: userRef.path,
+        userId: user.uid
+      });
+      
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        logError('USER_NOT_FOUND', {
+          userId: user.uid,
+          userRef: userRef.path
+        });
+        throw new Error('User profile not found. Please try signing out and in again.');
+      }
+
+      const userData = userSnap.data();
+      const isAdmin = userData.role === 'admin' || userData.role === 'super_admin';
+      logStep('USER_AUTH_CHECK', {
+        userId: user.uid,
+        role: userData.role,
+        isAdmin,
+        userData // Log full user data for debugging
+      });
+      
+      // Get product data
+      const productRef = doc(db, "products", deleteConfirmProduct._id);
+      logStep('FETCHING_PRODUCT', {
+        productRef: productRef.path,
+        productId: deleteConfirmProduct._id
+      });
+      
+      const productSnap = await getDoc(productRef);
+      if (!productSnap.exists()) {
+        logError('PRODUCT_NOT_FOUND', {
+          productId: deleteConfirmProduct._id,
+          productRef: productRef.path
+        });
+        throw new Error('Product not found in database');
+      }
+      
+      const productData = productSnap.data();
+      logStep('PRODUCT_AUTH_CHECK', {
+        productId: deleteConfirmProduct._id,
+        productOwner: productData.created_by,
+        currentUser: user.uid,
+        isAdmin,
+        canDelete: isAdmin || productData.created_by === user.uid,
+        productData // Log full product data for debugging
+      });
+      
+      setUpdating(true);
+
+      // Verify delete permission
+      if (!isAdmin && productData.created_by !== user.uid) {
+        logError('PERMISSION_DENIED', {
+          productOwner: productData.created_by,
+          currentUser: user.uid,
+          isAdmin,
+          userRole: userData.role,
+          productId: deleteConfirmProduct._id
+        });
+        throw new Error('You do not have permission to delete this product. Only the creator or admins can delete products.');
+      }
+
+      // Attempt deletion
+      logStep('ATTEMPTING_DELETE', {
+        productId: deleteConfirmProduct._id,
+        userRole: userData.role,
+        isAdmin,
+        productOwner: productData.created_by,
+        currentUser: user.uid,
+        token: token.substring(0, 10) + '...' // Log part of token for debugging
+      });
+      
+      await deleteDoc(productRef);
+      logStep('DELETE_SUCCESS', {
+        productId: deleteConfirmProduct._id
+      });
+
       setProducts((prevProducts) => prevProducts.filter((p) => p._id !== deleteConfirmProduct._id));
+      await updateUserStats(user.uid);
       
-      // Update user stats
-      await updateUserStats(auth.currentUser.uid);
-      
-      showMessage("Product deleted successfully", "success");
     } catch (error) {
-      console.error("Error deleting product:", error);
-      showMessage("Failed to delete product", "error");
+      logError('DELETE_FAILED', error);
+      if (error instanceof Error) {
+        logError('ERROR_DETAILS', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          productId: deleteConfirmProduct?._id,
+          userId: user?.uid
+        });
+      }
+      setError(error instanceof Error ? error.message : "Failed to delete product");
+      throw error;
     } finally {
       setUpdating(false);
       setDeleteConfirmProduct(null);
@@ -1111,12 +1250,12 @@ export default function ProductList() {
 
   const handleLocationToggle = async () => {
     try {
-      if (!auth.currentUser) return;
+      if (!user) return;
 
       const newLocationEnabled = !filters.locationEnabled;
       setFilters((prev) => ({ ...prev, locationEnabled: newLocationEnabled }));
 
-      const userRef = doc(db, "users", auth.currentUser.uid);
+      const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         "preferences.useLocation": newLocationEnabled
       });
@@ -1136,35 +1275,9 @@ export default function ProductList() {
       fetchData();
     } catch (error) {
       console.error("Error updating location preference:", error);
-      setError("Failed to update location preference");
+      showMessage("Failed to update location preference", "error");
     }
   };
-
-  useEffect(() => {
-    if (userSettings?.preferences) {
-      setFilters((prev) => ({
-        ...prev,
-        locationEnabled: userSettings.preferences.useLocation ?? true
-      }));
-    }
-  }, [userSettings]);
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    if (value) {
-      navigate(`/?search=${encodeURIComponent(value)}`, { replace: true });
-    } else {
-      navigate("/", { replace: true });
-    }
-  };
-
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const query = searchParams.get("search")?.toLowerCase() || "";
-    if (query !== searchQuery) {
-      setSearchQuery(query);
-    }
-  }, [location.search]);
 
   const handleCompanySelect = async (companyId: string) => {
     // console.log("Selected company:", companyId);
@@ -1183,11 +1296,11 @@ export default function ProductList() {
 
   const handleNewCompany = async (mode: "add" | "edit") => {
     setCompanyDialogMode(mode);
-    setShowCompanyDialog(true);
+    setShowProductImport(true);
   };
 
   const handleCompanyDialogClose = () => {
-    setShowCompanyDialog(false);
+    setShowProductImport(false);
   };
 
   const handleCompanySubmit = async (companyData: Partial<Company>) => {
@@ -1195,9 +1308,9 @@ export default function ProductList() {
       const companyRef = await addDoc(collection(db, "companies"), {
         ...companyData,
         created_at: new Date(),
-        created_by: auth.currentUser?.uid,
+        created_by: user.uid,
         updated_at: new Date(),
-        updated_by: auth.currentUser?.uid
+        updated_by: user.uid
       });
 
       // Add the new company to our local state
@@ -1211,7 +1324,7 @@ export default function ProductList() {
       // Select the new company
       handleCompanySelect(companyRef.id);
       handleCompanyDialogClose();
-      showMessage("Company created successfully!");
+      showMessage("Company created successfully!", "success");
     } catch (error) {
       console.error("Error creating company:", error);
       showMessage("Failed to create company", "error");
@@ -1225,96 +1338,186 @@ export default function ProductList() {
     navigate(`/companies/${companyId}`);
   };
 
-  const checkUserRole = async (userId: string) => {
+  const canEditProduct = useCallback((product: Product) => {
+    return isAdmin || (isContributor && product.created_by === user?.uid);
+  }, [isAdmin, isContributor, user?.uid]);
+
+  const canDeleteProduct = useCallback((product: Product) => {
+    return isAdmin || (isContributor && product.created_by === user?.uid);
+  }, [isAdmin, isContributor, user?.uid]);
+
+  const canAddProduct = useMemo(() => {
+    return isAdmin || isContributor;
+  }, [isAdmin, isContributor]);
+
+  // Fetch products when user is authenticated or search changes
+  const fetchProducts = useCallback(async () => {
+    if (!user) return;
+    
     try {
-      // Special case for super admin
-      if (auth.currentUser?.email === "ajax@online101.ca") {
-        setIsSuperAdmin(true);
-        setIsAdmin(true);
-        setIsContributor(true);
-        return;
+      setLoading(true);
+      const productsRef = collection(db, "products");
+      let q = query(productsRef, orderBy("created_at", "desc"));
+
+      // Apply company filter if selected
+      if (selectedCompany) {
+        q = query(q, where("company_id", "==", selectedCompany));
       }
 
-      const userDoc = await getDoc(doc(db, "users", userId));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const role = userData.role;
-        setIsSuperAdmin(role === "super_admin");
-        setIsAdmin(role === "admin" || role === "super_admin");
-        setIsContributor(role === "contributor" || role === "admin" || role === "super_admin");
+      // Apply category filter if selected
+      if (selectedCategory) {
+        q = query(q, where("category", "==", selectedCategory));
       }
+
+      // Apply brand filter if provided
+      if (brandFilter) {
+        q = query(q, where("brand", "==", brandFilter));
+      }
+
+      const querySnapshot = await getDocs(q);
+      
+      let fetchedProducts = querySnapshot.docs.map(doc => ({
+        _id: doc.id,
+        ...doc.data()
+      })) as Product[];
+
+      // Apply search filter if needed
+      const searchLower = searchQuery.toLowerCase();
+      if (searchLower) {
+        fetchedProducts = fetchedProducts.filter(product => 
+          product.name.toLowerCase().includes(searchLower) ||
+          product.brand.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Apply origin filter if selected
+      if (selectedOrigin) {
+        fetchedProducts = fetchedProducts.filter(product => 
+          product.origin.country === selectedOrigin
+        );
+      }
+
+      // Apply Canadian origin type filter if selected
+      if (selectedCanadianOriginType) {
+        fetchedProducts = fetchedProducts.filter(product => 
+          product.canadianOriginType === selectedCanadianOriginType
+        );
+      }
+      
+      setProducts(fetchedProducts);
+
+      // Fetch companies if needed
+      if (!companies.length) {
+        const companiesSnapshot = await getDocs(collection(db, "companies"));
+        const companiesData = companiesSnapshot.docs.map(doc => ({
+          _id: doc.id,
+          ...doc.data()
+        })) as Company[];
+        setCompanies(companiesData);
+      }
+
     } catch (error) {
-      console.error("Error checking user role:", error);
+      console.error("Error fetching products:", error);
+      showMessage("Failed to load products. Please try again.", "error");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [user, searchQuery, selectedCompany, selectedCategory, selectedOrigin, selectedCanadianOriginType, brandFilter, companies.length]);
 
+  // Effect to fetch products when dependencies change
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // console.log("Auth state changed:", user?.uid);
-      setAuthChecked(true);
-      if (user) {
-        await checkUserRole(user.uid);
-        fetchData();
-      } else {
-        // console.log("No user logged in");
-        setProducts([]);
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
-        setIsContributor(false);
-      }
-    });
+    if (user) {
+      fetchProducts();
+    } else {
+      setProducts([]);
+      setCompanies([]);
+    }
+  }, [user, fetchProducts]);
 
-    return () => unsubscribe();
-  }, []);
-
-  const renderLoading = () => (
-    <Box sx={{ display: "flex", justifyContent: "center", p: 1 }}>
-      <CircularProgress />
-    </Box>
-  );
-
-  const renderError = () => (
-    <Box sx={{ p: 2, color: "error.main" }}>
-      <Typography color="error">{error}</Typography>
-    </Box>
-  );
-
-  if (!authChecked || loading) {
-    return renderLoading();
+  // Show loading state while auth is initializing
+  if (authLoading || loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
+  // If no user, redirect to login
+  if (!user) {
+    navigate('/login');
+    return null;
+  }
+
+  // Show error if present
   if (error) {
-    return renderError();
+    return (
+      <Box sx={{ p: 2, color: "error.main" }}>
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
   }
 
   const handleAddProduct = async () => {
+    if (!user) return;
+    
     try {
-      if (!newProduct.name || !newProduct.category) {
-        setError("Name and category are required");
+      if (!newProduct.name || !newProduct.category || !newProduct.canadianOriginType) {
+        showMessage("Name, Category, and Origin are required", "error");
         return;
       }
 
-      const productRef = await addDoc(collection(db, "products"), {
+      // Verify user role first
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        console.error('User document not found:', user.uid);
+        showMessage("User profile not found. Please try signing out and in again.", "error");
+        return;
+      }
+
+      const userData = userSnap.data();
+      console.log('Creating new product with user:', {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        role: userData.role
+      });
+
+      if (!userData.role || (userData.role !== 'contributor' && userData.role !== 'admin' && userData.role !== 'super_admin')) {
+        showMessage("You don't have permission to create products. Please request contributor access.", "error");
+        return;
+      }
+
+      const productData = {
         ...newProduct,
         image: "", // Initialize with empty image URL
-        created_at: new Date(),
-        created_by: auth.currentUser?.uid || "",
-        updated_at: new Date(),
-        updated_by: auth.currentUser?.uid || ""
-      });
+        created_at: new Date().toISOString(),
+        created_by: user.uid,
+        created_by_email: user.email || '',
+        created_by_name: user.displayName || '',
+        updated_at: new Date().toISOString(),
+        updated_by: user.uid,
+        updated_by_name: user.displayName || '',
+        status: 'draft',
+        is_active: true,
+        version: 1
+      };
+
+      console.log('Adding product with data:', productData);
+      const productRef = await addDoc(collection(db, "products"), productData);
+      console.log('Product added successfully with ID:', productRef.id);
 
       // If there's an image (in base64), upload it to storage
       if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
+        console.log('Uploading product image...');
         const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
         
         // Update the product with the image URL
+        console.log('Updating product with image URL:', imageUrl);
         await updateDoc(productRef, { image: imageUrl });
         newProduct.image = imageUrl;
-
-        // Update user stats
-        if (auth.currentUser?.uid) {
-          await updateUserStats(auth.currentUser.uid);
-        }
       }
 
       const productWithId = { ...newProduct, _id: productRef.id };
@@ -1335,26 +1538,28 @@ export default function ProductList() {
         image: "",
         canadianOriginType: null
       });
-      setAddDialogOpen(false); // Fix dialog closing
-      showMessage("Product added successfully");
+
+      showMessage("Product added successfully", "success");
+      setAddDialogOpen(false); // Close the dialog after successful addition
     } catch (error) {
       console.error("Error adding product:", error);
-      setError("Failed to add product. Please try again.");
+      showMessage("Failed to add product. Please try again.", "error");
     }
   };
 
   return (
-    <Box sx={{ width: "100%", padding: 0 }}>
+    <Box sx={{ width: "98%", padding: 1 }}>
       <Snackbar
-        open={snackbar.open}
-        autoHideDuration={snackbar.autoHideDuration}
-        onClose={handleSnackbarClose}
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: "100%" }}>
-          {snackbar.message}
+        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: "100%" }}>
+          {snackbarMessage}
         </Alert>
       </Snackbar>
+
       {/* PRODUCTS PAGE */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, mb: 1 }}>
         <Typography variant="h5" sx={{ mr: 0 }}>
@@ -1373,7 +1578,7 @@ export default function ProductList() {
 
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
-          {isAdmin && (
+          {(isAdmin) && (
             <>
               <Button variant="outlined" onClick={() => setShowProductImport(true)} startIcon={<ImportIcon />}>
                 Products
@@ -1408,7 +1613,7 @@ export default function ProductList() {
               }
             }}
             value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(e) => handleSearchInput(e.target.value)}
             placeholder="Search products & prices..."
             variant="outlined"
             size="small"
@@ -1420,7 +1625,7 @@ export default function ProductList() {
               ),
               endAdornment: searchQuery ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => handleSearchChange("")} edge="end">
+                  <IconButton size="small" onClick={() => handleSearchInput("")} edge="end">
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
@@ -1428,7 +1633,7 @@ export default function ProductList() {
             }}
           />
 
-          {/* Use My Location */}
+          {/* Filter by Location Checkbox */}
           <FormControlLabel
             sx={{
               order: { xs: 1, sm: 2 },
@@ -1438,7 +1643,14 @@ export default function ProductList() {
               }
             }}
             control={<Checkbox checked={useMyLocation} onChange={(e) => setUseMyLocation(e.target.checked)} size="small" />}
-            label="Use My Location"
+            label={
+              <Box>
+                <Typography variant="body2">Filter by My Location</Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Show prices near me
+                </Typography>
+              </Box>
+            }
           />
 
           {/* Categories */}
@@ -1550,7 +1762,7 @@ export default function ProductList() {
         </DialogContent>
       </Dialog>
 
-      <Paper elevation={0} sx={{ width: "100%", overflow: "hidden" }}>
+      <Paper elevation={10} sx={{ width: "100%", overflow: "hidden" }}>
         <TableContainer>
           <Table size="small" className="compact-table">
             <TableHead
@@ -1618,7 +1830,7 @@ export default function ProductList() {
                           <img 
                             src={product.image} 
                             alt={product.name}
-                            style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                            style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '4px' }}
                             onClick={() => handleEditClick(product)}
                           />
                         ) : (
@@ -1668,9 +1880,9 @@ export default function ProductList() {
                         )}
                         {product.canadianOriginType && (
                           <Typography variant="body2" color="textSecondary">
-                            {product.canadianOriginType === 'product_of_canada' && '🍁 Product of Canada (98%+)'}
-                            {product.canadianOriginType === 'made_in_canada' && '🍁 Made in Canada (51%+)'}
-                            {product.canadianOriginType === 'canada_with_imports' && '🍁 Made in Canada w imports'}
+                            {product.canadianOriginType === 'product_of_canada' && (isSmallScreen ? '🍁 (98%+)' : '🍁 Product of Canada (98%+)')}
+                            {product.canadianOriginType === 'made_in_canada' && (isSmallScreen ? '🍁 (51%+)' : '🍁 Made in Canada (51%+)')}
+                            {product.canadianOriginType === 'canada_with_imports' && (isSmallScreen ? '🍁 (w imports)' : '🍁 Made in Canada w imports')}
                             {product.canadianOriginType === 'not sure - please check' && (
                               <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <span role="img" aria-label="question mark">❓</span>
@@ -1704,13 +1916,15 @@ export default function ProductList() {
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditClick(product)}
-                          sx={{ color: 'primary.main' }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
+                        {canEditProduct(product) && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditClick(product)}
+                            sx={{ color: 'primary.main' }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        )}
                         <IconButton
                           size="small"
                           onClick={() => handleAddPrice(product)}
@@ -1718,13 +1932,15 @@ export default function ProductList() {
                         >
                           <AttachMoneyIcon fontSize="small" />
                         </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteProduct(product)}
-                          sx={{ color: 'error.main' }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        {(isAdmin || product.created_by === user.uid) && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteProduct(product)}
+                            sx={{ color: 'error.main' }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -1742,7 +1958,7 @@ export default function ProductList() {
                           <Typography variant="subtitle1" gutterBottom component="div" sx={{ display: "flex", alignItems: "center" }}>
                             Price History
                             {(isAdmin || isContributor) && (
-                              <Button size="small" startIcon={<AddIcon />} onClick={() => handleOpenPriceDialog(product)} sx={{ ml: 1 }}>
+                              <Button size="small" startIcon={<AddIcon />} onClick={() => handleAddPrice(product)} sx={{ ml: 1 }}>
                                 Add Price
                               </Button>
                             )}
@@ -1768,7 +1984,7 @@ export default function ProductList() {
                                         </Typography>
                                       )}
                                     </Typography>
-                                    {(isAdmin || (isContributor && price.created_by === auth.currentUser?.uid)) && (
+                                    {(isAdmin || (isContributor && price.created_by === user.uid)) && (
                                       <Box>
                                         <IconButton size="small" onClick={() => handleOpenEditPriceDialog(product._id, index, price)}>
                                           <EditIcon />
@@ -1793,6 +2009,9 @@ export default function ProductList() {
                                         </Typography>
                                         <Typography variant="body2" color="textSecondary">
                                           🏪 {price.store || "No store specified"}
+                                        </Typography>
+                                        <Typography variant="body2" color="textSecondary">
+                                          📍 {price.store_location || "No store location specified"}
                                         </Typography>
                                       </Box>
                                     </Grid>
@@ -1911,13 +2130,13 @@ export default function ProductList() {
                   fullWidth
                   label="Name"
                   defaultValue={editingProduct.name}
-                  onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, name: e.target.value } : null))}
+                  onChange={(e) => setEditingProduct(prev => ({ ...prev, name: e.target.value }))}
                 />
                 <TextField
                   fullWidth
                   label="Brand"
                   defaultValue={editingProduct.brand}
-                  onChange={(e) => setEditingProduct((prev) => (prev ? { ...prev, brand: e.target.value } : null))}
+                  onChange={(e) => setEditingProduct(prev => ({ ...prev, brand: e.target.value }))}
                 />
               </Box>
 
@@ -1933,9 +2152,9 @@ export default function ProductList() {
                         const value = e.target.value;
                         if (value === "add_new") {
                           setShowNewCategoryInput(true);
-                          setEditingProduct((prev) => (prev ? { ...prev, category: "" } : null));
+                          setEditingProduct(prev => ({ ...prev, category: "" }));
                         } else {
-                          setEditingProduct((prev) => (prev ? { ...prev, category: value } : null));
+                          setEditingProduct(prev => ({ ...prev, category: value }));
                         }
                       }}
                     >
@@ -1956,7 +2175,7 @@ export default function ProductList() {
                       variant="contained"
                       onClick={() => {
                         if (newCategoryInput.trim()) {
-                          setEditingProduct((prev) => (prev ? { ...prev, category: newCategoryInput.trim() } : null));
+                          setEditingProduct(prev => ({ ...prev, category: newCategoryInput.trim() }));
                           if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
                             PRODUCT_CATEGORIES.push(newCategoryInput.trim());
                           }
@@ -2089,7 +2308,7 @@ export default function ProductList() {
                   <img 
                     src={editingProduct.image} 
                     alt="Product" 
-                    style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                    style={{ width: '100px', height: '100px', objectFit: 'contain', borderRadius: '4px' }}
                   />
                 )}
               </Box>
@@ -2139,7 +2358,7 @@ export default function ProductList() {
                       key={key}
                       label={`${key}: ${value}`}
                       onDelete={() => {
-                        setEditingProduct((prev) => {
+                        setEditingProduct(prev => {
                           if (!prev) return null;
                           const newTags = { ...prev.product_tags };
                           delete newTags[key];
@@ -2159,16 +2378,7 @@ export default function ProductList() {
                       const name = attributeNameRef.current?.value;
                       const value = attributeValueRef.current?.value;
                       if (name && value) {
-                        setEditingProduct((prev) => {
-                          if (!prev) return null;
-                          return {
-                            ...prev,
-                            product_tags: {
-                              ...prev.product_tags,
-                              [name]: value
-                            }
-                          };
-                        });
+                        setEditingProduct(prev => prev ? { ...prev, product_tags: { ...prev.product_tags, [name]: value } } : null);
                         if (attributeNameRef.current) attributeNameRef.current.value = "";
                         if (attributeValueRef.current) attributeValueRef.current.value = "";
                       }
@@ -2291,9 +2501,14 @@ export default function ProductList() {
 
             {/* Canadian Origin Type */}
             <Box sx={{ mt: 0 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ color: 'error.main' }}>
-                Canadian Content *
-              </Typography>
+              {/* <Typography variant="subtitle2" gutterBottom sx={{ color: 'error.main' }}>
+                Country of Origin *
+              </Typography> */}
+              {!newProduct.canadianOriginType && (
+                <Typography variant="caption" color="error" >
+                  Please select the Country or Origin
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 
                 <Button
@@ -2371,7 +2586,7 @@ export default function ProductList() {
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <span role="img" aria-label="question mark">❓</span>
                     <span>Unknown</span>
                   </Box>
@@ -2385,11 +2600,7 @@ export default function ProductList() {
                   🌐 Select Country
                 </Button>
               </Box>
-              {!newProduct.canadianOriginType && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  Please select Canadian content type
-                </Typography>
-              )}
+             
             </Box>
 
             {/* COMPANY SELECT */}
@@ -2534,6 +2745,11 @@ export default function ProductList() {
       <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
         <DialogTitle>Add Price for {selectedProduct?.name}</DialogTitle>
         <DialogContent>
+          {priceError && (
+            <Alert severity="error" sx={{ mt: 1, mb: 1 }}>
+              {priceError}
+            </Alert>
+          )}
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
@@ -2578,7 +2794,17 @@ export default function ProductList() {
                 required
                 label="Store"
                 value={newPrice.store}
-                onChange={(e) => setNewPrice((prev) => ({ ...prev, store: e.target.value }))}
+                onChange={(e) => setNewPrice(prev => ({ ...prev, store: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Store Location"
+                placeholder="e.g. Downtown, West End, etc."
+                value={newPrice.store_location}
+                onChange={(e) => setNewPrice(prev => ({ ...prev, store_location: e.target.value }))}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -2596,7 +2822,7 @@ export default function ProductList() {
                     }))
                   }
                 />
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                {/* <Box sx={{ display: 'flex', gap: 1 }}>
                   <img 
                     src="/flags/Canada.png" 
                     alt="Canada" 
@@ -2625,7 +2851,7 @@ export default function ProductList() {
                   >
                     🌐
                   </Box>
-                </Box>
+                </Box> */}
               </Box>
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -2717,15 +2943,10 @@ export default function ProductList() {
               </Box>
             </Grid>
           </Grid>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-              {error}
-            </Typography>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClosePriceDialog}>Cancel</Button>
-          <Button onClick={handleAddPrice} variant="contained">
+          <Button onClick={handleSubmitPrice} variant="contained">
             Add Price
           </Button>
         </DialogActions>
@@ -2735,10 +2956,18 @@ export default function ProductList() {
         <DialogTitle>Edit Price</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {error && (
+              <Grid item xs={12}>
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              </Grid>
+            )}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Name"
+                label="Name (e.g. Gala - Organic)"
+                placeholder="Enter a specific name or variation"
                 value={editedPrice.name || ""}
                 onChange={(e) => setEditedPrice((prev) => ({ ...prev, name: e.target.value }))}
                 sx={{ mb: 2 }}
@@ -2748,10 +2977,13 @@ export default function ProductList() {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Price"
                   type="number"
+                  label="Price"
                   value={editedPrice.amount || ""}
                   onChange={(e) => setEditedPrice((prev) => ({ ...prev, amount: parseFloat(e.target.value) }))}
+                  InputProps={{
+                    inputProps: { min: 0, step: 0.01 }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -2779,6 +3011,17 @@ export default function ProductList() {
                 placeholder="Store Name - Address"
                 value={editedPrice.store || ""}
                 onChange={(e) => setEditedPrice((prev) => ({ ...prev, store: e.target.value }))}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Store Location"
+                placeholder="e.g. Downtown, West End, etc."
+                value={editedPrice.store_location || ""}
+                onChange={(e) => setEditedPrice((prev) => ({ ...prev, store_location: e.target.value }))}
                 sx={{ mb: 2 }}
               />
             </Grid>
@@ -2917,11 +3160,6 @@ export default function ProductList() {
               </Button>
             </Box>
           </Grid>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-              {error}
-            </Typography>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEditPriceDialog}>Cancel</Button>

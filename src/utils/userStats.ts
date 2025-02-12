@@ -16,8 +16,8 @@ export async function updateUserStats(userId: string) {
     const statsData = {
       _id: userId,
       total_products: productsSnapshot.size,
-      last_contribution: new Date(),
-      updated_at: new Date()
+      last_contribution: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     console.log('Updating user stats with:', statsData);
     
