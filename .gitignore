@@ -31,3 +31,5 @@ dist-ssr
 # Firebase
 *-firebase-adminsdk-*.json
 .env.local
+
+.vercel
