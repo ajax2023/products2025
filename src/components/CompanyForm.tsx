@@ -126,9 +126,9 @@ export default function CompanyForm({ company, onSubmit, onCancel, isSubmitting 
   const currentYear = new Date().getFullYear();
 
   return (
-    <Paper elevation={0} sx={{ p: 3 }}>
+    <Paper elevation={0} sx={{ p: 0 }}>
       <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
+        <Grid container spacing={1}>
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>
               {company ? 'Edit Company' : 'Add New Company'}

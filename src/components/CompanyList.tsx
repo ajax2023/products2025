@@ -686,7 +686,7 @@ export default function CompanyList() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>{editingCompany ? 'Edit Company' : 'Add Company'}</DialogTitle>
+        {/* <DialogTitle>{editingCompany ? 'Edit Company' : 'Add Company'}</DialogTitle> */}
         <DialogContent>
           <CompanyForm
             company={editingCompany}

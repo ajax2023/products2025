@@ -1121,11 +1121,11 @@ export default function ProductList() {
 
   const handleNewCompany = async (mode: "add" | "edit") => {
     setCompanyDialogMode(mode);
-    setShowProductImport(true);
+    setShowCompanyDialog(true);
   };
 
   const handleCompanyDialogClose = () => {
-    setShowProductImport(false);
+    setShowCompanyDialog(false);
   };
 
   const handleCompanySubmit = async (companyData: Partial<Company>) => {
@@ -1312,9 +1312,9 @@ export default function ProductList() {
               <Button variant="outlined" onClick={() => setShowProductImport(true)} startIcon={<ImportIcon />}>
                 Products
               </Button>
-              <Button variant="outlined" onClick={() => setShowPriceImport(true)} startIcon={<ImportIcon />}>
+              {/* <Button variant="outlined" onClick={() => setShowPriceImport(true)} startIcon={<ImportIcon />}>
                 Prices
-              </Button>
+              </Button> */}
             </>
           )}
         </Box>
@@ -1343,7 +1343,7 @@ export default function ProductList() {
             }}
             value={searchQuery}
             onChange={(e) => handleSearchInput(e.target.value)}
-            placeholder="Search products & prices..."
+            placeholder="Search products..."
             variant="outlined"
             size="small"
             InputProps={{
@@ -1363,7 +1363,7 @@ export default function ProductList() {
           />
 
           {/* Filter by Location Checkbox */}
-          <FormControlLabel
+          {/* <FormControlLabel
             sx={{
               order: { xs: 1, sm: 2 },
               m: 0,
@@ -1385,7 +1385,7 @@ export default function ProductList() {
                 </Typography>
               </Box>
             }
-          />
+          /> */}
 
           {/* Categories */}
           <Box
@@ -1518,13 +1518,13 @@ export default function ProductList() {
                   >
                     {/* Expand/Collapse */}
                     <TableCell padding="none">
-                      <IconButton
+                      {/* <IconButton
                         aria-label="expand row"
                         size="small"
                         onClick={() => toggleRow(product._id)}
                       >
                         {expandedRows[product._id] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                      </IconButton>
+                      </IconButton> */}
                     </TableCell>
 
                     {/* Product Image */}
@@ -1629,13 +1629,13 @@ export default function ProductList() {
                             <EditIcon fontSize="small" />
                           </IconButton>
                         )}
-                        <IconButton
+                        {/* <IconButton
                           size="small"
                           onClick={() => handleAddPrice(product)}
                           sx={{ color: 'success.main' }}
                         >
                           <AttachMoneyIcon fontSize="small" />
-                        </IconButton>
+                        </IconButton> */}
                         {(isAdmin || product.created_by === user.uid) && (
                           <IconButton
                             size="small"
@@ -2453,7 +2453,7 @@ export default function ProductList() {
       </Dialog>
 
       <Dialog open={showCompanyDialog} onClose={handleCompanyDialogClose}>
-        <DialogTitle>Add New Company</DialogTitle>
+        {/* <DialogTitle>Add New Company</DialogTitle> */}
         <DialogContent>
           <CompanyForm onSubmit={handleCompanySubmit} onCancel={handleCompanyDialogClose} isSubmitting={false} />
         </DialogContent>

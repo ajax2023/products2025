@@ -404,7 +404,7 @@ export default function CompanyManagement({ adminId }: CompanyManagementProps) {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit Company</DialogTitle>
+        {/* <DialogTitle>Edit Company</DialogTitle> */}
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <CompanyForm />

@@ -242,7 +242,7 @@ export default function CompanyInfo() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Edit Company</DialogTitle>
+        {/* <DialogTitle>Edit Company</DialogTitle> */}
         <DialogContent>
           <CompanyForm
             company={company}
