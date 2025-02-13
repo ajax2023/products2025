@@ -14,11 +14,11 @@ export default function ProductImport({ onClose }: ProductImportProps) {
   const [success, setSuccess] = useState<string | null>(null);
 
   const downloadTemplate = () => {
-    const header = 'name,brand,category,origin_country,state,city,origin_manufacturer,origin_facility_id,product_tags\n';
+    const header = 'name,brand,category,origin_country,state,city,origin_manufacturer,origin_facility_id,product_tags,canadianOriginType\n';
     const sampleData = [
-      'Apple,Farm Fresh,Food & Beverage,Canada,Ontario,Toronto,Ontario Fruit Growers,ON123,"{""organic"":true,""type"":""Gala""}"',
-      'Ground Beef,Daily Farms,Food & Beverage,Canada,Alberta,Edmonton,Alberta Fresh LLC,AB789,"{""grade"":""AAA"",""weight_kg"":1}"',
-      'Milk,Pure Dairy,Food & Beverage,Canada,British Columbia,Vancouver,BC Dairy Ltd,BC456,"{""fat_content"":""3.25"",""pasteurized"":true}"'
+      'Apple,Farm Fresh,Food & Beverage,Canada,Ontario,Toronto,Ontario Fruit Growers,ON123,"{""organic"":true,""type"":""Gala""}",product_of_canada',
+      'Ground Beef,Daily Farms,Food & Beverage,Canada,Alberta,Edmonton,Alberta Fresh LLC,AB789,"{""grade"":""AAA"",""weight_kg"":1}",made_in_canada',
+      'Milk,Pure Dairy,Food & Beverage,Canada,British Columbia,Vancouver,BC Dairy Ltd,BC456,"{""fat_content"":""3.25"",""pasteurized"":true}",canada_with_imports'
     ].join('\n');
 
     const blob = new Blob([header + sampleData], { type: 'text/csv' });
@@ -96,7 +96,8 @@ export default function ProductImport({ onClose }: ProductImportProps) {
                 updated_by_name: auth.currentUser?.displayName || auth.currentUser?.email || '',
                 status: 'draft' as ProductStatus,
                 is_active: true,
-                version: 1
+                version: 1,
+                canadianOriginType: row.canadianOriginType || null
               };
 
               if (row.company_id) {
@@ -146,20 +147,24 @@ export default function ProductImport({ onClose }: ProductImportProps) {
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
       
       <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" gutterBottom>
-          Import products using a CSV file with the following columns:
-        </Typography>
-        <Typography component="ul" sx={{ pl: 2 }}>
-          <li><strong>name</strong> (required): Product name</li>
-          <li><strong>brand</strong> (required): Brand name</li>
-          <li><strong>category</strong> (required): Product category (e.g., 'Food & Beverage', 'Electronics')</li>
-          <li><strong>origin_country</strong> (required): Country of origin</li>
-          <li><strong>state</strong> (optional): State/Province</li>
-          <li><strong>city</strong> (optional): City</li>
-          <li><strong>origin_manufacturer</strong> (optional): Manufacturer name</li>
-          <li><strong>origin_facility_id</strong> (optional): Facility identifier</li>
-          <li><strong>product_tags</strong> (optional): JSON string of product tags (e.g., {'"{"color": "red", "size": "large"}"'})</li>
-          <li><strong>company_id</strong> (optional): Company identifier</li>
+        <Typography variant="body1" component="div">
+          Required columns:
+          <ul>
+            <li><strong>name</strong>: Product name</li>
+            <li><strong>category</strong>: Product category</li>
+            <li><strong>origin_country</strong>: Country of origin</li>
+          </ul>
+          Optional columns:
+          <ul>
+            <li><strong>brand</strong>: Brand name</li>
+            <li><strong>state</strong>: State/Province</li>
+            <li><strong>city</strong>: City</li>
+            <li><strong>origin_manufacturer</strong>: Manufacturer name</li>
+            <li><strong>origin_facility_id</strong>: Facility identifier</li>
+            <li><strong>product_tags</strong>: JSON string of product tags (e.g., {'"{"color": "red", "size": "large"}"'})</li>
+            <li><strong>company_id</strong>: Company identifier</li>
+            <li><strong>canadianOriginType</strong>: Origin type for Canadian products (product_of_canada, made_in_canada, made_in_canada_imported) or country code</li>
+          </ul>
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           Note: Product tags must be a valid JSON string. The system will automatically add creation date, user information, and version control fields.

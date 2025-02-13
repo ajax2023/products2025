@@ -8,5 +8,10 @@ export interface UserSettings {
     useLocation: boolean;
     theme?: string;
     language?: string;
+    locationFilter?: {
+      enabled: boolean;
+      lastUpdated: string;
+    };
+    filterByMyLocation?: boolean; 
   };
 }

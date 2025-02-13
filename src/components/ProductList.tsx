@@ -39,6 +39,7 @@ import {
   ImageList,
   ImageListItem,
   ImageListItemBar,
+  Link,
   useMediaQuery
 } from "@mui/material";
 import {
@@ -52,12 +53,11 @@ import {
   Search as SearchIcon,
   CameraAlt as CameraAltIcon
 } from "@mui/icons-material";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import InfoIcon from "@mui/icons-material/Info";
+
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import ImageIcon from "@mui/icons-material/Image";
 import CameraDialog from './CameraDialog';
+import AddProductDialog from './dialogs/AddProductDialog';
 
 import { auth, db, storage } from '../firebaseConfig';
 import {
@@ -84,14 +84,19 @@ import ProductImport from "./admin/ProductImport";
 import PriceImport from "./admin/PriceImport"; // Update PriceImport path to use CSV version
 import CompanyForm from "./CompanyForm";
 import { updateUserStats } from '../utils/userStats';
+import { countries } from '../utils/countryData';
+import { useNotification } from './common/NotificationSnackbar';
 
 export default function ProductList() {
+  // console.log('ProductList render', { timestamp: new Date().toISOString() });
+
   // Router hooks
   const navigate = useNavigate();
   const location = useLocation();
   const isSmallScreen = useMediaQuery("(max-width:600px)");
   // Auth context and state
   const { user, loading: authLoading } = useAuth();
+  const { showMessage } = useNotification();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isContributor, setIsContributor] = useState(false);
@@ -177,28 +182,10 @@ export default function ProductList() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
   // Form states
-  const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    name: "",
-    brand: "",
-    category: "Food & Beverage",
-    company_id: "",
-    origin: {
-      country: "Canada",
-      province: "",
-      city: ""
-    },
-    product_tags: {},
-    prices: [],
-    image: "",
-    canadianOriginType: null
-  });
-  
-  const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
-  const [userCompanies, setUserCompanies] = useState<string[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [useMyLocation, setUseMyLocation] = useState(false);
   const [filters, setFilters] = useState({
-    locationEnabled: true,
+    locationEnabled: false,
     showAllPrices: false
   });
   const [uniqueLocations, setUniqueLocations] = useState<{
@@ -221,11 +208,9 @@ export default function ProductList() {
       province: "",
       city: ""
     },
-    date: new Date().toISOString(),
     source: "manual",
     notes: "",
-    sales_link: "",
-    price_tags: {}
+    sales_link: ""
   });
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
   const [editingPrice, setEditingPrice] = useState<{ productId: string; priceIndex: number } | null>(null);
@@ -243,64 +228,12 @@ export default function ProductList() {
     },
     notes: ""
   });
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<AlertColor>("success");
-  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
-  const [newCategoryInput, setNewCategoryInput] = useState("");
-  const [updating, setUpdating] = useState(false);
   const [showCameraDialog, setShowCameraDialog] = useState(false);
   const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const attributeNameRef = React.createRef<HTMLInputElement>();
   const attributeValueRef = React.createRef<HTMLInputElement>();
-  
-  const countries = [
-    'Afghanistan', 'Albania', 'Algeria', 'American Samoa', 'Andorra', 'Angola', 'Anguilla', 'Antarctica', 
-    'Antigua Barbuda', 'Argentina', 'Armenia', 'Aruba', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 
-    'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bermuda', 'Bhutan', 
-    'Bolivia', 'Bosnia Herzegovina', 'Botswana', 'Brazil', 'British Virgin Islands', 'Brunei', 'Bulgaria', 
-    'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon', 'Cape Verde', 'Cayman Islands', 'Central African Republic', 
-    'Chad', 'Chile', 'China', 'Christmas Island', 'Colombia', 'Comoros', 'Congo', 'Cook Islands', 'Costa Rica', 
-    'Croatia', 'Cuba', 'Curacao', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 
-    'East Timor', 'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Ethiopia', 
-    'Falkland Islands', 'Faroe Islands', 'Fiji', 'Finland', 'France', 'French Polynesia', 'Gabon', 'Gambia', 
-    'Georgia', 'Germany', 'Ghana', 'Gibraltar', 'Greece', 'Greenland', 'Grenada', 'Guadeloupe', 'Guam', 
-    'Guatemala', 'Guinea', 'Guinea Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hong Kong', 'Hungary', 'Iceland', 
-    'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 
-    'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 
-    'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Macau', 'Madagascar', 
-    'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Martinique', 'Mauritania', 
-    'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Montserrat', 
-    'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Caledonia', 
-    'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'Niue', 'North Korea', 'North Macedonia', 'Norway', 
-    'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 
-    'Poland', 'Portugal', 'Puerto Rico', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 
-    'Saint Lucia', 'Saint Vincent', 'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 
-    'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 
-    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 
-    'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tonga', 'Trinidad and Tobago', 
-    'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 
-    'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 
-    'Zambia', 'Zimbabwe'
-  ].sort();
-  
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setNewProduct(prev => ({ ...prev, image: base64String }));
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      showMessage('Failed to upload image', 'error');
-    }
-  };
+  const countriesList = countries.sort();
 
   const handleEditImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -320,19 +253,6 @@ export default function ProductList() {
     }
   };
 
-  // Function to show snackbar
-  const showMessage = useCallback((message: string, severity: AlertColor = "success") => {
-    console.log(message, severity)
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  }, []);
-
-  // Handle snackbar close
-  const handleCloseSnackbar = useCallback(() => {
-    setSnackbarOpen(false);
-  }, []);
-
   const getAuthToken = async (user: any) => {
     try {
       // Force token refresh
@@ -346,253 +266,64 @@ export default function ProductList() {
     }
   };
 
-  // Initial data fetch
-  const fetchData = async () => {
+  // Refresh products and settings
+  const refreshProducts = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // console.log("Starting data fetch...");
-
-      // Fetch companies first
-      const fetchCompanies = async () => {
-        try {
-          const companiesCollection = collection(db, "companies");
-          const companiesSnapshot = await getDocs(companiesCollection);
-          const companiesData = companiesSnapshot.docs.map(doc => ({
-            _id: doc.id,
-            ...doc.data()
-          })) as Company[];
-          // console.log('Companies fetched:', companiesData);
-          setCompanies(companiesData);
-        } catch (error) {
-          console.error("Error fetching companies:", error);
-          
-          showMessage("Failed to fetch companies", "error");
+      if (user) {
+        // Load user settings
+        const userSettingsRef = doc(db, "userSettings", user.uid);
+        const userSettingsDoc = await getDoc(userSettingsRef);
+        if (userSettingsDoc.exists()) {
+          const settings = userSettingsDoc.data() as UserSettings;
+          setUserSettings(settings);
+          setUseMyLocation(settings?.preferences?.filterByMyLocation ?? false);
         }
-      };
 
-      await fetchCompanies();
-
-      // Fetch products
-      const productsSnapshot = await getDocs(collection(db, "products"));
-      // console.log("Products fetched:", productsSnapshot.size);
-      const productsList = productsSnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          ...data,
+        // Fetch companies
+        const companiesCollection = collection(db, "companies");
+        const companiesSnapshot = await getDocs(companiesCollection);
+        const companiesData = companiesSnapshot.docs.map(doc => ({
           _id: doc.id,
-          prices: data.prices || [],
-          name: data.name || "",
-          description: data.description || "",
-          brand: data.brand || "",
-          category: data.category || "",
-          tags: data.tags || [],
-          product_tags: data.product_tags || {}
-        };
-      }) as Product[];
+          ...doc.data()
+        })) as Company[];
+        setCompanies(companiesData);
 
-      // Apply filters
-      let filteredProducts = filterProductsBySearch(productsList);
-      if (brandFilter) {
-        filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
+        // Fetch products
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const productsList = productsSnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            _id: doc.id,
+            prices: data.prices || [],
+            name: data.name || "",
+            description: data.description || "",
+            brand: data.brand || "",
+            category: data.category || "",
+            tags: data.tags || [],
+            product_tags: data.product_tags || {}
+          };
+        }) as Product[];
+
+        let filteredProducts = filterProductsBySearch(productsList);
+        if (brandFilter) {
+          filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
+        }
+
+        setProducts(filteredProducts);
+      } else {
+        setProducts([]);
+        setCompanies([]);
       }
-
-      // console.log("Products filtered:", filteredProducts.length);
-      setProducts(filteredProducts);
     } catch (error) {
-      console.error("Error fetching data:", error);
-      
-      showMessage("Failed to load products. Please try refreshing the page.", "error");
+      console.error("Error during full refresh:", error);
+      showMessage("Failed to refresh data. Please try again.", "error");
     } finally {
       setLoading(false);
     }
-  };
-
-  // Initial data load
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    const refreshProducts = async () => {
-      // console.log("Full refresh triggered");
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (user) {
-          // Load user settings
-          const userSettingsRef = doc(db, "userSettings", user.uid);
-          const userSettingsDoc = await getDoc(userSettingsRef);
-          if (userSettingsDoc.exists()) {
-            const settings = userSettingsDoc.data() as UserSettings;
-            setUserSettings(settings);
-            setFilters((prev) => ({
-              ...prev,
-              locationEnabled: settings?.preferences?.useLocation ?? true
-            }));
-          }
-
-          // Fetch companies
-          const companiesCollection = collection(db, "companies");
-          const companiesSnapshot = await getDocs(companiesCollection);
-          const companiesData = companiesSnapshot.docs.map(doc => ({
-            _id: doc.id,
-            ...doc.data()
-          })) as Company[];
-          // console.log('Companies fetched:', companiesData);
-          setCompanies(companiesData);
-
-          // Fetch products
-          const productsSnapshot = await getDocs(collection(db, "products"));
-          const productsList = productsSnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              ...data,
-              _id: doc.id,
-              prices: data.prices || [],
-              name: data.name || "",
-              description: data.description || "",
-              brand: data.brand || "",
-              category: data.category || "",
-              tags: data.tags || [],
-              product_tags: data.product_tags || {}
-            };
-          }) as Product[];
-
-          let filteredProducts = filterProductsBySearch(productsList);
-          if (brandFilter) {
-            filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
-          }
-
-          // console.log("Full refresh completed");
-          setProducts(filteredProducts);
-        } else {
-          setProducts([]);
-          setCompanies([]);
-        }
-      } catch (error) {
-        console.error("Error during full refresh:", error);
-        showMessage("Failed to refresh data. Please try again.", "error");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    refreshProducts();
-
-    // Expose refresh function globally for debugging
-    (window as any).refreshProducts = refreshProducts;
-
-    return () => {
-      delete (window as any).refreshProducts;
-    };
-  }, [brandFilter]);
-
-  // Expose refresh function to window for Navbar to use
-  useEffect(() => {
-    (window as any).refreshProducts = fetchData;
-
-    return () => {
-      delete (window as any).refreshProducts;
-    };
-  }, []);
-
-  // Auth and settings check
-  useEffect(() => {
-    const checkAuthAndSettings = async () => {
-      try {
-        // Wait for auth to initialize
-        if (!user) {
-          return;
-        }
-
-        // Get user settings
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setUserSettings(userDoc.data() as UserSettings);
-        } else {
-          // Create default user settings if none exist
-          const defaultSettings: UserSettings = {
-            _id: user.uid,
-            email: user.email || "",
-            displayName: user.displayName || "",
-            role: "contributor",
-            status: "active",
-            preferences: {
-              language: "English",
-              currency: "CAD",
-              useLocation: false
-            },
-            location: {
-              country: "Canada",
-              province: "",
-              city: ""
-            },
-            sharing: {
-              showPicture: true,
-              showUsername: true,
-              showCountry: true,
-              showOnLeaderboard: false
-            },
-            created_at: new Date().toISOString(),
-            created_by: user.uid
-          };
-          await setDoc(doc(db, "users", user.uid), defaultSettings);
-          setUserSettings(defaultSettings);
-        }
-      } catch (error) {
-        console.error("Error checking auth and settings:", error);
-        showMessage("Error loading user settings. Please refresh the page.", "error");
-      }
-    };
-
-    checkAuthAndSettings();
-  }, [user]);
-
-  useEffect(() => {
-    if (userSettings?.preferences) {
-      setFilters((prev) => ({
-        ...prev,
-        locationEnabled: userSettings.preferences.useLocation ?? true
-      }));
-    }
-  }, [userSettings]);
-
-  const filterPricesByLocation = (prices: ProductPrice[]) => {
-    if (!filters.locationEnabled || !prices || !userSettings?.location) return prices;
-
-    const userCountry = userSettings.location.country?.trim();
-    const userProvince = userSettings.location.province?.trim();
-    const userCity = userSettings.location.city?.trim();
-
-    return prices.filter((price) => {
-      try {
-        // Always include online prices or prices with links
-        const hasLink = price.product_link || price.sales_link;
-        const isOnline = price.store_name?.toLowerCase().trim() === "online";
-        if (hasLink || isOnline) return true;
-
-        // For local store prices, check location matching
-        if (!price.location) return false;
-
-        const priceCountry = price.location.country?.trim();
-        const priceProvince = price.location.province?.trim();
-        const priceCity = price.location.city?.trim();
-
-        // Match based on available location information
-        // If user hasn't specified a location field, don't filter on it
-        const countryMatch = !userCountry || (priceCountry && priceCountry.toLowerCase() === userCountry.toLowerCase());
-        const provinceMatch = !userProvince || (priceProvince && priceProvince.toLowerCase() === userProvince.toLowerCase());
-        const cityMatch = !userCity || (priceCity && priceCity.toLowerCase() === userCity.toLowerCase());
-
-        return countryMatch && provinceMatch && cityMatch;
-      } catch (error) {
-        console.error("Error filtering price by location:", error, "Price:", price);
-        return false;
-      }
-    });
   };
 
   const filterProductsBySearch = (products: Product[]) => {
@@ -621,9 +352,9 @@ export default function ProductList() {
             return (
               (price.name?.toLowerCase().trim() || "").includes(query) ||
               (price.notes?.toLowerCase().trim() || "").includes(query) ||
-              (price.location?.country?.toLowerCase().trim() || "").includes(query) ||
-              (price.location?.province?.toLowerCase().trim() || "").includes(query) ||
-              (price.location?.city?.toLowerCase().trim() || "").includes(query) ||
+              (price.price_tags?.location_country?.toLowerCase().trim() || "").includes(query) ||
+              (price.price_tags?.location_province?.toLowerCase().trim() || "").includes(query) ||
+              (price.price_tags?.location_city?.toLowerCase().trim() || "").includes(query) ||
               (price.store_name?.toLowerCase().trim() || "").includes(query)
             );
           }
@@ -636,6 +367,142 @@ export default function ProductList() {
       }
     });
   };
+
+  useEffect(() => {
+    console.log('ProductList effect triggered', { brandFilter, user: user?.uid, searchQuery });
+    
+    const loadData = async () => {
+      if (!user) {
+        console.log('No user, clearing data');
+        setProducts([]);
+        setCompanies([]);
+        return;
+      }
+
+      console.log('Starting data load');
+      setLoading(true);
+      setError(null);
+
+      try {
+        console.time('parallel-data-load');
+        // Load all data in parallel using Promise.all
+        const [userSettingsDoc, companiesSnapshot, productsSnapshot] = await Promise.all([
+          getDoc(doc(db, "userSettings", user.uid)),
+          getDocs(collection(db, "companies")),
+          getDocs(collection(db, "products"))
+        ]);
+        console.timeEnd('parallel-data-load');
+
+        console.log('Processing user settings');
+        // Process user settings
+        if (userSettingsDoc.exists()) {
+          const settings = userSettingsDoc.data() as UserSettings;
+          setUserSettings(settings);
+          setUseMyLocation(settings?.preferences?.filterByMyLocation ?? false);
+        }
+
+        console.log('Processing companies');
+        // Process companies
+        const companiesData = companiesSnapshot.docs.map(doc => ({
+          _id: doc.id,
+          ...doc.data()
+        })) as Company[];
+        setCompanies(companiesData);
+
+        console.log('Processing products');
+        // Process products
+        const productsList = productsSnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            _id: doc.id,
+            prices: data.prices || [],
+            name: data.name || "",
+            description: data.description || "",
+            brand: data.brand || "",
+            category: data.category || "",
+            tags: data.tags || [],
+            product_tags: data.product_tags || {}
+          };
+        }) as Product[];
+
+        console.log('Filtering products');
+        let filteredProducts = filterProductsBySearch(productsList);
+        if (brandFilter) {
+          filteredProducts = filteredProducts.filter((product) => product.brand === brandFilter);
+        }
+
+        console.log('Setting products state', { count: filteredProducts.length });
+        setProducts(filteredProducts);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        showMessage("Failed to load data. Please try again.", "error");
+      } finally {
+        setLoading(false);
+        console.log('Data load complete');
+      }
+    };
+
+    loadData();
+
+    // Expose refresh function globally for debugging
+    (window as any).refreshProducts = loadData;
+
+    return () => {
+      console.log('ProductList cleanup');
+      delete (window as any).refreshProducts;
+    };
+  }, [brandFilter, user, searchQuery]); // Include all dependencies that should trigger a refresh
+
+  const handleLocationFilterChange = async (checked: boolean) => {
+    setUseMyLocation(checked);
+    if (user) {
+      const userSettingsRef = doc(db, "userSettings", user.uid);
+      await updateDoc(userSettingsRef, {
+        'preferences.filterByMyLocation': checked
+      });
+      // Use the globally exposed refresh function
+      if (window.refreshProducts) {
+        await window.refreshProducts();
+      }
+    }
+  };
+
+  const filterPricesByLocation = useCallback((prices: Price[]) => {
+    // If location filter is disabled or no prices, return all prices
+    if (!useMyLocation || !prices) return prices;
+
+    // If no user settings or location, return all prices
+    if (!userSettings?.location) return prices;
+
+    const userCountry = userSettings.location.country?.trim().toLowerCase();
+    const userProvince = userSettings.location.province?.trim().toLowerCase();
+    const userCity = userSettings.location.city?.trim().toLowerCase();
+
+    // If no location is set in user settings, return all prices
+    if (!userCountry && !userProvince && !userCity) return prices;
+
+    return prices.filter(price => {
+      // Check if it's an online price
+      const hasLink = price.sales_link;
+      const isOnline = price.store?.toLowerCase().includes('online');
+      if (hasLink || isOnline) return true;
+
+      // For local store prices, check location matching
+      if (!price.location) return false;
+
+      const priceCountry = price.location.country?.trim().toLowerCase();
+      const priceProvince = price.location.province?.trim().toLowerCase();
+      const priceCity = price.location.city?.trim().toLowerCase();
+
+      // Must match all non-empty user location fields
+      if (userCountry && priceCountry !== userCountry) return false;
+      if (userProvince && priceProvince !== userProvince) return false;
+      if (userCity && priceCity !== userCity) return false;
+
+      return true;
+    });
+  }, [useMyLocation, userSettings?.location]);
 
   useEffect(() => {
     const locations = {
@@ -666,28 +533,6 @@ export default function ProductList() {
     setPage(0);
   };
 
-  const handleOpenPriceDialog = useCallback((product: Product) => {
-    setSelectedProduct(product);
-    setNewPrice({
-      amount: 0,
-      unit: "each",
-      store: "",
-      store_location: "",
-      name: "",
-      location: {
-        country: "Canada",
-        province: "",
-        city: ""
-      },
-      date: new Date().toISOString(),
-      source: "manual",
-      notes: "",
-      sales_link: "",
-      price_tags: {}
-    });
-    setPriceDialogOpen(true);
-  }, []);
-
   const handleClosePriceDialog = useCallback(() => {
     setSelectedProduct(null);
     setPriceDialogOpen(false);
@@ -703,11 +548,9 @@ export default function ProductList() {
         province: "",
         city: ""
       },
-      date: new Date().toISOString(),
       source: "manual",
       notes: "",
-      sales_link: "",
-      price_tags: {}
+      sales_link: ""
     });
   }, []);
 
@@ -735,8 +578,7 @@ export default function ProductList() {
       date: new Date().toISOString(),
       source: "manual",
       notes: "",
-      sales_link: "",
-      price_tags: {}
+      sales_link: ""
     });
     setPriceDialogOpen(true);
   };
@@ -756,32 +598,66 @@ export default function ProductList() {
     try {
       const now = new Date().toISOString();
       const productRef = doc(db, "products", selectedProduct._id);
-      const updatedPrices = [
-        ...(selectedProduct.prices || []),
-        {
-          ...newPrice,
-          date: now,
-          created_by: user.uid,
-          created_by_email: user.email || "unknown",
-          created_by_name: user.displayName || user.email?.split("@")[0] || "unknown",
-        }
-      ];
+      
+      // Create a price object that matches the new Price interface
+      const priceData: Price = {
+        _id: `price_${Date.now()}`,
+        product_id: selectedProduct._id,
+        amount: newPrice.amount,
+        unit: newPrice.unit,
+        name: newPrice.name || undefined,
+        store: newPrice.store,
+        store_location: newPrice.store_location,
+        sales_link: newPrice.sales_link,
+        location: {
+          country: newPrice.location.country,
+          province: newPrice.location.province,
+          city: newPrice.location.city
+        },
+        source: newPrice.source || "manual",
+        notes: newPrice.notes,
+        created_by: user.uid,
+        created_by_email: user.email || "unknown",
+        created_by_name: user.displayName || user.email?.split("@")[0] || "unknown",
+        created_at: now,
+        custom_tags: newPrice.price_tags || {}
+      };
 
+      // Create the updated prices array
+      const updatedPrices = [...(selectedProduct.prices || []), priceData];
+
+      // First update the database
       await updateDoc(productRef, { prices: updatedPrices });
 
-      // Update local state
-      setProducts(prevProducts => prevProducts.map(p => 
-        p._id === selectedProduct._id 
-          ? { ...p, prices: updatedPrices }
-          : p
-      ));
+      // Refresh the data to get the latest prices
+      await refreshProducts();
 
-      // Only close dialog and reset on success
-      handleClosePriceDialog();
+      // Show success message and reset form
+      showMessage('Price added successfully', 'success');
+      
+      // Close dialog and reset form
+      setPriceDialogOpen(false);
+      setPriceError(null);
+      setNewPrice({
+        amount: 0,
+        unit: "each",
+        store: "",
+        store_location: "",
+        name: "",
+        location: {
+          country: "Canada",
+          province: "",
+          city: ""
+        },
+        source: "manual",
+        notes: "",
+        sales_link: ""
+      });
     } catch (error) {
       console.error("Error adding price:", error);
       setPriceError("Failed to add price. Please try again.");
-      // Don't close dialog on error
+      // Throw the error to prevent continuing with success actions
+      throw error;
     }
   };
 
@@ -808,7 +684,7 @@ export default function ProductList() {
     }
   };
 
-  const handleOpenEditPriceDialog = useCallback((productId: string, priceIndex: number, price: ProductPrice) => {
+  const handleOpenEditPriceDialog = useCallback((productId: string, priceIndex: number, price: Price) => {
     if (!user) return;
 
     const canEdit = isAdmin || (isContributor && price.created_by === user.uid); // TODO: implement permission check
@@ -818,15 +694,21 @@ export default function ProductList() {
     }
 
     setEditingPrice({ productId, priceIndex });
+    
     setEditedPrice({
-      ...price,
       name: price.name || "",
       amount: price.amount,
       unit: price.unit,
-      store: price.store,
-      store_location: price.store_location,
-      location: { ...price.location },
+      store: price.store || "",
+      store_location: price.store_location || "",
+      location: {
+        country: price.location?.country || "Canada",
+        province: price.location?.province || "",
+        city: price.location?.city || ""
+      },
       notes: price.notes || "",
+      sales_link: price.sales_link || "",
+      source: price.source || "manual"
     });
     setEditPriceDialogOpen(true);
   }, [isAdmin, isContributor, user]);
@@ -859,12 +741,6 @@ export default function ProductList() {
 
     try {
       const token = await user.getIdTokenResult();
-      // console.log("Attempting price update with roles:", {
-      //   admin: token.claims.admin,
-      //   superAdmin: token.claims.superAdmin,
-      //   contributor: token.claims.contributor
-      // });
-
       const product = products.find((p) => p._id === editingPrice.productId);
       if (!product) return;
 
@@ -877,9 +753,19 @@ export default function ProductList() {
       const updatedPrice = {
         ...originalPrice,
         ...editedPrice,
-        modified_by: user.uid,
-        modified_by_name: user.displayName || user.email?.split("@")[0] || "unknown",
-        modified_at: new Date().toISOString()
+        price_tags: {
+          ...editedPrice.price_tags,
+          store: editedPrice.store,
+          store_location: editedPrice.store_location,
+          location_country: editedPrice.location.country,
+          location_province: editedPrice.location.province,
+          location_city: editedPrice.location.city,
+          notes: editedPrice.notes,
+          sales_link: editedPrice.sales_link,
+          modified_by: user.uid,
+          modified_by_name: user.displayName || user.email?.split("@")[0] || "unknown",
+          modified_at: new Date().toISOString()
+        }
       };
 
       const productRef = doc(db, "products", editingPrice.productId);
@@ -1140,48 +1026,8 @@ export default function ProductList() {
     }
   };
 
-  const uploadImageToStorage = async (imageDataUrl: string, productId: string): Promise<string> => {
-    try {
-      // console.log('Starting upload for product:', productId);
-      
-      // Convert base64 to blob
-      const response = await fetch(imageDataUrl);
-      const blob = await response.blob();
-      // console.log('Blob created:', { size: blob.size, type: blob.type });
-      
-      // Create a reference to the storage location
-      const storage = getStorage();
-      const imagePath = `products/${productId}_${Date.now()}.jpg`;
-      const imageRef = ref(storage, imagePath);
-      // console.log('Storage reference created:', { path: imagePath });
-      
-      // Upload the image
-      // console.log('Starting upload...');
-      const result = await uploadBytes(imageRef, blob);
-      // console.log('Upload completed:', { 
-      //   fullPath: result.metadata.fullPath,
-      //   size: result.metadata.size,
-      //   generation: result.metadata.generation 
-      // });
-      
-      // Get the download URL
-      // console.log('Getting download URL...');
-      const url = await getDownloadURL(imageRef);
-      // console.log('Download URL obtained:', url.substring(0, 100) + '...');
-      
-      return url;
-    } catch (error) {
-      console.error('Upload error:', { 
-        code: error.code,
-        message: error.message,
-        name: error.name
-      });
-      throw error;
-    }
-  };
-
   const handleImageCapture = async (imageUrl: string) => {
-    setNewProduct(prev => ({ ...prev, image: imageUrl }));
+    setEditingProduct(prev => ({ ...prev, image: imageUrl }));
     setShowCameraDialog(false);
   };
 
@@ -1216,15 +1062,25 @@ export default function ProductList() {
     let score = 0;
     const userLocation = userSettings.location;
 
-    if (userLocation.country && product.origin?.country === userLocation.country) {
+    // Get the latest price's location
+    const latestPrice = product.prices?.[0];
+    if (!latestPrice?.price_tags) return 0;
+
+    const priceLocation = {
+      country: latestPrice.price_tags.location_country,
+      province: latestPrice.price_tags.location_province,
+      city: latestPrice.price_tags.location_city
+    };
+
+    if (userLocation.country && priceLocation.country === userLocation.country) {
       score += 3;
     }
 
-    if (userLocation.province && product.origin?.province === userLocation.province) {
+    if (userLocation.province && priceLocation.province === userLocation.province) {
       score += 2;
     }
 
-    if (userLocation.city && product.origin?.city === userLocation.city) {
+    if (userLocation.city && priceLocation.city === userLocation.city) {
       score += 1;
     }
 
@@ -1247,37 +1103,6 @@ export default function ProductList() {
   };
 
   const filteredProducts = getFilteredProducts();
-
-  const handleLocationToggle = async () => {
-    try {
-      if (!user) return;
-
-      const newLocationEnabled = !filters.locationEnabled;
-      setFilters((prev) => ({ ...prev, locationEnabled: newLocationEnabled }));
-
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        "preferences.useLocation": newLocationEnabled
-      });
-
-      setUserSettings((prev) =>
-        prev
-          ? {
-              ...prev,
-              preferences: {
-                ...prev.preferences,
-                useLocation: newLocationEnabled
-              }
-            }
-          : null
-      );
-
-      fetchData();
-    } catch (error) {
-      console.error("Error updating location preference:", error);
-      showMessage("Failed to update location preference", "error");
-    }
-  };
 
   const handleCompanySelect = async (companyId: string) => {
     // console.log("Selected company:", companyId);
@@ -1458,108 +1283,12 @@ export default function ProductList() {
     );
   }
 
-  const handleAddProduct = async () => {
-    if (!user) return;
-    
-    try {
-      if (!newProduct.name || !newProduct.category || !newProduct.canadianOriginType) {
-        showMessage("Name, Category, and Origin are required", "error");
-        return;
-      }
-
-      // Verify user role first
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        console.error('User document not found:', user.uid);
-        showMessage("User profile not found. Please try signing out and in again.", "error");
-        return;
-      }
-
-      const userData = userSnap.data();
-      console.log('Creating new product with user:', {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        role: userData.role
-      });
-
-      if (!userData.role || (userData.role !== 'contributor' && userData.role !== 'admin' && userData.role !== 'super_admin')) {
-        showMessage("You don't have permission to create products. Please request contributor access.", "error");
-        return;
-      }
-
-      const productData = {
-        ...newProduct,
-        image: "", // Initialize with empty image URL
-        created_at: new Date().toISOString(),
-        created_by: user.uid,
-        created_by_email: user.email || '',
-        created_by_name: user.displayName || '',
-        updated_at: new Date().toISOString(),
-        updated_by: user.uid,
-        updated_by_name: user.displayName || '',
-        status: 'draft',
-        is_active: true,
-        version: 1
-      };
-
-      console.log('Adding product with data:', productData);
-      const productRef = await addDoc(collection(db, "products"), productData);
-      console.log('Product added successfully with ID:', productRef.id);
-
-      // If there's an image (in base64), upload it to storage
-      if (newProduct.image && typeof newProduct.image === 'string' && newProduct.image.startsWith('data:image')) {
-        console.log('Uploading product image...');
-        const imageUrl = await uploadImageToStorage(newProduct.image, productRef.id);
-        
-        // Update the product with the image URL
-        console.log('Updating product with image URL:', imageUrl);
-        await updateDoc(productRef, { image: imageUrl });
-        newProduct.image = imageUrl;
-      }
-
-      const productWithId = { ...newProduct, _id: productRef.id };
-      setProducts((prevProducts) => [...prevProducts, productWithId]);
-      
-      setNewProduct({
-        name: "",
-        brand: "",
-        category: "Food & Beverage",
-        company_id: "",
-        origin: {
-          country: "Canada",
-          province: "",
-          city: ""
-        },
-        product_tags: {},
-        prices: [],
-        image: "",
-        canadianOriginType: null
-      });
-
-      showMessage("Product added successfully", "success");
-      setAddDialogOpen(false); // Close the dialog after successful addition
-    } catch (error) {
-      console.error("Error adding product:", error);
-      showMessage("Failed to add product. Please try again.", "error");
-    }
+  const handleAddProduct = async (newProduct: Product) => {
+    setProducts(prevProducts => [...prevProducts, newProduct]);
   };
 
   return (
     <Box sx={{ width: "98%", padding: 1 }}>
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: "100%" }}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-
       {/* PRODUCTS PAGE */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, mb: 1 }}>
         <Typography variant="h5" sx={{ mr: 0 }}>
@@ -1642,7 +1371,12 @@ export default function ProductList() {
                 p: 0.5
               }
             }}
-            control={<Checkbox checked={useMyLocation} onChange={(e) => setUseMyLocation(e.target.checked)} size="small" />}
+            
+            control={<Checkbox 
+              checked={useMyLocation} 
+              onChange={(e) => handleLocationFilterChange(e.target.checked)} 
+              size="small" 
+            />}
             label={
               <Box>
                 <Typography variant="body2">Filter by My Location</Typography>
@@ -1664,77 +1398,47 @@ export default function ProductList() {
               }
             }}
           >
-            {!showNewCategoryInput ? (
-              <FormControl fullWidth required>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={filters.category}
-                  label="Category"
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "add_new") {
-                      setShowNewCategoryInput(true);
-                      setFilters((prev) => ({ ...prev, category: "" }));
-                    } else {
-                      setFilters((prev) => ({ ...prev, category: value }));
-                    }
-                  }}
-                  displayEmpty
-                  endAdornment={
-                    filters.category ? (
-                      <IconButton
-                        size="small"
-                        sx={{ mr: 4 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFilters((prev) => ({ ...prev, category: "" }));
-                        }}
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    ) : null
+            <FormControl fullWidth required>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={filters.category}
+                label="Category"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "add_new") {
+                    // setShowNewCategoryInput(true);
+                    // setFilters((prev) => ({ ...prev, category: "" }));
+                  } else {
+                    setFilters((prev) => ({ ...prev, category: value }));
                   }
-                >
-                  <MenuItem value="">All Categories</MenuItem>
-                  {PRODUCT_CATEGORIES.map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                  <MenuItem value="add_new">
-                    <em>+ Add New Category</em>
+                }}
+                displayEmpty
+                endAdornment={
+                  filters.category ? (
+                    <IconButton
+                      size="small"
+                      sx={{ mr: 4 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFilters((prev) => ({ ...prev, category: "" }));
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  ) : null
+                }
+              >
+                <MenuItem value="">All Categories</MenuItem>
+                {PRODUCT_CATEGORIES.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
                   </MenuItem>
-                </Select>
-              </FormControl>
-            ) : (
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    if (newCategoryInput.trim()) {
-                      setFilters((prev) => ({ ...prev, category: newCategoryInput.trim() }));
-                      if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                        PRODUCT_CATEGORIES.push(newCategoryInput.trim());
-                      }
-                      setShowNewCategoryInput(false);
-                      setNewCategoryInput("");
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setShowNewCategoryInput(false);
-                    setNewCategoryInput("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            )}
+                ))}
+                <MenuItem value="add_new">
+                  <em>+ Add New Category</em>
+                </MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </Box>
       </Box>
@@ -2000,12 +1704,12 @@ export default function ProductList() {
                                       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                                         <Typography variant="body2" color="textSecondary">
                                           📍{" "}
-                                          {price.location?.city && price.location?.province
-                                            ? `${price.location.city}, ${price.location.province}`
-                                            : price.location?.country || ""}
+                                          {price.location ? 
+                                            `${price.location.city}${price.location.province ? `, ${price.location.province}` : ''}, ${price.location.country}` 
+                                            : "No location specified"}
                                         </Typography>
                                         <Typography variant="body2" color="textSecondary">
-                                          📅 {formatDate(price.date)}
+                                          📅 {formatDate(price.created_at)}
                                         </Typography>
                                         <Typography variant="body2" color="textSecondary">
                                           🏪 {price.store || "No store specified"}
@@ -2019,7 +1723,7 @@ export default function ProductList() {
                                       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                                         {price.source && (
                                           <Typography variant="body2" color="textSecondary">
-                                            Source: {price.source}
+                                            📱 {price.source}
                                           </Typography>
                                         )}
                                         {price.notes && (
@@ -2027,26 +1731,16 @@ export default function ProductList() {
                                             📝 {price.notes}
                                           </Typography>
                                         )}
-                                        {Object.keys(price.price_tags || {}).length > 0 && (
-                                          <Box>
-                                            <Typography variant="body2" color="textSecondary">
-                                              Tags:
-                                            </Typography>
-                                            {Object.entries(price.price_tags || {}).map(([key, value]) => (
-                                              <Typography key={key} variant="body2" color="textSecondary" sx={{ pl: 1 }}>
-                                                • {key}: {value}
-                                              </Typography>
-                                            ))}
-                                          </Box>
+                                        {price.sales_link && (
+                                          <Typography variant="body2" color="textSecondary">
+                                            🔗 <Link href={price.sales_link} target="_blank" rel="noopener noreferrer">
+                                              View Source
+                                            </Link>
+                                          </Typography>
                                         )}
                                       </Box>
                                     </Grid>
                                   </Grid>
-                                  {price.sales_link && (
-                                    <Button size="small" startIcon={<OpenInNewIcon />} onClick={() => window.open(price.sales_link, "_blank")} sx={{ mt: 1 }}>
-                                      View Product Link
-                                    </Button>
-                                  )}
                                 </Paper>
                               </Grid>
                             ))}
@@ -2142,61 +1836,31 @@ export default function ProductList() {
 
               <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
                 {/* CATEGORY */}
-                {!showNewCategoryInput ? (
-                  <FormControl fullWidth required>
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                      value={editingProduct.category}
-                      label="Category"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "add_new") {
-                          setShowNewCategoryInput(true);
-                          setEditingProduct(prev => ({ ...prev, category: "" }));
-                        } else {
-                          setEditingProduct(prev => ({ ...prev, category: value }));
-                        }
-                      }}
-                    >
-                      {PRODUCT_CATEGORIES.map((category) => (
-                        <MenuItem key={category} value={category}>
-                          {category}
-                        </MenuItem>
-                      ))}
-                      <MenuItem value="add_new">
-                        <em>+ Add New Category</em>
+                <FormControl fullWidth required>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={editingProduct.category}
+                    label="Category"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "add_new") {
+                        // setShowNewCategoryInput(true);
+                        // setEditingProduct(prev => ({ ...prev, category: "" }));
+                      } else {
+                        setEditingProduct(prev => ({ ...prev, category: value }));
+                      }
+                    }}
+                  >
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <MenuItem key={category} value={category}>
+                        {category}
                       </MenuItem>
-                    </Select>
-                  </FormControl>
-                ) : (
-                  <Box sx={{ display: "flex", gap: 1 }}>
-                    <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
-                    <Button
-                      variant="contained"
-                      onClick={() => {
-                        if (newCategoryInput.trim()) {
-                          setEditingProduct(prev => ({ ...prev, category: newCategoryInput.trim() }));
-                          if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                            PRODUCT_CATEGORIES.push(newCategoryInput.trim());
-                          }
-                          setShowNewCategoryInput(false);
-                          setNewCategoryInput("");
-                        }
-                      }}
-                    >
-                      Add
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        setShowNewCategoryInput(false);
-                        setNewCategoryInput("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </Box>
-                )}
+                    ))}
+                    <MenuItem value="add_new">
+                      <em>+ Add New Category</em>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
               </Box>
 
               {/* Canadian Origin Type */}
@@ -2273,11 +1937,8 @@ export default function ProductList() {
                     🌐 Select Country
                   </Button>
                 </Box>
-                {/* {!editingProduct.canadianOriginType && (
-                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                    Please select Canadian content type
-                  </Typography>
-                )} */}
+
+
               </Box>
 
               {/* Camera Button and Image Preview */}
@@ -2339,12 +2000,6 @@ export default function ProductList() {
                     Add New Company
                   </Button>
 
-                  {/* VIEW COMPANY */}
-                  {/* {editingProduct.company_id && (
-                    <Button size="small" onClick={() => handleViewCompany(editingProduct.company_id!)} variant="outlined">
-                      View Company Details
-                    </Button>
-                  )} */}
                 </Box>
               </Box>
 
@@ -2418,329 +2073,15 @@ export default function ProductList() {
       </Dialog>
 
       {/* ADD NEW PRODUCT DIALOG */}
-      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
-        {/* PAGE TITLE */}
-        <DialogTitle>Add New Product</DialogTitle>
-
-        <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-            {/* NAME AND BRAND INPUT */}
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={newProduct.name}
-                onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))}
-              />
-              <TextField
-                fullWidth
-                label="Brand"
-                value={newProduct.brand}
-                onChange={(e) => setNewProduct((prev) => ({ ...prev, brand: e.target.value }))}
-              />
-            </Box>
-
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              {/* CATEGORY */}
-              {!showNewCategoryInput ? (
-                <FormControl fullWidth required>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={newProduct.category}
-                    label="Category"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "add_new") {
-                        setShowNewCategoryInput(true);
-                        setNewProduct((prev) => ({ ...prev, category: "" }));
-                      } else {
-                        setNewProduct((prev) => ({ ...prev, category: value }));
-                      }
-                    }}
-                  >
-                    {PRODUCT_CATEGORIES.map((category) => (
-                      <MenuItem key={category} value={category}>
-                        {category}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="add_new">
-                      <em>+ Add New Category</em>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              ) : (
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <TextField fullWidth label="New Category" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)} required />
-                  <Button
-                    variant="contained"
-                    onClick={() => {
-                      if (newCategoryInput.trim()) {
-                        setNewProduct((prev) => ({ ...prev, category: newCategoryInput.trim() }));
-                        if (!PRODUCT_CATEGORIES.includes(newCategoryInput.trim())) {
-                          PRODUCT_CATEGORIES.push(newCategoryInput.trim());
-                        }
-                        setShowNewCategoryInput(false);
-                        setNewCategoryInput("");
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      setShowNewCategoryInput(false);
-                      setNewCategoryInput("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </Box>
-              )}
-            </Box>
-
-            {/* Canadian Origin Type */}
-            <Box sx={{ mt: 0 }}>
-              {/* <Typography variant="subtitle2" gutterBottom sx={{ color: 'error.main' }}>
-                Country of Origin *
-              </Typography> */}
-              {!newProduct.canadianOriginType && (
-                <Typography variant="caption" color="error" >
-                  Please select the Country or Origin
-                </Typography>
-              )}
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                
-                <Button
-                  variant={newProduct.canadianOriginType === 'product_of_canada' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setNewProduct(prev => ({
-                    ...prev,
-                    canadianOriginType: 'product_of_canada'
-                  }))}
-                  sx={{ 
-                    borderColor: 'success.main',
-                    color: newProduct.canadianOriginType === 'product_of_canada' ? 'white' : 'success.main',
-                    bgcolor: newProduct.canadianOriginType === 'product_of_canada' ? 'success.main' : 'transparent',
-                    '&:hover': {
-                      bgcolor: newProduct.canadianOriginType === 'product_of_canada' ? 'success.dark' : 'success.light',
-                      borderColor: 'success.main'
-                    }
-                  }}
-                >
-                  🍁 Product of Canada (98%+)
-                </Button>
-
-                <Button
-                  variant={newProduct.canadianOriginType === 'made_in_canada' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setNewProduct(prev => ({
-                    ...prev,
-                    canadianOriginType: 'made_in_canada'
-                  }))}
-                  sx={{ 
-                    borderColor: 'primary.main',
-                    color: newProduct.canadianOriginType === 'made_in_canada' ? 'white' : 'primary.main',
-                    bgcolor: newProduct.canadianOriginType === 'made_in_canada' ? 'primary.main' : 'transparent',
-                    '&:hover': {
-                      bgcolor: newProduct.canadianOriginType === 'made_in_canada' ? 'primary.dark' : 'primary.light',
-                      borderColor: 'primary.main'
-                    }
-                  }}
-                >
-                  🍁 Made in Canada (51%+)
-                </Button>
-                <Button
-                  variant={newProduct.canadianOriginType === 'canada_with_imports' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setNewProduct(prev => ({
-                    ...prev,
-                    canadianOriginType: 'canada_with_imports'
-                  }))}
-                  sx={{ 
-                    borderColor: 'info.main',
-                    color: newProduct.canadianOriginType === 'canada_with_imports' ? 'white' : 'info.main',
-                    bgcolor: newProduct.canadianOriginType === 'canada_with_imports' ? 'info.main' : 'transparent',
-                    '&:hover': {
-                      bgcolor: newProduct.canadianOriginType === 'canada_with_imports' ? 'info.dark' : 'info.light',
-                      borderColor: 'info.main'
-                    }
-                  }}
-                >
-                  🍁 Made in Canada (with imports)
-                </Button>
-                <Button
-                  variant={newProduct.canadianOriginType === null ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setNewProduct(prev => ({
-                    ...prev,
-                    canadianOriginType: 'not sure - please check'
-                  }))}
-                  sx={{ 
-                    borderColor: 'grey.500',
-                    color: newProduct.canadianOriginType === null ? 'white' : 'grey.500',
-                    bgcolor: newProduct.canadianOriginType === null ? 'grey.500' : 'transparent',
-                    '&:hover': {
-                      bgcolor: newProduct.canadianOriginType === null ? 'grey.600' : 'grey.100',
-                      borderColor: 'grey.500'
-                    }
-                  }}
-                >
-                  <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span role="img" aria-label="question mark">❓</span>
-                    <span>Unknown</span>
-                  </Box>
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setFlagPickerOpen(true)}
-                  sx={{ borderColor: 'grey.500', color: 'grey.500' }}
-                >
-                  🌐 Select Country
-                </Button>
-              </Box>
-             
-            </Box>
-
-            {/* COMPANY SELECT */}
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              <FormControl fullWidth>
-                <InputLabel>Company</InputLabel>
-                <Select
-                  value={newProduct.company_id || ""}
-                  onChange={(e) => setNewProduct(prev => ({ ...prev, company_id: e.target.value }))}
-                  label="Company"
-                >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  {companies.map((company) => (
-                    <MenuItem key={company._id} value={company._id}>
-                      {company.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {/* ADD NEW COMPANY */}
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Button size="small" startIcon={<AddIcon />} onClick={() => handleNewCompany("add")} variant="outlined">
-                  Add New Company
-                </Button>
-
-                {/* VIEW COMPANY */}
-                {/* {newProduct.company_id && (
-                  <Button size="small" onClick={() => handleViewCompany(newProduct.company_id!)} variant="outlined">
-                    View Company Details
-                  </Button>
-                )} */}
-              </Box>
-            </Box>
-
-            {/* Commented out province and city fields
-            <TextField
-              label="Province"
-              value={newProduct.origin.province}
-              onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, province: e.target.value } }))}
-            />
-            <TextField
-              label="City"
-              value={newProduct.origin.city}
-              onChange={(e) => setNewProduct((prev) => ({ ...prev, origin: { ...prev.origin, city: e.target.value } }))}
-            />
-            */}
-
-            <Box sx={{ p: 0 }}>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {/* Existing form fields */}
-                {/* Camera Button */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<CameraAltIcon />}
-                    onClick={() => setShowCameraDialog(true)}
-                  >
-                    Take Product Picture
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    startIcon={<ImageIcon />}
-                  >
-                    Upload Image
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </Button>
-                  {newProduct.image && (
-                    <img 
-                      src={newProduct.image} 
-                      alt="Product" 
-                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
-                    />
-                  )}
-                </Box>
-              </Box>
-            </Box>
-
-            <Box sx={{ mt: 0 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Tags
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0, mb: 0 }}>
-                {Object.entries(newProduct.product_tags || {}).map(([key, value]) => (
-                  <Chip
-                    key={key}
-                    label={`${key}: ${value}`}
-                    onDelete={() => {
-                      setNewProduct((prev) => {
-                        const newTags = { ...prev.product_tags };
-                        delete newTags[key];
-                        return { ...prev, product_tags: newTags };
-                      });
-                    }}
-                    size="small"
-                  />
-                ))}
-              </Box>
-              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-                <TextField label="Tag Name" size="small" inputRef={attributeNameRef} />
-                <TextField label="Value" size="small" fullWidth inputRef={attributeValueRef} />
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    const name = attributeNameRef.current?.value;
-                    const value = attributeValueRef.current?.value;
-                    if (name && value) {
-                      setNewProduct((prev) => ({
-                        ...prev,
-                        product_tags: {
-                          ...prev.product_tags,
-                          [name]: value
-                        }
-                      }));
-                      if (attributeNameRef.current) attributeNameRef.current.value = "";
-                      if (attributeValueRef.current) attributeValueRef.current.value = "";
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProduct} variant="contained" color="primary">
-            Add Product
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AddProductDialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        onSuccess={handleAddProduct}
+        showMessage={showMessage}
+        user={user}
+        companies={companies}
+        handleNewCompany={handleNewCompany}
+      />
 
       <Dialog open={priceDialogOpen} onClose={handleClosePriceDialog}>
         <DialogTitle>Add Price for {selectedProduct?.name}</DialogTitle>
@@ -2822,36 +2163,7 @@ export default function ProductList() {
                     }))
                   }
                 />
-                {/* <Box sx={{ display: 'flex', gap: 1 }}>
-                  <img 
-                    src="/flags/Canada.png" 
-                    alt="Canada" 
-                    style={{ width: '30px', cursor: 'pointer' }}
-                    onClick={() => setNewPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Canada' } }))}
-                  />
-                  <img 
-                    src="/flags/United States.png" 
-                    alt="USA" 
-                    style={{ width: '30px', cursor: 'pointer' }}
-                    onClick={() => setNewPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'USA' } }))}
-                  />
-                  <Box 
-                    sx={{ 
-                      width: '30px', 
-                      height: '30px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '20px'
-                    }}
-                    onClick={() => setNewPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Other' } }))}
-                  >
-                    🌐
-                  </Box>
-                </Box> */}
+        
               </Box>
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -3039,36 +2351,7 @@ export default function ProductList() {
                     }))
                   }
                 />
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <img 
-                    src="/flags/Canada.png" 
-                    alt="Canada" 
-                    style={{ width: '30px', cursor: 'pointer' }}
-                    onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Canada' } }))}
-                  />
-                  <img 
-                    src="/flags/United States.png" 
-                    alt="USA" 
-                    style={{ width: '30px', cursor: 'pointer' }}
-                    onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'USA' } }))}
-                  />
-                  <Box 
-                    sx={{ 
-                      width: '30px', 
-                      height: '30px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '20px'
-                    }}
-                    onClick={() => setEditedPrice((prev) => ({ ...prev, location: { ...prev.location, country: 'Other' } }))}
-                  >
-                    🌐
-                  </Box>
-                </Box>
+          
               </Box>
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -3207,7 +2490,7 @@ export default function ProductList() {
         <DialogTitle>Select Country of Origin</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 1, p: 1 }}>
-            {countries.map((country) => (
+            {countriesList.map((country) => (
               <Box
                 key={country}
                 onClick={() => {
@@ -3217,8 +2500,8 @@ export default function ProductList() {
                       canadianOriginType: country
                     });
                   } else {
-                    setNewProduct({
-                      ...newProduct,
+                    setNewPrice({
+                      ...newPrice,
                       canadianOriginType: country
                     });
                   }

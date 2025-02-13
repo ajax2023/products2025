@@ -3,7 +3,7 @@ import { Button, Alert, Box, Typography } from '@mui/material';
 import { collection, query, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 import Papa from 'papaparse';
-import { ProductPrice, PRODUCT_UNITS, Product } from '../../types/product';
+import { Product, Price, PRODUCT_UNITS } from '../../types/product';
 
 interface PriceImportProps {
   onClose?: () => void;
@@ -32,11 +32,11 @@ export default function PriceImport({ onClose }: PriceImportProps) {
   }, []);
 
   const downloadTemplate = () => {
-    const header = 'product_name,brand,amount,unit,store,country,state,city,notes,sales_link,price_tags\n';
+    const header = 'product_name,brand,amount,unit,name,price_tags\n';
     const sampleData = [
-      'iPhone 15,Apple,999.99,each,Best Buy - 123 Main St,Canada,Ontario,Toronto,Latest model,https://example.com/iphone15,"{""condition"":""new"",""warranty"":""1 year""}"',
-      'iPhone 15,Apple,899.99,each,Walmart - 456 Oak Ave,Canada,Quebec,Montreal,Holiday sale,https://example.com/iphone15-ca,"{""condition"":""new"",""promotion"":""holiday""}"',
-      'Galaxy S24,Samsung,899.99,each,Target - 789 Pine Rd,Canada,British Columbia,Vancouver,New release,https://example.com/s24,"{""condition"":""new"",""preorder"":""yes""}"'
+      'iPhone 15,Apple,999.99,each,Base Model 128GB,"{""condition"":""new"",""warranty"":""1 year""}"',
+      'iPhone 15,Apple,1099.99,each,Pro Model 256GB,"{""condition"":""new"",""color"":""titanium""}"',
+      'Galaxy S24,Samsung,899.99,each,Standard Edition,"{""condition"":""new"",""preorder"":""yes""}"'
     ].join('\n');
 
     const blob = new Blob([header + sampleData], { type: 'text/csv' });
@@ -74,8 +74,8 @@ export default function PriceImport({ onClose }: PriceImportProps) {
           for (const row of results.data as any[]) {
             try {
               // Validate required fields
-              if (!row.product_name || !row.brand || !row.amount || !row.unit || !row.country || !row.store) {
-                const missing = ['product_name', 'brand', 'amount', 'unit', 'country', 'store']
+              if (!row.product_name || !row.brand || !row.amount || !row.unit) {
+                const missing = ['product_name', 'brand', 'amount', 'unit']
                   .filter(field => !row[field])
                   .join(', ');
                 errors.push(`Row missing required fields: ${missing}`);
@@ -91,21 +91,10 @@ export default function PriceImport({ onClose }: PriceImportProps) {
                 continue;
               }
 
-              const price: ProductPrice = {
+              const price: Price = {
                 amount: parseFloat(row.amount),
                 unit: row.unit as typeof PRODUCT_UNITS[number],
-                store: row.store,
-                location: {
-                  country: row.country,
-                  state: row.state || '',
-                  city: row.city || ''
-                },
-                date: new Date().toISOString(),
-                notes: row.notes || '',
-                sales_link: row.sales_link || '',
-                created_by: auth.currentUser?.uid || '',
-                created_by_email: auth.currentUser?.email || '',
-                created_by_name: auth.currentUser?.displayName || auth.currentUser?.email || '',
+                name: row.name || undefined,
                 price_tags: {}
               };
 
@@ -169,21 +158,22 @@ export default function PriceImport({ onClose }: PriceImportProps) {
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
       
       <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" gutterBottom>
-          Import prices using a CSV file with the following columns:
-        </Typography>
-        <Typography component="ul" sx={{ pl: 2 }}>
-          <li><strong>product_name</strong> (required): Exact product name</li>
-          <li><strong>brand</strong> (required): Exact brand name</li>
-          <li><strong>amount</strong> (required): The price amount (numeric)</li>
-          <li><strong>unit</strong> (required): Unit (e.g., 'each', 'kg')</li>
-          <li><strong>store</strong> (required): Store name and address (e.g., 'Walmart - 123 Main St')</li>
-          <li><strong>country</strong> (required): Country where price applies</li>
-          <li><strong>state</strong> (optional): State</li>
-          <li><strong>city</strong> (optional): City</li>
-          <li><strong>notes</strong> (optional): Additional notes</li>
-          <li><strong>sales_link</strong> (optional): URL to the product</li>
-          <li><strong>price_tags</strong> (optional): JSON string of price tags (e.g., {'"{"condition": "new", "warranty": "1 year"}"'})</li>
+        <Typography variant="body1" component="div">
+          Required columns:
+          <ul>
+            <li><strong>product_name</strong>: Product name</li>
+            <li><strong>brand</strong>: Brand name</li>
+            <li><strong>amount</strong>: The price amount (numeric)</li>
+            <li><strong>unit</strong>: Unit (e.g., 'each', 'per kg', 'per case')</li>
+          </ul>
+          Optional columns:
+          <ul>
+            <li><strong>name</strong>: Price variant name (e.g., 'Base Model', 'Pro Edition')</li>
+            <li><strong>price_tags</strong>: JSON string of price tags (e.g., {'"{"condition": "new", "warranty": "1 year"}"'})</li>
+          </ul>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Note: Price tags must be a valid JSON string. The system will automatically add creation date and version control fields.
+          </Typography>
         </Typography>
       </Box>
 

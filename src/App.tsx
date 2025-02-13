@@ -20,6 +20,7 @@ import BackgroundImage from './components/BackgroundImage';
 import Leaderboard from './components/Leaderboard';
 import Home from './components/Home';
 import { AuthProvider } from './auth';
+import { NotificationProvider } from './components/common/NotificationSnackbar';
 
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
@@ -28,38 +29,40 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <AuthProvider>
-        <BrowserRouter>
-          <div className="App">
-            <Routes>
-              <Route path="/login" element={
-                <>
-                  <BackgroundImage />
-                  <Login />
-                </>
-              } />
-              <Route
-                path="/*"
-                element={
+        <NotificationProvider>
+          <BrowserRouter>
+            <div className="App">
+              <Routes>
+                <Route path="/login" element={
                   <>
-                    <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-                    <Routes>
-                      <Route path="/" element={<ProductList />} />
-                      <Route path="/add" element={<ProductForm />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/companies" element={<CompanyList />} />
-                      <Route path="/companies/:id" element={<CompanyInfo />} />
-                      <Route path="/brands" element={<BrandList />} />
-                      <Route path="/admin/users" element={<UserManagement />} />
-                      {/* <Route path="/receipts" element={<Receipts />} /> */}
-                      <Route path="/leaderboard" element={<Leaderboard />} />
-                      <Route path="/home" element={<Home />} />
-                    </Routes>
+                    <BackgroundImage />
+                    <Login />
                   </>
-                }
-              />
-            </Routes>
-          </div>
-        </BrowserRouter>
+                } />
+                <Route
+                  path="/*"
+                  element={
+                    <>
+                      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+                      <Routes>
+                        <Route path="/" element={<ProductList />} />
+                        <Route path="/add" element={<ProductForm />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/companies" element={<CompanyList />} />
+                        <Route path="/companies/:id" element={<CompanyInfo />} />
+                        <Route path="/brands" element={<BrandList />} />
+                        <Route path="/admin/users" element={<UserManagement />} />
+                        {/* <Route path="/receipts" element={<Receipts />} /> */}
+                        <Route path="/leaderboard" element={<Leaderboard />} />
+                        <Route path="/home" element={<Home />} />
+                      </Routes>
+                    </>
+                  }
+                />
+              </Routes>
+            </div>
+          </BrowserRouter>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );
