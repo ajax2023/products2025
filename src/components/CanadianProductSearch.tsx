@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -19,6 +19,7 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  InputBase
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckIcon from '@mui/icons-material/Check';
@@ -30,21 +31,22 @@ import CanadianProductUpload from './admin/CanadianProductUpload';
 import { auth, db } from '../firebaseConfig';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import debounce from 'lodash/debounce';
+import { cacheService } from '../services/cacheService';
 
 export default function CanadianProductSearch() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<CanadianProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [allProducts, setAllProducts] = useState<CanadianProduct[]>([]);
   const [stats, setStats] = useState<{
     total: number;
     verified: number;
-    unverified: number;
+    pending: number;
     products: { [key: string]: CanadianProduct };
   } | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [allProducts, setAllProducts] = useState<CanadianProduct[]>([]);
 
   const countTotalProducts = (products: CanadianProduct[]) => {
     return products.reduce((sum, p) => {
@@ -81,7 +83,7 @@ export default function CanadianProductSearch() {
       setStats({
         total,
         verified,
-        unverified: total - verified,
+        pending: total - verified,
         products
       });
     } catch (error) {
@@ -90,7 +92,27 @@ export default function CanadianProductSearch() {
   };
 
   useEffect(() => {
-    fetchStats();
+    const initializeData = async () => {
+      try {
+        // Try to get cached data first
+        const cachedStats = await cacheService.get('product-stats');
+        if (cachedStats) {
+          setStats(cachedStats);
+        }
+
+        // Get fresh data
+        await fetchStats();
+        
+        // Cache the fresh data
+        if (stats) {
+          await cacheService.set('product-stats', stats);
+        }
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      }
+    };
+
+    initializeData();
   }, []);
 
   useEffect(() => {
@@ -146,7 +168,7 @@ export default function CanadianProductSearch() {
     return () => clearInterval(syncInterval);
   }, []);
 
-  // Debounced search function
+  // Debounced search with cache
   const debouncedSearch = useCallback(
     debounce(async (term: string) => {
       if (!term.trim()) {
@@ -156,10 +178,22 @@ export default function CanadianProductSearch() {
       }
 
       try {
+        // Try to get cached search results first
+        const cacheKey = `search-${term}`;
+        const cachedResults = await cacheService.get(cacheKey);
+        if (cachedResults) {
+          setProducts(cachedResults);
+          setLoading(false);
+        }
+
+        // Get fresh results
         const results = await searchCanadianProducts({
           brand_name: term,
         });
         setProducts(results);
+        
+        // Cache the fresh results
+        await cacheService.set(cacheKey, results);
       } catch (error) {
         console.error('Search error:', error);
       } finally {
@@ -169,9 +203,9 @@ export default function CanadianProductSearch() {
     []
   );
 
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const term = event.target.value;
-    setSearchTerm(term);
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchQuery(term);
     setLoading(true);
     debouncedSearch(term);
   };
@@ -253,7 +287,7 @@ export default function CanadianProductSearch() {
                       Pending
                     </Typography>
                     <Typography variant="body2">
-                      {stats.unverified ?? <CircularProgress size={12} />}
+                      {stats.pending ?? <CircularProgress size={12} />}
                     </Typography>
                   </Box>
                 </Grid>
@@ -265,46 +299,33 @@ export default function CanadianProductSearch() {
         {/* Search Bar */}
         <Paper
           component="form"
-          elevation={10}
           sx={{
             p: '2px 4px',
             display: 'flex',
             alignItems: 'center',
             width: '100%',
-            maxWidth: 600,
-            mb: 1,
-            border: '2px solid #F3A847'
+            maxWidth: 700,
+            mb: 2
           }}
           onSubmit={(e) => e.preventDefault()}
         >
-          <TextField
-            fullWidth
-            placeholder="Search for Canadian products..."
-            value={searchTerm}
-            onChange={handleSearch}
-            variant="standard"
-            InputProps={{
-              disableUnderline: true,
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              endAdornment: loading && (
-                <InputAdornment position="end">
-                  <CircularProgress size={20} />
-                </InputAdornment>
-              ),
-            }}
+          <SearchIcon sx={{ ml: 1, color: 'action.active' }} />
+          <InputBase
             sx={{ ml: 1, flex: 1 }}
+            placeholder="Search for products or categories..."
+            value={searchQuery}
+            onChange={handleSearch}
+            endAdornment={loading && (
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+            )}
           />
-          <IconButton
+          <IconButton 
             sx={{ ml: 1 }}
             onClick={async () => {
               setLoading(true);
               try {
                 await forceSync();
-                debouncedSearch(searchTerm);
+                debouncedSearch(searchQuery);
               } finally {
                 setLoading(false);
               }
@@ -315,189 +336,216 @@ export default function CanadianProductSearch() {
           </IconButton>
         </Paper>
 
-        {/* Stats Section */}
-        <Paper sx={{ p: 0, mb: 0.5, mt: 1, width: '100%', maxWidth: 700 }}>
-          <Grid container spacing={0}>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                  Brands-Companies
-                </Typography>
-                <Typography variant="body2">
-                  {products.length}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                  Products
-                </Typography>
-                <Typography variant="body2">
-                  {countTotalProducts(products)}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-                  Verified
-                </Typography>
-                <Typography variant="body2">
-                  {products.filter(p => p.production_verified).length}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
-                  Pending
-                </Typography>
-                <Typography variant="body2">
-                  {products.filter(p => !p.production_verified).length}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
+        {!searchQuery && (
+          <Box sx={{ 
+            width: '100%', 
+            maxWidth: 700, 
+            textAlign: 'center',
+            mt: 1
+          }}>
+            <Typography variant="h6" color="text.secondary">
+              Enter text to get a list of brands and products...
+            </Typography>
+          </Box>
+        )}
 
-        {/* Results */}
-        <TableContainer 
-          component={Paper} 
-          sx={{ 
-            mt: 3, 
-            width: '96%',
-            overflowX: 'auto',
-            '& .MuiTableCell-root': {
-              whiteSpace: 'normal',
-              p: 1,
-              borderBottom: '1px solid rgba(224, 224, 224, 0.4)'
-            },
-            '& .MuiTableRow-root:hover': {
-              backgroundColor: 'rgba(0, 0, 0, 0.04)'
-            }
-          }}
-        >
-          <Table 
-            size="small"
-            sx={{ 
-              minWidth: {
-                xs: 400,     
-                sm: 650      
-              },
-              tableLayout: 'fixed'
-            }} 
-            aria-label="product results"
-          >
-            <TableHead>
-              <TableRow>
-                <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Brand Name</TableCell>
+        {/* Stats and Results - Only show if there's a search query */}
+        {searchQuery && (
+          <>
+            {/* Stats Section */}
+            <Paper sx={{ p: 0, mb: 0.5, mt: 1, width: '100%', maxWidth: 700 }}>
+              <Grid container spacing={0}>
+                <Grid item xs={2.4}>
+                  <Box>
+                    <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 1 }}>
+                      Search Results
+                    </Typography>
+                    
+                  </Box>
+                </Grid>
+                <Grid item xs={2.4}>
+                 
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                      Brands-Companies
+                    </Typography>
+                    <Typography variant="body2">
+                      {products.length}
+                    </Typography>
+                  </Box>
+                </Grid>
                 
-                <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Products</TableCell>
-                <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Categories</TableCell>
-                <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Status</TableCell>
-                <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Actions</TableCell>
-                <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Location</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {products
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((product) => (
-                  <TableRow 
-                    key={product._id}
-                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  >
-                    <TableCell>
-                      <Typography 
-                        sx={{ 
-                          fontWeight: 500,
-                          fontSize: '0.875rem',
-                          color: 'text.primary'
-                        }}
-                      >
-                        {product.brand_name}
-                      </Typography>
-                    </TableCell>
-                
-                    <TableCell>
-                      <Typography 
-                        sx={{ 
-                          fontSize: '0.875rem',
-                          color: 'text.secondary',
-                          maxWidth: '200px',
-                          whiteSpace: 'normal',
-                          wordBreak: 'normal'
-                        }}
-                      >
-                        {product.products.join(', ')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        sx={{ 
-                          fontSize: '0.875rem',
-                          color: 'text.secondary',
-                          maxWidth: '200px',
-                          whiteSpace: 'normal',
-                          wordBreak: 'normal'
-                        }}
-                      >
-                        {product.categories.join(', ')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {product.production_verified ? (
-                        <CheckIcon 
-                          sx={{ 
-                            color: '#4CAF50',
-                            fontSize: '1rem'
-                          }} 
-                        />
-                      ) : (
-                        <CircleIcon 
-                          sx={{ 
-                            color: '#FF9800',
-                            fontSize: '0.8rem'
-                          }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {product.website && (
-                        <Link
-                          href={product.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Visit Website
-                        </Link>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        sx={{ 
-                          fontSize: '0.875rem',
-                          color: 'text.secondary'
-                        }}
-                      >
-                        {product.city}, {product.province}
-                      </Typography>
-                    </TableCell>
+                <Grid item xs={2.4}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                      Products
+                    </Typography>
+                    <Typography variant="body2">
+                      {countTotalProducts(products)}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={2.4}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+                      Verified
+                    </Typography>
+                    <Typography variant="body2">
+                      {products.filter(p => p.production_verified).length}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={2.4}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
+                      Pending
+                    </Typography>
+                    <Typography variant="body2">
+                      {products.filter(p => !p.production_verified).length}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Results Table */}
+            <TableContainer 
+              component={Paper} 
+              sx={{ 
+                width: '100%',
+                maxWidth: 700,
+                overflowX: 'auto',
+                mb: 2
+              }} 
+              aria-label="product results"
+            >
+              <Table 
+                size="small"
+                sx={{ 
+                  minWidth: {
+                    xs: 400,     
+                    sm: 650      
+                  },
+                  tableLayout: 'fixed'
+                }} 
+                aria-label="product results"
+              >
+                <TableHead
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white'
+                }}
+                >
+                  <TableRow>
+                    <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand Name</TableCell>
+                    
+                    <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products</TableCell>
+                    <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories</TableCell>
+                    <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Status</TableCell>
+                    <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Actions</TableCell>
+                    <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
                   </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={products.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {products
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((product) => (
+                      <TableRow 
+                        key={product._id}
+                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                      >
+                        <TableCell>
+                          <Typography 
+                            sx={{ 
+                              fontWeight: 500,
+                              fontSize: '0.875rem',
+                              color: 'text.primary'
+                            }}
+                          >
+                            {product.brand_name}
+                          </Typography>
+                        </TableCell>
+                    
+                        <TableCell>
+                          <Typography 
+                            sx={{ 
+                              fontSize: '0.875rem',
+                              color: 'text.secondary',
+                              maxWidth: '200px',
+                              whiteSpace: 'normal',
+                              wordBreak: 'normal'
+                            }}
+                          >
+                            {product.products.join(', ')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography 
+                            sx={{ 
+                              fontSize: '0.875rem',
+                              color: 'text.secondary',
+                              maxWidth: '200px',
+                              whiteSpace: 'normal',
+                              wordBreak: 'normal'
+                            }}
+                          >
+                            {product.categories.join(', ')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {product.production_verified ? (
+                            <CheckIcon 
+                              sx={{ 
+                                color: '#4CAF50',
+                                fontSize: '1rem'
+                              }} 
+                            />
+                          ) : (
+                            <CircleIcon 
+                              sx={{ 
+                                color: '#FF9800',
+                                fontSize: '0.8rem'
+                              }}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {product.website && (
+                            <Link
+                              href={product.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Visit Website
+                            </Link>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography 
+                            sx={{ 
+                              fontSize: '0.875rem',
+                              color: 'text.secondary'
+                            }}
+                          >
+                            {product.city}, {product.province}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={products.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+              />
+            </TableContainer>
+          </>
+        )}
       </Box>
     </Box>
   );
