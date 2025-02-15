@@ -119,21 +119,27 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="fixed">
+        
         <Toolbar sx={{ 
-          display: 'flex', // Ensure Toolbar is a flex container
-          alignItems: 'center', // Vertically align items
+          display: 'flex', 
+          // alignItems: 'center', 
+          justifyContent: 'space-between', 
           minHeight: { xs: '48px' },
           overflow: 'hidden'
         }}>
+          <Box>
           {/* Logo */}
           <img 
             src="/maple-leaf.svg" 
             alt="Maple Leaf"
             style={{ 
-              height: '32px',
-              marginRight: '16px'
+              height: '30px',
+              marginRight: '32px',
+              alignItems: 'center',
+              marginTop: '5px'
             }} 
           />
+          </Box>
 
           <Box 
             component="div"
@@ -181,44 +187,16 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
               </IconButton>
             </Link>
 
-            {/* Receipts */}
-            {/* <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton 
-                color="inherit"
-                sx={{
-                  '& .MuiSvgIcon-root': {
-                    color: isActive('/receipts') ? '#FF0000' : 'inherit'
-                  }
-                }}
-              >
-                <Tooltip title="Receipts">
-                  <ReceiptIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
-            {/* Companies */}
-            {/* <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton 
-                color="inherit"
-                sx={{
-                  '& .MuiSvgIcon-root': {
-                    color: isActive('/companies') ? '#FF0000' : 'inherit'
-                  }
-                }}
-              >
-                <Tooltip title="Companies">
-                  <BusinessIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
-
-
             {/* Product Management - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/products" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <IconButton color="inherit">
+                <IconButton color="inherit"
+                 sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/admin/products') ? '#00FF00' : 'inherit'
+                  },
+
+                }}>
                   <Tooltip title="Product Management">
                     <InventoryIcon />
                   </Tooltip>
@@ -229,7 +207,14 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             {/* User Management - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <IconButton color="inherit">
+                <IconButton color="inherit"
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/admin/users') ? '#00FF00' : 'inherit'
+                  },
+
+                }}
+                >
                   <Tooltip title="User Management">
                     <PeopleIcon />
                   </Tooltip>
@@ -238,7 +223,6 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             )}
           </Box>
 
-
             {/* Settings */}
             <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
@@ -246,7 +230,8 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 sx={{
                   '& .MuiSvgIcon-root': {
                     color: isActive('/settings') ? '#FF0000' : 'inherit'
-                  }
+                  },
+                  marginLeft: '2px',
                 }}
               >
                 <Tooltip title="Settings">
@@ -254,7 +239,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 </Tooltip>
               </IconButton>
             </Link>
-            
+
           <Box sx={{ flexGrow: 1 }} /> {/* This pushes the following items to the right */}
 
           {isInstallable && (
@@ -266,7 +251,8 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                     color: 'white',
                     '&:hover': {
                       backgroundColor: alpha(theme.palette.common.white, 0.1),
-                    }
+                    },
+                    marginLeft: '32px',
                   }}
                 >
                   <GetAppIcon sx={{ color: 'white' }} />
