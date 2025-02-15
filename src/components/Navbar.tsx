@@ -28,6 +28,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import SearchIcon from '@mui/icons-material/Search';
 import LocalMallIcon from '@mui/icons-material/LocalMall';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import GetAppIcon from '@mui/icons-material/GetApp';
 
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -41,6 +42,8 @@ interface NavbarProps {
 
 export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,12 +70,58 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
     checkUserRole();
   }, [user]);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent Chrome 67 and earlier from automatically showing the prompt
+      e.preventDefault();
+      // Stash the event so it can be triggered later
+      setDeferredPrompt(e);
+      // Update UI to show install button
+      setIsInstallable(true);
+    };
+
+    // Check if app is already installed
+    const checkInstalled = () => {
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        setIsInstallable(false);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', () => setIsInstallable(false));
+    checkInstalled();
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', () => setIsInstallable(false));
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+
+    // Show the install prompt
+    deferredPrompt.prompt();
+
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    // Clear the deferredPrompt variable
+    setDeferredPrompt(null);
+
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+    }
+  };
+
   const isActive = (path: string) => location.pathname === path;
 
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="fixed">
         <Toolbar sx={{ 
+          display: 'flex', // Ensure Toolbar is a flex container
+          alignItems: 'center', // Vertically align items
           minHeight: { xs: '48px' },
           overflow: 'hidden'
         }}>
@@ -91,7 +140,7 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
             sx={{
               display: 'flex',
               overflow: 'auto',
-              flexGrow: 1,
+              flexGrow: 0, // Prevent this box from growing
               gap: 0.5,
               mx: -2,
               px: 2,
@@ -102,35 +151,27 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
           >
             {/* Home */}
             <Link to="/home" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton color="inherit">
+              <IconButton 
+                color="inherit"
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/home') ? '#FF0000' : 'inherit'
+                  }
+                }}
+              >
                 <Tooltip title="Home">
                   <HomeIcon />
                 </Tooltip>
               </IconButton>
             </Link>
-           
-            {/* Products */}
-            {/* <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton 
-                color="inherit"
-                sx={{
-                  bgcolor: isActive('/') ? alpha(theme.palette.common.white, 0.15) : 'transparent',
-                }}
-              >
-                <Tooltip title="Products">
-                  <ShoppingCartIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
 
             {/* Canadian Products */}
             <Link to="/canadian-products" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
                 color="inherit"
                 sx={{
-                  bgcolor: isActive('/canadian-products') ? alpha(theme.palette.common.white, 0.15) : 'transparent',
                   '& .MuiSvgIcon-root': {
-                    color: '#FF0000',
+                    color: isActive('/canadian-products') ? '#FF0000' : 'inherit'
                   }
                 }}
               >
@@ -139,6 +180,40 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 </Tooltip>
               </IconButton>
             </Link>
+
+            {/* Receipts */}
+            {/* <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton 
+                color="inherit"
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/receipts') ? '#FF0000' : 'inherit'
+                  }
+                }}
+              >
+                <Tooltip title="Receipts">
+                  <ReceiptIcon />
+                </Tooltip>
+              </IconButton>
+            </Link> */}
+
+            {/* Companies */}
+            {/* <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton 
+                color="inherit"
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/companies') ? '#FF0000' : 'inherit'
+                  }
+                }}
+              >
+                <Tooltip title="Companies">
+                  <BusinessIcon />
+                </Tooltip>
+              </IconButton>
+            </Link> */}
+
+
 
             {/* Product Management - Only show if admin */}
             {isAdmin && (
@@ -151,42 +226,6 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
               </Link>
             )}
 
-            {/* Search */}
-            {/* <Link to="/search" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton color="inherit">
-                <Tooltip title="Search">
-                  <SearchIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
-            {/* Receipts */}
-            {/* <Link to="/receipts" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton color="inherit">
-                <Tooltip title="Receipts">
-                  <ReceiptIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
-            {/* Companies */}
-            {/* <Link to="/companies" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton color="inherit">
-                <Tooltip title="Companies">
-                  <BusinessIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
-            {/* Leaderboard */}
-            {/* <Link to="/leaderboard" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton color="inherit">
-                <Tooltip title="Leaderboard">
-                  <EmojiEventsIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
             {/* User Management - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -197,23 +236,46 @@ export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
                 </IconButton>
               </Link>
             )}
-
+          </Box>
 
 
             {/* Settings */}
             <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton color="inherit">
+              <IconButton 
+                color="inherit"
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/settings') ? '#FF0000' : 'inherit'
+                  }
+                }}
+              >
                 <Tooltip title="Settings">
                   <SettingsIcon />
                 </Tooltip>
               </IconButton>
             </Link>
+            
+          <Box sx={{ flexGrow: 1 }} /> {/* This pushes the following items to the right */}
 
-           
-          </Box>
+          {isInstallable && (
+            <Box sx={{ marginLeft: 'auto' }}> {/* Ensures it aligns to the right */}
+              <Tooltip title="Install App">
+                <IconButton
+                  onClick={handleInstallClick}
+                  sx={{
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.common.white, 0.1),
+                    }
+                  }}
+                >
+                  <GetAppIcon sx={{ color: 'white' }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
         </Toolbar>
       </AppBar>
-      <Toolbar />  {/* Spacer for fixed AppBar */}
     </Box>
   );
 }
