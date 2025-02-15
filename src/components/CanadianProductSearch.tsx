@@ -21,7 +21,8 @@ import {
   TablePagination,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import VerifiedIcon from '@mui/icons-material/Verified';
+import CheckIcon from '@mui/icons-material/Check';
+import CircleIcon from '@mui/icons-material/Circle';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
@@ -361,84 +362,104 @@ export default function CanadianProductSearch() {
         </Paper>
 
         {/* Results */}
-        <TableContainer component={Paper} sx={{ mt: 3 , width: '96%' }}>
-          <Table sx={{ minWidth: 650 }} aria-label="product results">
+        <TableContainer 
+          component={Paper} 
+          sx={{ 
+            mt: 3, 
+            width: '96%',
+            overflowX: 'auto',
+            '& .MuiTableCell-root': {
+              whiteSpace: 'normal',
+              p: 1,
+              borderBottom: '1px solid rgba(224, 224, 224, 0.4)'
+            },
+            '& .MuiTableRow-root:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)'
+            }
+          }}
+        >
+          <Table 
+            size="small"
+            sx={{ 
+              minWidth: {
+                xs: 400,     
+                sm: 650      
+              },
+              tableLayout: 'fixed'
+            }} 
+            aria-label="product results"
+          >
             <TableHead>
               <TableRow>
-                <TableCell>Brand Name</TableCell>
-                <TableCell>Location</TableCell>
-                <TableCell>Products</TableCell>
-                <TableCell>Categories</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Brand Name</TableCell>
+                
+                <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Products</TableCell>
+                <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Categories</TableCell>
+                <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Status</TableCell>
+                <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Actions</TableCell>
+                <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Location</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {products
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((product) => (
-                  <TableRow key={product._id}>
+                  <TableRow 
+                    key={product._id}
+                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  >
                     <TableCell>
-                      <Typography variant="subtitle1">
+                      <Typography 
+                        sx={{ 
+                          fontWeight: 500,
+                          fontSize: '0.875rem',
+                          color: 'text.primary'
+                        }}
+                      >
                         {product.brand_name}
                       </Typography>
                     </TableCell>
+                
                     <TableCell>
-                      {product.city}, {product.province}
+                      <Typography 
+                        sx={{ 
+                          fontSize: '0.875rem',
+                          color: 'text.secondary',
+                          maxWidth: '200px',
+                          whiteSpace: 'normal',
+                          wordBreak: 'normal'
+                        }}
+                      >
+                        {product.products.join(', ')}
+                      </Typography>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {product.products.slice(0, 3).map((prod, index) => (
-                          <Chip
-                            key={index}
-                            label={prod}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
-                        {product.products.length > 3 && (
-                          <Chip
-                            label={`+${product.products.length - 3}`}
-                            size="small"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {product.categories.slice(0, 2).map((category, index) => (
-                          <Chip
-                            key={index}
-                            label={category}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        ))}
-                        {product.categories.length > 2 && (
-                          <Chip
-                            label={`+${product.categories.length - 2}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
+                      <Typography 
+                        sx={{ 
+                          fontSize: '0.875rem',
+                          color: 'text.secondary',
+                          maxWidth: '200px',
+                          whiteSpace: 'normal',
+                          wordBreak: 'normal'
+                        }}
+                      >
+                        {product.categories.join(', ')}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       {product.production_verified ? (
-                        <Chip
-                          icon={<VerifiedIcon />}
-                          label="Verified"
-                          color="success"
-                          size="small"
+                        <CheckIcon 
+                          sx={{ 
+                            color: '#4CAF50',
+                            fontSize: '1rem'
+                          }} 
                         />
                       ) : (
-                        <Chip
-                          label="Pending"
-                          color="warning"
-                          size="small"
+                        <CircleIcon 
+                          sx={{ 
+                            color: '#FF9800',
+                            fontSize: '0.8rem'
+                          }}
                         />
                       )}
                     </TableCell>
@@ -452,6 +473,16 @@ export default function CanadianProductSearch() {
                           Visit Website
                         </Link>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography 
+                        sx={{ 
+                          fontSize: '0.875rem',
+                          color: 'text.secondary'
+                        }}
+                      >
+                        {product.city}, {product.province}
+                      </Typography>
                     </TableCell>
                   </TableRow>
               ))}

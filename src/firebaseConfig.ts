@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Helper function to get environment variables that works in both Vite and Node
@@ -30,5 +30,22 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with caching settings
+export const db = initializeFirestore(app, {
+  cacheSizeBytes: 50 * 1024 * 1024, // 50MB cache size
+  experimentalForceLongPolling: true
+});
+
+// Enable offline persistence
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Multiple tabs open, persistence can only be enabled in one tab at a time.
+    console.log('Persistence failed: Multiple tabs open');
+  } else if (err.code === 'unimplemented') {
+    // The current browser doesn't support persistence
+    console.log('Persistence not supported by browser');
+  }
+});
+
 export const storage = getStorage(app);
