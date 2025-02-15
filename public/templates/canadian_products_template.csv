@@ -1,0 +1,4 @@
+brand_name,website,city,province,production_verified,notes,products,categories,cdn_prod_tags
+Example Brand,https://example.com,Toronto,Ontario,TRUE,Optional notes here,"Product 1; Product 2; Product 3","Food & Beverage; Electronics","tag1; tag2; tag3"
+Another Brand,https://another.com,Vancouver,British Columbia,FALSE,,"Smart TV; Laptop","Electronics",""
+Third Brand,,Montreal,Quebec,TRUE,No website needed,"Coffee Maker","Home & Garden; Food & Beverage","eco-friendly; premium"

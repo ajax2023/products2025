@@ -83,6 +83,63 @@ export interface Product {
   canadianOriginType: string;  // Can be 'product_of_canada', 'made_in_canada', 'made_in_canada_imported', or a country name
 }
 
+export interface CanadianProduct {
+  _id: string;
+  brand_name: string;
+  website: string;
+  city: string;
+  province: string;
+  production_verified: boolean;
+  notes?: string;
+  products: string[];
+  categories: ProductCategory[];
+  cdn_prod_tags: string[];
+  added_by: string;
+  added_by_email: string;
+  added_by_name: string;
+  date_added: string;  // ISO string
+  date_modified: string;  // ISO string
+  modified_by: string;
+  modified_by_email: string;
+  modified_by_name: string;
+  is_active: boolean;
+  version: number;
+}
+
+export interface CanadianProductStats {
+  totalProducts: number;
+  byProvince: { [key: string]: number };
+  byVerificationStatus: {
+    verified: number;
+    unverified: number;
+  };
+  byCategory: { [key: string]: number };
+  totalBrands: number;
+  totalTags: number;
+}
+
+export interface VerificationStatusChange {
+  productId: string;
+  brandName: string;
+  previousStatus: boolean;
+  newStatus: boolean;
+  changedBy: string;
+  changedByEmail: string;
+  changedByName: string;
+  changeDate: string;
+  notes?: string;
+}
+
+export interface BatchImportResult {
+  successful: number;
+  failed: number;
+  errors: Array<{
+    index: number;
+    error: string;
+    data?: Partial<CanadianProduct>;
+  }>;
+}
+
 export const COMMON_ATTRIBUTES = {
   'Medical Supplies': ['size', 'color', 'material', 'gender', 'age_group'],
   'Food & Beverage': ['weight', 'volume', 'calories', 'ingredients', 'allergens'],
@@ -148,3 +205,58 @@ export const validateProduct = (product: Partial<Product>): string[] => {
 
   return errors;
 };
+
+export function validateCanadianProduct(product: Partial<CanadianProduct>): string[] {
+  const errors: string[] = [];
+
+  // Required fields validation
+  if (!product.city?.trim()) errors.push('City is required');
+  if (!product.province?.trim()) errors.push('Province is required');
+  
+  // Website URL validation
+  if (product.website) {
+    try {
+      new URL(product.website);
+    } catch {
+      errors.push('Website must be a valid URL (e.g., https://example.com)');
+    }
+  }
+
+  // Products and categories validation
+  if (!product.products?.length) errors.push('At least one product is required');
+  if (!product.categories?.length) errors.push('At least one category is required');
+
+  // Production verification validation
+  if (typeof product.production_verified !== 'boolean') {
+    errors.push('Production verification status must be specified');
+  }
+
+  return errors;
+}
+
+// Helper function to create a new Canadian product
+export function createCanadianProduct(data: Partial<CanadianProduct>): CanadianProduct {
+  const now = new Date().toISOString();
+  return {
+    _id: data._id || '',
+    brand_name: data.brand_name || '',
+    website: data.website || '',
+    city: data.city || '',
+    province: data.province || '',
+    production_verified: data.production_verified || false,
+    notes: data.notes || '',
+    products: data.products || [],
+    categories: data.categories || [],
+    cdn_prod_tags: data.cdn_prod_tags || [],
+    added_by: data.added_by || '',
+    added_by_email: data.added_by_email || '',
+    added_by_name: data.added_by_name || '',
+    date_added: data.date_added || now,
+    date_modified: data.date_modified || now,
+    modified_by: data.modified_by || '',
+    modified_by_email: data.modified_by_email || '',
+    modified_by_name: data.modified_by_name || '',
+    is_active: data.is_active ?? true,
+    version: data.version || 1,
+  };
+}

@@ -19,8 +19,11 @@ import BackgroundImage from './components/BackgroundImage';
 // import Receipts from './components/Receipts';
 import Leaderboard from './components/Leaderboard';
 import Home from './components/Home';
-import { AuthProvider } from './auth';
+import Search from './components/Search';
+import CanadianProductSearch from './components/CanadianProductSearch';
+import { AuthProvider, RequireAuth, RequireAdmin, useAuth, ProtectedRoute } from './auth';
 import { NotificationProvider } from './components/common/NotificationSnackbar';
+import ProductManagement from './components/admin/ProductManagement';
 
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
@@ -45,7 +48,7 @@ function App() {
                     <>
                       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
                       <Routes>
-                        <Route path="/" element={<ProductList />} />
+                        <Route path="/" element={<CanadianProductSearch />} />
                         <Route path="/add" element={<ProductForm />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/companies" element={<CompanyList />} />
@@ -55,6 +58,19 @@ function App() {
                         {/* <Route path="/receipts" element={<Receipts />} /> */}
                         <Route path="/leaderboard" element={<Leaderboard />} />
                         <Route path="/home" element={<Home />} />
+                        <Route path="/search" element={<Search />} />
+                        <Route path="/canadian-products" element={<CanadianProductSearch />} />
+                        <Route
+                          path="/admin/products"
+                          element={
+                            <ProtectedRoute
+                              requiredRole="admin"
+                              fallback="/login"
+                            >
+                              <ProductManagement />
+                            </ProtectedRoute>
+                          }
+                        />
                       </Routes>
                     </>
                   }

@@ -1,6 +1,6 @@
-export { signInWithGoogle, logout } from './auth';
 export { useAuth } from './useAuth';
-export { auth } from './auth';
+export { auth, signInWithGoogle, logout } from './auth';
 export { AuthContext } from './AuthContext';
 export { AuthProvider } from './AuthProvider';
+export { ProtectedRoute } from './ProtectedRoute';
 export * from './types';
