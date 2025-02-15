@@ -42,12 +42,6 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<BatchImportResult | null>(null);
-  const [stats, setStats] = useState<{
-    total: number;
-    verified: number;
-    unverified: number;
-    products: { [key: string]: CanadianProduct };
-  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpen = () => setOpen(true);
@@ -58,17 +52,6 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
 
   const downloadTemplate = () => {
     window.open('/templates/canadian_products_template.csv', '_blank');
-  };
-
-  const countTotalProducts = (products: CanadianProduct[]) => {
-    return products.reduce((sum, p) => {
-      const productCount = p.products
-        .map(prod => prod.split(',').map(p => p.trim()))
-        .flat()
-        .filter(p => p.length > 0)
-        .length;
-      return sum + productCount;
-    }, 0);
   };
 
   const processCSV = (csv: string) => {
@@ -149,42 +132,6 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
     });
   };
 
-  const fetchStats = async () => {
-    try {
-      const productsRef = collection(db, 'canadian_products');
-      
-      // Get total count
-      const totalQuery = query(productsRef);
-      const totalSnapshot = await getDocs(totalQuery);
-      const total = totalSnapshot.size;
-
-      // Get verified count
-      const verifiedQuery = query(productsRef, where('production_verified', '==', true));
-      const verifiedSnapshot = await getDocs(verifiedQuery);
-      const verified = verifiedSnapshot.size;
-
-      const productsQuery = query(productsRef);
-      const productsSnapshot = await getDocs(productsQuery);
-      const products = productsSnapshot.docs.reduce((acc, doc) => {
-        acc[doc.id] = doc.data() as CanadianProduct;
-        return acc;
-      }, {});
-
-      setStats({
-        total,
-        verified,
-        unverified: total - verified,
-        products
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.length) return;
 
@@ -240,9 +187,6 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
       const results = await Promise.all(uploadPromises);
       console.log(`Successfully uploaded ${results.length} products`);
 
-      // Refresh stats after upload
-      await fetchStats();
-
       setResult({
         success: true,
         message: `Successfully uploaded ${results.length} products`
@@ -261,55 +205,6 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
 
   return (
     <Box>
-      {/* Stats Bar */}
-      <Card sx={{ mb: 0.5 }}>
-        <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
-          <Grid container spacing={0}>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                  Total Brands
-                </Typography>
-                <Typography variant="body2">
-                  {stats?.total ?? <CircularProgress size={12} />}
-                </Typography>
-              </Box>
-            </Grid>
-            {/* COUNT OF INDIVIDUAL BRANDS */}
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                  Products
-                </Typography>
-                <Typography variant="body2">
-                  {stats ? countTotalProducts(Object.values(stats.products || {})) : <CircularProgress size={12} />}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-                  Verified
-                </Typography>
-                <Typography variant="body2">
-                  {stats?.verified ?? <CircularProgress size={12} />}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={3}>
-              <Box textAlign="center">
-                <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
-                  Pending
-                </Typography>
-                <Typography variant="body2">
-                  {stats?.unverified ?? <CircularProgress size={12} />}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
       {/* Existing Upload UI */}
       <Button
         variant="contained"

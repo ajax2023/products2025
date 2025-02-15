@@ -38,6 +38,12 @@ export default function CanadianProductSearch() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [allProducts, setAllProducts] = useState<CanadianProduct[]>([]);
+  const [stats, setStats] = useState<{
+    total: number;
+    verified: number;
+    unverified: number;
+    products: { [key: string]: CanadianProduct };
+  } | null>(null);
 
   const countTotalProducts = (products: CanadianProduct[]) => {
     return products.reduce((sum, p) => {
@@ -49,6 +55,42 @@ export default function CanadianProductSearch() {
       return sum + productCount;
     }, 0);
   };
+
+  const fetchStats = async () => {
+    try {
+      const productsRef = collection(db, 'canadian_products');
+      
+      // Get total count
+      const totalQuery = query(productsRef);
+      const totalSnapshot = await getDocs(totalQuery);
+      const total = totalSnapshot.size;
+
+      // Get verified count
+      const verifiedQuery = query(productsRef, where('production_verified', '==', true));
+      const verifiedSnapshot = await getDocs(verifiedQuery);
+      const verified = verifiedSnapshot.size;
+
+      const productsQuery = query(productsRef);
+      const productsSnapshot = await getDocs(productsQuery);
+      const products = productsSnapshot.docs.reduce((acc, doc) => {
+        acc[doc.id] = doc.data() as CanadianProduct;
+        return acc;
+      }, {});
+
+      setStats({
+        total,
+        verified,
+        unverified: total - verified,
+        products
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -158,6 +200,55 @@ export default function CanadianProductSearch() {
           Canadian Products Search
         </Typography>
 
+        {/* Stats Display */}
+        {stats && (
+          <Card sx={{p: 0, mb: 0.5, mt: 1, width: '100%', maxWidth: 700}}>
+            <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
+              <Grid container spacing={0}>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                      Total Brands
+                    </Typography>
+                    <Typography variant="body2">
+                      {stats.total ?? <CircularProgress size={12} />}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                      Products
+                    </Typography>
+                    <Typography variant="body2">
+                      {stats ? countTotalProducts(Object.values(stats.products || {})) : <CircularProgress size={12} />}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+                      Verified
+                    </Typography>
+                    <Typography variant="body2">
+                      {stats.verified ?? <CircularProgress size={12} />}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
+                      Pending
+                    </Typography>
+                    <Typography variant="body2">
+                      {stats.unverified ?? <CircularProgress size={12} />}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Admin Upload Button */}
         {isAdmin && auth.currentUser && (
@@ -229,7 +320,7 @@ export default function CanadianProductSearch() {
             <Grid item xs={3}>
               <Box textAlign="center">
                 <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                  Companies
+                  Brands-Companies
                 </Typography>
                 <Typography variant="body2">
                   {products.length}
@@ -270,7 +361,7 @@ export default function CanadianProductSearch() {
         </Paper>
 
         {/* Results */}
-        <TableContainer component={Paper} sx={{ mt: 3 }}>
+        <TableContainer component={Paper} sx={{ mt: 3 , width: '96%' }}>
           <Table sx={{ minWidth: 650 }} aria-label="product results">
             <TableHead>
               <TableRow>
@@ -339,7 +430,7 @@ export default function CanadianProductSearch() {
                       {product.production_verified ? (
                         <Chip
                           icon={<VerifiedIcon />}
-                          label="Verified3"
+                          label="Verified"
                           color="success"
                           size="small"
                         />
