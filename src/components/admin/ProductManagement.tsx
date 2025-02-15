@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Table,
@@ -7,6 +7,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableFooter,
+  TablePagination,
   Paper,
   Button,
   Dialog,
@@ -22,10 +24,13 @@ import {
   CircularProgress,
   FormControlLabel,
   Switch,
+  InputAdornment,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { CanadianProduct } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
@@ -46,7 +51,7 @@ function TabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 1 }}>
+        <Box sx={{ p: 0 }}>
           {children}
         </Box>
       )}
@@ -64,8 +69,11 @@ export default function ProductManagement() {
   const [tabValue, setTabValue] = useState(0);
   const [newCategory, setNewCategory] = useState('');
   const [newProduct, setNewProduct] = useState('');
+  const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     if (!user || !claims || claims.role !== 'admin') return;
     
     setLoading(true);
@@ -77,11 +85,30 @@ export default function ProductManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, claims]);
 
   useEffect(() => {
     loadProducts();
-  }, []);
+  }, [loadProducts]);
+
+  const filteredProducts = useMemo(() => 
+    products.filter(product => 
+      tabValue === 0 ? !product.production_verified : product.production_verified
+    ), [products, tabValue]);
+
+  const paginatedProducts = useMemo(() => 
+    filteredProducts.slice(page * pageSize, (page + 1) * pageSize),
+    [filteredProducts, page, pageSize]
+  );
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPageSize(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const handleEdit = (product: CanadianProduct) => {
     setSelectedProduct(product);
@@ -106,22 +133,53 @@ export default function ProductManagement() {
     try {
       await updateCanadianProduct(
         selectedProduct._id,
-        editedProduct,
+        {
+          brand_name: editedProduct.brand_name,
+          city: editedProduct.city,
+          province: editedProduct.province,
+          website: editedProduct.website,
+          products: editedProduct.products || [],
+          categories: editedProduct.categories || [],
+          notes: editedProduct.notes,
+        },
         user.uid,
         user.email || '',
         user.displayName || ''
       );
+
+      // Update local state
+      setProducts(prevProducts => 
+        prevProducts.map(p => 
+          p._id === selectedProduct._id 
+            ? { 
+                ...p, 
+                brand_name: editedProduct.brand_name || p.brand_name,
+                city: editedProduct.city || p.city,
+                province: editedProduct.province || p.province,
+                website: editedProduct.website || p.website,
+                products: editedProduct.products || p.products,
+                categories: editedProduct.categories || p.categories,
+                notes: editedProduct.notes,
+              } 
+            : p
+        )
+      );
+
       setEditDialogOpen(false);
-      loadProducts();
     } catch (error) {
-      console.error('Error updating product:', error);
+      console.error('Error saving product:', error);
     }
   };
 
   const handleVerificationToggle = async (product: CanadianProduct) => {
     if (!user) return;
 
+    setUpdatingProducts(prev => new Set(prev).add(product._id));
+
     try {
+      const updatedProduct = { ...product, production_verified: !product.production_verified };
+      setProducts(prev => prev.map(p => p._id === product._id ? updatedProduct : p));
+
       await updateVerificationStatus(
         product._id,
         !product.production_verified,
@@ -129,9 +187,15 @@ export default function ProductManagement() {
         user.email || '',
         user.displayName || ''
       );
-      loadProducts();
     } catch (error) {
       console.error('Error updating verification status:', error);
+      setProducts(prev => prev.map(p => p._id === product._id ? product : p));
+    } finally {
+      setUpdatingProducts(prev => {
+        const next = new Set(prev);
+        next.delete(product._id);
+        return next;
+      });
     }
   };
 
@@ -147,7 +211,27 @@ export default function ProductManagement() {
   const handleRemoveCategory = (index: number) => {
     setEditedProduct(prev => ({
       ...prev,
-      categories: prev.categories?.filter((_, i) => i !== index)
+      categories: prev.categories?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const handleCategoryEdit = (index: number, value: string) => {
+    if (!editedProduct.categories) return;
+    const newCategories = [...editedProduct.categories];
+    newCategories[index] = value;
+    setEditedProduct(prev => ({
+      ...prev,
+      categories: newCategories
+    }));
+  };
+
+  const handleProductEdit = (index: number, value: string) => {
+    if (!editedProduct.products) return;
+    const newProducts = [...editedProduct.products];
+    newProducts[index] = value;
+    setEditedProduct(prev => ({
+      ...prev,
+      products: newProducts
     }));
   };
 
@@ -163,13 +247,9 @@ export default function ProductManagement() {
   const handleRemoveProduct = (index: number) => {
     setEditedProduct(prev => ({
       ...prev,
-      products: prev.products?.filter((_, i) => i !== index)
+      products: prev.products?.filter((_, i) => i !== index) || []
     }));
   };
-
-  const filteredProducts = products.filter(product => 
-    tabValue === 0 ? !product.production_verified : product.production_verified
-  );
 
   return (
     <Box sx={{ width: '100%', typography: 'body1', p: 0 }}>
@@ -241,155 +321,362 @@ export default function ProductManagement() {
         </Box>
       ) : (
         <TabPanel value={tabValue} index={tabValue}>
-          <TableContainer component={Paper}>
-            <Table>
+          <TableContainer 
+            component={Paper} 
+            variant="outlined"
+            sx={{ 
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              mb: 2,
+              '& .MuiTableCell-root': {
+                borderColor: 'divider'
+              }
+            }}
+          >
+            <Table size="small">
               <TableHead>
-                <TableRow>
-                  <TableCell>Brand Name</TableCell>
-                  <TableCell>Location</TableCell>
-                  <TableCell>Products</TableCell>
-                  <TableCell>Categories</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                <TableRow sx={{ bgcolor: 'primary.main' }}>
+                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Brand Name</TableCell>
+                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Location</TableCell>
+                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Products</TableCell>
+                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Categories</TableCell>
+                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredProducts.map((product) => (
-                  <TableRow key={product._id}>
-                    <TableCell>{product.brand_name}</TableCell>
-                    <TableCell>{`${product.city}, ${product.province}`}</TableCell>
-                    <TableCell>
-                      {product.products.slice(0, 2).map((p, i) => (
-                        <Chip key={i} label={p} size="small" sx={{ m: 0.5 }} />
-                      ))}
-                      {product.products.length > 2 && (
-                        <Chip label={`+${product.products.length - 2}`} size="small" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {product.categories.slice(0, 2).map((c, i) => (
-                        <Chip key={i} label={c} size="small" color="primary" sx={{ m: 0.5 }} />
-                      ))}
-                      {product.categories.length > 2 && (
-                        <Chip label={`+${product.categories.length - 2}`} size="small" color="primary" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={product.production_verified}
-                            onChange={() => handleVerificationToggle(product)}
-                            color="success"
-                          />
-                        }
-                        label={product.production_verified ? "Verified" : "Pending"}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton onClick={() => handleEdit(product)} color="primary">
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton onClick={() => handleDelete(product)} color="error">
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
+                {paginatedProducts.map((product, index) => (
+                  <React.Fragment key={product._id}>
+                    <TableRow 
+                      sx={{ 
+                        bgcolor: index % 1 === 0 ? 'gray.300' : 'common.white',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          cursor: 'pointer',
+                          color: 'white'
+                        },
+                        '& > td': { py: 0.0 }
+                      }}
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {product.brand_name}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {`${product.city}, ${product.province}`}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {product.products.join(', ')}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {product.categories.join(', ')}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        <Switch
+                          checked={product.production_verified}
+                          onChange={(e) => {
+                            e.stopPropagation(); // Prevent row click when toggling switch
+                            const updatedProduct = { ...product, production_verified: e.target.checked };
+                            setProducts(products.map(p => p._id === product._id ? updatedProduct : p));
+                            updateCanadianProduct(
+                              product._id,
+                              { production_verified: e.target.checked },
+                              user?.uid || '',
+                              user?.email || '',
+                              user?.displayName || ''
+                            );
+                          }}
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow 
+                      sx={{ 
+                        bgcolor: index % 1 === 0 ? 'grey.300' : 'common.white',
+                        color: 'red',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          cursor: 'pointer',
+                          color: 'white'
+                        },
+                        '& > td': { 
+                          borderBottom: '2px solid black',
+                          borderColor: 'divider',
+                          py: 0,
+                          mb: 0
+                        },
+                        mb: 2
+                      }}
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <TableCell colSpan={5} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
+                        <Typography variant="body2" color="black">
+                          {product.notes || 'No notes'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                    {/* Add a small gap row */}
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ p: 0.5, border: 'none' }} />
+                    </TableRow>
+                  </React.Fragment>
                 ))}
+                {/* ------------------------------------------------------------------------------------------------------- */}
               </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TablePagination
+                    rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                    colSpan={5}
+                    count={products.length}
+                    rowsPerPage={pageSize}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    sx={{
+                      bgcolor: 'primary.main',
+                      borderTop: '1px solid blue',
+                      borderColor: 'divider',
+                      color: 'white'
+                    }}
+                  />
+                </TableRow>
+              </TableFooter>
             </Table>
           </TableContainer>
         </TabPanel>
       )}
 
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={() => setEditDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            '& .MuiDialogTitle-root': {
+              p: 1.5,
+            },
+            '& .MuiDialogContent-root': {
+              p: 1.5,
+              '&:first-of-type': {
+                pt: 1.5
+              }
+            },
+            '& .MuiDialogActions-root': {
+              p: 1,
+            }
+          }
+        }}
+      >
         <DialogTitle>Edit Product</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <TextField
               label="Brand Name"
               value={editedProduct.brand_name || ''}
-              onChange={(e) => setEditedProduct({ ...editedProduct, brand_name: e.target.value })}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, brand_name: e.target.value }))}
               fullWidth
+              size="small"
+              margin="none"
+              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
             />
-            <TextField
-              label="City"
-              value={editedProduct.city || ''}
-              onChange={(e) => setEditedProduct({ ...editedProduct, city: e.target.value })}
-              fullWidth
-            />
-            <TextField
-              label="Province"
-              value={editedProduct.province || ''}
-              onChange={(e) => setEditedProduct({ ...editedProduct, province: e.target.value })}
-              fullWidth
-            />
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <TextField
+                label="City"
+                value={editedProduct.city || ''}
+                onChange={(e) => setEditedProduct(prev => ({ ...prev, city: e.target.value }))}
+                fullWidth
+                size="small"
+                margin="none"
+                sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+              />
+              <TextField
+                label="Province"
+                value={editedProduct.province || ''}
+                onChange={(e) => setEditedProduct(prev => ({ ...prev, province: e.target.value }))}
+                fullWidth
+                size="small"
+                margin="none"
+                sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+              />
+            </Box>
             <TextField
               label="Website"
               value={editedProduct.website || ''}
-              onChange={(e) => setEditedProduct({ ...editedProduct, website: e.target.value })}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, website: e.target.value }))}
               fullWidth
+              size="small"
+              margin="none"
+              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+              InputProps={{
+                endAdornment: editedProduct.website && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => window.open(editedProduct.website, '_blank')}
+                    >
+                      <OpenInNewIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            
+            <TextField
+              label="Notes"
+              value={editedProduct.notes || ''}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, notes: e.target.value }))}
+              multiline
+              rows={2}
+              fullWidth
+              size="small"
+              margin="none"
+              placeholder="Add any notes about this product..."
             />
 
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
-                Products
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-                {editedProduct.products?.map((product, index) => (
-                  <Chip
-                    key={index}
-                    label={product}
-                    onDelete={() => handleRemoveProduct(index)}
-                  />
-                ))}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  label="Add Product"
-                  value={newProduct}
-                  onChange={(e) => setNewProduct(e.target.value)}
-                  size="small"
-                />
-                <Button variant="outlined" onClick={handleAddProduct}>
-                  Add
-                </Button>
-              </Box>
+            <Box sx={{ mt: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.0 }}>Products</Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>Product Name</TableCell>
+                      <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(editedProduct.products || []).map((product, index) => (
+                      <TableRow key={index}>
+                        <TableCell sx={{ py: 0.0 }}>
+                          <TextField
+                            value={product}
+                            onChange={(e) => handleProductEdit(index, e.target.value)}
+                            variant="standard"
+                            fullWidth
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.0 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveProduct(index)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>
+                        <TextField
+                          value={newProduct}
+                          onChange={(e) => setNewProduct(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddProduct();
+                            }
+                          }}
+                          placeholder="Add new product"
+                          variant="standard"
+                          fullWidth
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 0.0 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handleAddProduct}
+                          color="primary"
+                          disabled={!newProduct.trim()}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Box>
 
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
-                Categories
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-                {editedProduct.categories?.map((category, index) => (
-                  <Chip
-                    key={index}
-                    label={category}
-                    onDelete={() => handleRemoveCategory(index)}
-                    color="primary"
-                  />
-                ))}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  label="Add Category"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  size="small"
-                />
-                <Button variant="outlined" onClick={handleAddCategory}>
-                  Add
-                </Button>
-              </Box>
+            <Box sx={{ mt: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Categories</Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>Category Name</TableCell>
+                      <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(editedProduct.categories || []).map((category, index) => (
+                      <TableRow key={index}>
+                        <TableCell sx={{ py: 0.0 }}>
+                          <TextField
+                            value={category}
+                            onChange={(e) => handleCategoryEdit(index, e.target.value)}
+                            variant="standard"
+                            fullWidth
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.0 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveCategory(index)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>
+                        <TextField
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCategory();
+                            }
+                          }}
+                          placeholder="Add new category"
+                          variant="standard"
+                          fullWidth
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 0.0 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handleAddCategory}
+                          color="primary"
+                          disabled={!newCategory.trim()}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Box>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">
-            Save
-          </Button>
+          <Button onClick={handleSave} variant="contained" color="primary">Save</Button>
         </DialogActions>
       </Dialog>
     </Box>

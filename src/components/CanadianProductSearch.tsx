@@ -200,10 +200,21 @@ export default function CanadianProductSearch() {
         <Typography variant="h6" component="h6" gutterBottom>
           Canadian Products Search
         </Typography>
+  
+        {/* Admin Upload Button */}
+        {isAdmin && auth.currentUser && (
+          <Box sx={{ width: '100%', maxWidth: 700,  mt: 1 }}>
+            <CanadianProductUpload
+              userId={auth.currentUser.uid}
+              userEmail={auth.currentUser.email || ''}
+              userName={auth.currentUser.displayName || ''}
+            />
+          </Box>
+        )}
 
         {/* Stats Display */}
         {stats && (
-          <Card sx={{p: 0, mb: 0.5, mt: 1, width: '100%', maxWidth: 700}}>
+          <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%', maxWidth: 700}}>
             <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
               <Grid container spacing={0}>
                 <Grid item xs={3}>
@@ -251,17 +262,6 @@ export default function CanadianProductSearch() {
           </Card>
         )}
 
-        {/* Admin Upload Button */}
-        {isAdmin && auth.currentUser && (
-          <Box sx={{ width: '100%', maxWidth: 700, mb: 1 }}>
-            <CanadianProductUpload
-              userId={auth.currentUser.uid}
-              userEmail={auth.currentUser.email || ''}
-              userName={auth.currentUser.displayName || ''}
-            />
-          </Box>
-        )}
-        
         {/* Search Bar */}
         <Paper
           component="form"

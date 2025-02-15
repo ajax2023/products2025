@@ -30,45 +30,23 @@ import LocalMallIcon from '@mui/icons-material/LocalMall';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import GetAppIcon from '@mui/icons-material/GetApp';
 
-import { collection, query, getDocs, where } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
 
 interface NavbarProps {
   onTabChange?: (tab: ViewState) => void;
   activeTab?: ViewState;
-  user?: any;
 }
 
-export function Navbar({ onTabChange, activeTab, user }: NavbarProps) {
-  const [isAdmin, setIsAdmin] = useState(false);
+export function Navbar({ onTabChange, activeTab }: NavbarProps) {
+  const { claims } = useAuth();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const checkUserRole = async () => {
-      if (!auth.currentUser) return;
-      
-      // Automatically set ajax@online101.ca as admin
-      if (auth.currentUser.email === 'ajax@online101.ca') {
-        setIsAdmin(true);
-        return;
-      }
-      
-      const userDoc = await getDocs(
-        query(collection(db, 'users'), where('_id', '==', auth.currentUser.uid))
-      );
-      
-      if (!userDoc.empty) {
-        setIsAdmin(userDoc.docs[0].data().role === 'admin');
-      }
-    };
-
-    checkUserRole();
-  }, [user]);
+  const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {

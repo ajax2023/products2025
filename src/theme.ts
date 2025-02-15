@@ -30,11 +30,6 @@ export const theme = createTheme({
           
         },
       },
-      defaultProps: {
-        // Default props for all Grid components
-        disableGutters: false,  // Enable gutters by default
-        
-      },
       variants: [
         {
           props: { container: true },
