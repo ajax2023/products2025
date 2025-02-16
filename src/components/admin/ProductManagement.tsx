@@ -34,6 +34,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { CanadianProduct } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
+import CanadianProductUpload from './CanadianProductUpload'; // Import the CanadianProductUpload component
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -251,57 +252,30 @@ export default function ProductManagement() {
     }));
   };
 
+  const renderUploadButton = () => {
+    if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return null;
+    
+    return (
+      <Box sx={{ mb: 2 }}>
+        <CanadianProductUpload 
+          userId={user.uid}
+          userEmail={user.email || ''}
+          userName={user.displayName || user.email || 'Unknown User'}
+        />
+      </Box>
+    );
+  };
+
   return (
-    <Box sx={{ width: '100%', typography: 'body1', p: 0 }}>
-      {/* Stats Section */}
-      <Paper sx={{ p: 0, mb: 0.5, display: 'flex' }}>
-        <Box sx={{ flex: 1, textAlign: 'center' }}>
-          <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-            Brands-M
-          </Typography>
-          <Typography variant="body2">
-            {products.length}
-          </Typography>
-        </Box>
+    <Box sx={{ width: '100%', typography: 'body1', p: 2 }}>
+      <Typography variant="h5" sx={{ mb: 3 }}>Product Management</Typography>
+      
+      
 
-        {/* COUNT OF PRODUCTS - COMMA SEPARATED */}
-        <Box sx={{ flex: 1, textAlign: 'center' }}>
-          <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-            Products-M
-          </Typography>
-          <Typography variant="body2">
-            {products.reduce((sum, p) => {
-              const productCount = p.products
-                .map(prod => prod.split(',').map(p => p.trim()))
-                .flat()
-                .filter(p => p.length > 0)
-                .length;
-              return sum + productCount;
-            }, 0)}
-          </Typography>
-        </Box>
-
-        <Box sx={{ flex: 1, textAlign: 'center' }}>
-          <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-            Verified-M
-          </Typography>
-          <Typography variant="body2">
-            {products.filter(p => p.production_verified).length}
-          </Typography>
-        </Box>
-        <Box sx={{ flex: 1, textAlign: 'center' }}>
-          <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
-            Pending-M
-          </Typography>
-          <Typography variant="body2">
-            {products.filter(p => !p.production_verified).length}
-          </Typography>
-        </Box>
-      </Paper>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
-        <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ mb: 0.5 , mr: 2,display: 'flex', justifyContent: 'space-between' }} >
           Product Management
+          {renderUploadButton()}
         </Typography>
 
         <Tabs 

@@ -92,12 +92,20 @@ export default function Settings() {
         setError('');
         setLoading(true);
 
-        // Wait a bit for the user document to be created by auth.ts
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Try to get cached settings first
+        const cachedSettings = localStorage.getItem(`userSettings-${user.uid}`);
+        if (cachedSettings) {
+          const parsedSettings = JSON.parse(cachedSettings);
+          setUserSettings(parsedSettings);
+          setUserRole(parsedSettings.role);
+          setLoading(false);
+        }
 
-        // Get user document
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
+        // Get user and settings documents in parallel
+        const [userDoc, settingsDoc] = await Promise.all([
+          getDoc(doc(db, 'users', user.uid)),
+          getDoc(doc(db, 'userSettings', user.uid))
+        ]);
         
         if (!userDoc.exists()) {
           console.error('User document not found after login');
@@ -109,12 +117,9 @@ export default function Settings() {
         const userData = userDoc.data();
         setUserRole(userData.role);
 
-        // Then handle settings
-        const settingsRef = doc(db, 'userSettings', user.uid);
-        const settingsDoc = await getDoc(settingsRef);
-        
+        let settingsData: UserSettings;
         if (!settingsDoc.exists()) {
-          const newSettings = {
+          settingsData = {
             ...defaultSettings,
             _id: user.uid,
             email: user.email || '',
@@ -122,21 +127,23 @@ export default function Settings() {
             role: userData.role,
             created_by: user.uid
           };
-          await setDoc(settingsRef, newSettings);
-          setUserSettings(newSettings);
+          await setDoc(doc(db, 'userSettings', user.uid), settingsData);
         } else {
-          const settingsData = settingsDoc.data() as UserSettings;
-          // Ensure all new fields have defaults
-          setUserSettings({
+          const rawSettingsData = settingsDoc.data() as UserSettings;
+          settingsData = {
             ...defaultSettings,
-            ...settingsData,
+            ...rawSettingsData,
             sharing: {
               ...defaultSettings.sharing,
-              ...settingsData.sharing
+              ...rawSettingsData.sharing
             }
-          });
+          };
         }
 
+        // Cache the settings
+        localStorage.setItem(`userSettings-${user.uid}`, JSON.stringify(settingsData));
+        
+        setUserSettings(settingsData);
         setLoading(false);
         setError('');
       } catch (error) {
@@ -155,61 +162,45 @@ export default function Settings() {
     if (!user) return;
 
     try {
-      console.log('Current user settings:', userSettings);
       setLoading(true);
+      setSaveMessage('');
+
+      const updates = [];
 
       // Update display name in Firebase Auth if it changed
       if (userSettings.displayName !== user.displayName) {
-        await updateProfile(user, {
-          displayName: userSettings.displayName
-        });
-
-        // Also update the users collection
-        const userRef = doc(db, 'users', user.uid);
-        await setDoc(userRef, {
-          displayName: userSettings.displayName,
-          updated_at: new Date().toISOString(),
-          updated_by: user.uid
-        }, { merge: true });
+        updates.push(
+          updateProfile(user, {
+            displayName: userSettings.displayName
+          }),
+          setDoc(doc(db, 'users', user.uid), {
+            displayName: userSettings.displayName,
+            updated_at: new Date().toISOString(),
+            updated_by: user.uid
+          }, { merge: true })
+        );
       }
 
-      // First get the existing document
-      const settingsRef = doc(db, 'userSettings', user.uid);
-      const existingDoc = await getDoc(settingsRef);
-      const existingData = existingDoc.exists() ? existingDoc.data() : {};
+      // Update settings
+      updates.push(
+        setDoc(doc(db, 'userSettings', user.uid), {
+          ...userSettings,
+          updated_at: new Date().toISOString(),
+          updated_by: user.uid
+        }, { merge: true })
+      );
 
-      const settingsToSave = {
-        ...existingData, // Preserve existing fields
-        _id: user.uid,
-        email: userSettings.email || existingData.email,
-        displayName: userSettings.displayName,
-        role: userRole,
-        status: userSettings.status || existingData.status,
-        location: {
-          ...existingData.location,
-          ...userSettings.location
-        },
-        preferences: {
-          ...existingData.preferences,
-          ...userSettings.preferences
-        },
-        sharing: {
-          ...existingData.sharing,
-          ...userSettings.sharing
-        },
-        updated_at: new Date().toISOString(),
-        updated_by: user.uid
-      };
+      // Execute all updates in parallel
+      await Promise.all(updates);
 
-      console.log('Saving settings with preserved structure:', settingsToSave);
-      await setDoc(doc(db, 'userSettings', user.uid), settingsToSave);
-      setSaveMessage('Settings saved successfully!');
-      setError(''); // Clear any error
-      setTimeout(() => setSaveMessage(''), 3000);
+      // Update cache
+      localStorage.setItem(`userSettings-${user.uid}`, JSON.stringify(userSettings));
+
+      setSaveMessage('Settings saved successfully');
+      setLoading(false);
     } catch (error) {
       console.error('Error saving settings:', error);
       setError('Error saving settings. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

@@ -27,7 +27,6 @@ import CircleIcon from '@mui/icons-material/Circle';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
-import CanadianProductUpload from './admin/CanadianProductUpload';
 import { auth, db } from '../firebaseConfig';
 import { collection, query, getDocs, where, doc } from 'firebase/firestore';
 import debounce from 'lodash/debounce';
@@ -58,6 +57,23 @@ export default function CanadianProductSearch() {
       return sum + productCount;
     }, 0);
   };
+const countTotalCategories = (products: CanadianProduct[]) => {
+  return products.reduce((sum, p) => {
+    return sum + p.categories.length;
+  }, 0);
+}
+const countTotalStatus = (products: CanadianProduct[]) => {
+  return products.reduce((sum, p) => {
+    return sum + (p.production_verified ? 1 : 0);
+  }, 0);
+}
+
+const countTotalTags = (products: CanadianProduct[]) => {
+  return products.reduce((sum, p) => {
+    return sum + p.cdn_prod_tags.length;
+  }, 0);
+}
+
 
   const fetchStats = async () => {
     try {
@@ -66,21 +82,27 @@ export default function CanadianProductSearch() {
       let total = 0;
       let verified = 0;
 
+      const productsList: CanadianProduct[] = [];
       snapshot.forEach((doc) => {
         const product = { ...doc.data(), _id: doc.id } as CanadianProduct;
         products[doc.id] = product;
+        productsList.push(product);
         total++;
         if (product.production_verified) {
           verified++;
         }
       });
 
-      setStats({
+      const newStats = {
         total,
         verified,
         pending: total - verified,
         products
-      });
+      };
+      setStats(newStats);
+      
+      // Cache the products
+      await cacheService.cacheProducts(productsList);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -90,18 +112,20 @@ export default function CanadianProductSearch() {
     const initializeData = async () => {
       try {
         // Try to get cached data first
-        const cachedStats = await cacheService.get('product-stats');
-        if (cachedStats) {
-          setStats(cachedStats);
+        const products = await cacheService.getCachedProducts();
+        if (products.length > 0) {
+          let total = products.length;
+          let verified = products.filter(p => p.production_verified).length;
+          setStats({
+            total,
+            verified,
+            pending: total - verified,
+            products: products.reduce((acc, p) => ({ ...acc, [p._id]: p }), {})
+          });
         }
 
         // Get fresh data
         await fetchStats();
-        
-        // Cache the fresh data
-        if (stats) {
-          await cacheService.set('product-stats', stats);
-        }
       } catch (error) {
         console.error('Error initializing data:', error);
       }
@@ -193,7 +217,7 @@ export default function CanadianProductSearch() {
   };
 
   return (
-    <Box sx={{ maxWidth: '100%', margin: '100px auto', p: 0}}>
+    <Box sx={{ maxWidth: '100%', margin: '100px auto', p: 0 }}>
       {/* Search Header */}
       <Box
         sx={{
@@ -208,33 +232,20 @@ export default function CanadianProductSearch() {
           Canadian Products Search
         </Typography>
   
-        {/* Admin Upload Button */}
-        {isAdmin && auth.currentUser && (
-          <Box sx={{ width: '100%', maxWidth: 700,  mt: 1 }}>
-            <CanadianProductUpload
-              userId={auth.currentUser.uid}
-              userEmail={auth.currentUser.email || ''}
-              userName={auth.currentUser.displayName || ''}
-            />
-          </Box>
-        )}
-
         {/* Stats Display */}
         {stats && (
           <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%', maxWidth: 700}}>
             <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
               <Grid container spacing={0}>
-                <Grid item xs={3}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Total Brands
+              <Grid item xs={2.4}>
+                  <Box>
+                    <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 1 }}>
+                      Totals
                     </Typography>
-                    <Typography variant="body2">
-                      {stats.total ?? <CircularProgress size={12} />}
-                    </Typography>
+                    
                   </Box>
                 </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={2.4}>
                   <Box textAlign="center">
                     <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
                       Products
@@ -244,7 +255,18 @@ export default function CanadianProductSearch() {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={2.4}>
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                      Total Brands
+                    </Typography>
+                    <Typography variant="body2">
+                      {stats.total ?? <CircularProgress size={12} />}
+                    </Typography>
+                  </Box>
+                </Grid>
+      
+                <Grid item xs={2.4}>
                   <Box textAlign="center">
                     <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
                       Verified
@@ -254,7 +276,7 @@ export default function CanadianProductSearch() {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={2.4}>
                   <Box textAlign="center">
                     <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
                       Pending
@@ -340,17 +362,6 @@ export default function CanadianProductSearch() {
                     
                   </Box>
                 </Grid>
-                <Grid item xs={2.4}>
-                 
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Brands-Companies
-                    </Typography>
-                    <Typography variant="body2">
-                      {products.length}
-                    </Typography>
-                  </Box>
-                </Grid>
                 
                 <Grid item xs={2.4}>
                   <Box textAlign="center">
@@ -362,6 +373,18 @@ export default function CanadianProductSearch() {
                     </Typography>
                   </Box>
                 </Grid>
+                <Grid item xs={2.4}>
+                 
+                  <Box textAlign="center">
+                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                      Brands-Companies
+                    </Typography>
+                    <Typography variant="body2">
+                      {products.length}
+                    </Typography>
+                  </Box>
+                </Grid>
+             
                 <Grid item xs={2.4}>
                   <Box textAlign="center">
                     <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
@@ -414,12 +437,13 @@ export default function CanadianProductSearch() {
                 }}
                 >
                   <TableRow>
-                    <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand Name</TableCell>
+                    <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({products.length})</TableCell>
                     
-                    <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products</TableCell>
-                    <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories</TableCell>
-                    <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Status</TableCell>
-                    <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Actions</TableCell>
+                    <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(products)})</TableCell>
+
+                    <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(products)})</TableCell>
+                    <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>({countTotalStatus(products)})</TableCell>
+                    <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Actions</TableCell>
                     <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
                   </TableRow>
                 </TableHead>
@@ -493,7 +517,7 @@ export default function CanadianProductSearch() {
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              Visit Website
+                              Website
                             </Link>
                           )}
                         </TableCell>
