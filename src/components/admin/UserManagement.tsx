@@ -171,13 +171,16 @@ export default function UserManagement() {
       );
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const usersList = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          _id: doc.id,
-          created_at: doc.data().created_at?.toDate(),
-          updated_at: doc.data().updated_at?.toDate(),
-          last_login: doc.data().last_login?.toDate()
-        })) as User[];
+        const usersList = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            _id: doc.id,
+            created_at: data.created_at?.toDate?.() || data.created_at,
+            updated_at: data.updated_at?.toDate?.() || data.updated_at,
+            last_login: data.last_login?.toDate?.() || data.last_login
+          };
+        }) as User[];
         
         setUsers(usersList);
         setFilteredUsers(usersList);
@@ -298,7 +301,7 @@ export default function UserManagement() {
   }
 
   return (
-    <Box sx={{ p: 0 }}>
+    <Box sx={{ mt: 4, p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" component="h5">
           User Management
@@ -380,7 +383,7 @@ export default function UserManagement() {
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WorkIcon color="primary" />
-            <h5>Contributor Requests</h5>
+            <h5>Contributor Requests XXX</h5>
             {contributorRequests.length > 0 && (
               <Chip 
                 label={contributorRequests.length} 

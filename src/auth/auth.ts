@@ -1,11 +1,11 @@
 import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { app, db, auth } from "../firebaseConfig";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
 const googleProvider = new GoogleAuthProvider();
 
 const ensureSuperAdmin = async (user: any) => {
-  const superAdminEmail = import.meta.env.VITE_SUPER_ADMIN_EMAIL || process.env.REACT_APP_SUPER_ADMIN_EMAIL;
+  const superAdminEmail = import.meta.env.VITE_SUPER_ADMIN_EMAIL;
   
   if (user.email === superAdminEmail) {
     const userRef = doc(db, 'users', user.uid);
@@ -15,9 +15,9 @@ const ensureSuperAdmin = async (user: any) => {
       displayName: user.displayName,
       role: 'super_admin',
       status: 'active',
-      created_at: new Date(),
+      created_at: serverTimestamp(),
       created_by: user.uid,
-      last_login: new Date()
+      last_login: serverTimestamp()
     }, { merge: true });
     return true;
   }
@@ -41,12 +41,12 @@ const createUserDocument = async (user: any) => {
             _id: user.uid,
             email: user.email,
             displayName: user.displayName,
-            role: 'contributor',
+            role: 'viewer',  // Default role is viewer
             status: 'active',
-            created_at: new Date(),
+            created_at: serverTimestamp(),
             created_by: user.uid,
-            last_login: new Date()
-          }, { merge: true });
+            last_login: serverTimestamp()
+          });
         } catch (error) {
           console.error("Error creating new user document:", error);
         }
@@ -54,7 +54,7 @@ const createUserDocument = async (user: any) => {
         try {
           // Just update last login
           await setDoc(userRef, {
-            last_login: new Date()
+            last_login: serverTimestamp()
           }, { merge: true });
         } catch (error) {
           console.error("Error updating existing user document:", error);

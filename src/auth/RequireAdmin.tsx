@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { auth, db } from '../firebaseConfig';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { CircularProgress, Box } from '@mui/material';
 
 interface RequireAdminProps {
@@ -25,13 +25,18 @@ export function RequireAdmin({ children }: RequireAdminProps) {
         return;
       }
 
-      const userDoc = await getDocs(
-        query(collection(db, 'users'), where('_id', '==', auth.currentUser.uid))
-      );
+      try {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userDoc = await getDoc(userRef);
 
-      if (!userDoc.empty) {
-        setIsAdmin(userDoc.docs[0].data().role === 'admin');
-      } else {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setIsAdmin(userData.role === 'admin' || userData.role === 'super_admin');
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
         setIsAdmin(false);
       }
     };

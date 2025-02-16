@@ -28,7 +28,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
 import { auth, db } from '../firebaseConfig';
-import { collection, query, getDocs, where, doc } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, getDoc } from 'firebase/firestore';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 
