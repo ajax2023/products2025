@@ -93,7 +93,7 @@ export default function ProductManagement() {
 
   const filteredProducts = useMemo(() => 
     products.filter(product => 
-      tabValue === 0 ? !product.production_verified : product.production_verified
+      tabValue === 0 ? product.production_verified : !product.production_verified
     ), [products, tabValue]);
 
   const paginatedProducts = useMemo(() => 
@@ -310,8 +310,8 @@ export default function ProductManagement() {
           sx={{ minHeight: 32 }}
           TabIndicatorProps={{ sx: { height: 2 } }}
         >
-          <Tab label="Pending" sx={{ minHeight: 32, py: 0 }} />
           <Tab label="Verified" sx={{ minHeight: 32, py: 0 }} />
+          <Tab label="Pending" sx={{ minHeight: 32, py: 0 }} />
         </Tabs>
       </Box>
 
