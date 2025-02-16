@@ -74,7 +74,7 @@ export default function ProductManagement() {
   const [page, setPage] = useState(0);
 
   const loadProducts = useCallback(async () => {
-    if (!user || !claims || claims.role !== 'admin') return;
+    if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
     
     setLoading(true);
     try {
