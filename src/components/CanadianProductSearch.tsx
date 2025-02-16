@@ -280,8 +280,8 @@ export default function CanadianProductSearch() {
             maxWidth: 700,
             mb: 2,
             mt: 2,
-            border: '4px solid primary.main',
-            borderRadius: '8px',
+            border: '2px solid #1976D2',
+            borderRadius: '10px',
             backgroundColor: '#fff'
           }}
           onSubmit={(e) => e.preventDefault()}
