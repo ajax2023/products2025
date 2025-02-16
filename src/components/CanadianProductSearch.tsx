@@ -193,7 +193,7 @@ export default function CanadianProductSearch() {
   };
 
   return (
-    <Box sx={{ maxWidth: '100%', margin: '0 auto', p: 0}}>
+    <Box sx={{ maxWidth: '100%', margin: '10 auto', p: 0}}>
       {/* Search Header */}
       <Box
         sx={{
