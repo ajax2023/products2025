@@ -29,7 +29,7 @@ import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
 import CanadianProductUpload from './admin/CanadianProductUpload';
 import { auth, db } from '../firebaseConfig';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc } from 'firebase/firestore';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 
@@ -61,24 +61,19 @@ export default function CanadianProductSearch() {
 
   const fetchStats = async () => {
     try {
-      const productsRef = collection(db, 'canadian_products');
-      
-      // Get total count
-      const totalQuery = query(productsRef);
-      const totalSnapshot = await getDocs(totalQuery);
-      const total = totalSnapshot.size;
+      const snapshot = await getDocs(collection(db, 'canadian_products'));
+      const products: { [key: string]: CanadianProduct } = {};
+      let total = 0;
+      let verified = 0;
 
-      // Get verified count
-      const verifiedQuery = query(productsRef, where('production_verified', '==', true));
-      const verifiedSnapshot = await getDocs(verifiedQuery);
-      const verified = verifiedSnapshot.size;
-
-      const productsQuery = query(productsRef);
-      const productsSnapshot = await getDocs(productsQuery);
-      const products = productsSnapshot.docs.reduce((acc, doc) => {
-        acc[doc.id] = doc.data() as CanadianProduct;
-        return acc;
-      }, {});
+      snapshot.forEach((doc) => {
+        const product = { ...doc.data(), _id: doc.id } as CanadianProduct;
+        products[doc.id] = product;
+        total++;
+        if (product.production_verified) {
+          verified++;
+        }
+      });
 
       setStats({
         total,
@@ -116,25 +111,15 @@ export default function CanadianProductSearch() {
   }, []);
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      if (!auth.currentUser) return;
-      
-      // Automatically set ajax@online101.ca as admin
-      if (auth.currentUser.email === 'ajax@online101.ca') {
-        setIsAdmin(true);
-        return;
-      }
-      
-      const userDoc = await getDocs(
-        query(collection(db, 'users'), where('_id', '==', auth.currentUser.uid))
-      );
-      
-      if (!userDoc.empty) {
-        setIsAdmin(userDoc.docs[0].data().role === 'admin');
+    const checkAdmin = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        setIsAdmin(adminDoc.exists());
       }
     };
 
-    checkUserRole();
+    checkAdmin();
   }, []);
 
   // Initial cache population
@@ -178,22 +163,11 @@ export default function CanadianProductSearch() {
       }
 
       try {
-        // Try to get cached search results first
-        const cacheKey = `search-${term}`;
-        const cachedResults = await cacheService.get(cacheKey);
-        if (cachedResults) {
-          setProducts(cachedResults);
-          setLoading(false);
-        }
-
-        // Get fresh results
+        setLoading(true);
         const results = await searchCanadianProducts({
           brand_name: term,
         });
         setProducts(results);
-        
-        // Cache the fresh results
-        await cacheService.set(cacheKey, results);
       } catch (error) {
         console.error('Search error:', error);
       } finally {
@@ -206,7 +180,6 @@ export default function CanadianProductSearch() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchQuery(term);
-    setLoading(true);
     debouncedSearch(term);
   };
 
