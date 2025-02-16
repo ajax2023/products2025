@@ -193,7 +193,7 @@ export default function CanadianProductSearch() {
   };
 
   return (
-    <Box sx={{ maxWidth: '100%', margin: '10 auto', p: 0}}>
+    <Box sx={{ maxWidth: '100%', margin: '100px auto', p: 0}}>
       {/* Search Header */}
       <Box
         sx={{
@@ -278,7 +278,11 @@ export default function CanadianProductSearch() {
             alignItems: 'center',
             width: '100%',
             maxWidth: 700,
-            mb: 2
+            mb: 2,
+            mt: 2,
+            border: '2px solid orange',
+            borderRadius: '8px',
+            backgroundColor: '#fff'
           }}
           onSubmit={(e) => e.preventDefault()}
         >
