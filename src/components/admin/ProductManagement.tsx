@@ -18,8 +18,6 @@ import {
   TextField,
   Chip,
   IconButton,
-  Tab,
-  Tabs,
   Typography,
   CircularProgress,
   FormControlLabel,
@@ -29,12 +27,16 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Stack
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DownloadIcon from '@mui/icons-material/Download';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
@@ -71,12 +73,15 @@ export default function ProductManagement() {
   const [selectedProduct, setSelectedProduct] = useState<CanadianProduct | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Partial<CanadianProduct>>({});
-  const [tabValue, setTabValue] = useState(0);
-  const [newCategory, setNewCategory] = useState<ProductCategory | ''>('');
+  const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+  const [orderBy, setOrderBy] = useState<keyof CanadianProduct>('brand_name');
+  const [page, setPage] = useState(0);
+  const [newCategory, setNewCategory] = useState('');
   const [newProduct, setNewProduct] = useState('');
   const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(25);
-  const [page, setPage] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<CanadianProduct | null>(null);
 
   const loadProducts = useCallback(async () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
@@ -96,15 +101,33 @@ export default function ProductManagement() {
     loadProducts();
   }, [loadProducts]);
 
-  const filteredProducts = useMemo(() => 
-    products.filter(product => 
-      tabValue === 0 ? product.production_verified : !product.production_verified
-    ), [products, tabValue]);
+  const sortedProducts = useMemo(() => {
+    const comparator = (a: CanadianProduct, b: CanadianProduct) => {
+      let aValue = a[orderBy];
+      let bValue = b[orderBy];
 
-  const paginatedProducts = useMemo(() => 
-    filteredProducts.slice(page * pageSize, (page + 1) * pageSize),
-    [filteredProducts, page, pageSize]
-  );
+      // Handle arrays (like products, categories)
+      if (Array.isArray(aValue)) aValue = aValue.join(', ');
+      if (Array.isArray(bValue)) bValue = bValue.join(', ');
+
+      // Handle location special case
+      if (orderBy === 'city') {
+        aValue = `${a.city}, ${a.province}`;
+        bValue = `${b.city}, ${b.province}`;
+      }
+
+      if (bValue < aValue) return order === 'desc' ? -1 : 1;
+      if (bValue > aValue) return order === 'desc' ? 1 : -1;
+      return 0;
+    };
+
+    return [...products].sort(comparator);
+  }, [products, order, orderBy]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = page * pageSize;
+    return sortedProducts.slice(startIndex, startIndex + pageSize);
+  }, [sortedProducts, page, pageSize]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -121,14 +144,37 @@ export default function ProductManagement() {
     setEditDialogOpen(true);
   };
 
-  const handleDelete = async (product: CanadianProduct) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        await deleteCanadianProduct(product._id);
-        loadProducts();
-      } catch (error) {
-        console.error('Error deleting product:', error);
-      }
+  const handleDeleteClick = (e: React.MouseEvent, product: CanadianProduct) => {
+    e.stopPropagation(); // Prevent row click
+    setProductToDelete(product);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setSelectedProduct(null);
+    setEditedProduct({});
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setProductToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete || !user) return;
+
+    try {
+      await deleteCanadianProduct(
+        productToDelete._id,
+        user.uid,
+        user.email || '',
+        user.displayName || ''
+      );
+      setProducts(products.filter(p => p._id !== productToDelete._id));
+      handleCloseDeleteDialog();
+    } catch (error) {
+      console.error('Error deleting product:', error);
     }
   };
 
@@ -138,41 +184,19 @@ export default function ProductManagement() {
     try {
       await updateCanadianProduct(
         selectedProduct._id,
-        {
-          brand_name: editedProduct.brand_name,
-          city: editedProduct.city,
-          province: editedProduct.province,
-          website: editedProduct.website,
-          products: editedProduct.products || [],
-          categories: editedProduct.categories || [],
-          notes: editedProduct.notes,
-        },
+        editedProduct,
         user.uid,
         user.email || '',
         user.displayName || ''
       );
 
-      // Update local state
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p._id === selectedProduct._id 
-            ? { 
-                ...p, 
-                brand_name: editedProduct.brand_name || p.brand_name,
-                city: editedProduct.city || p.city,
-                province: editedProduct.province || p.province,
-                website: editedProduct.website || p.website,
-                products: editedProduct.products || p.products,
-                categories: editedProduct.categories || p.categories,
-                notes: editedProduct.notes,
-              } 
-            : p
-        )
-      );
-
-      setEditDialogOpen(false);
+      setProducts(products.map(p => 
+        p._id === selectedProduct._id ? { ...p, ...editedProduct } : p
+      ));
+      
+      handleCloseEditDialog();
     } catch (error) {
-      console.error('Error saving product:', error);
+      console.error('Error updating product:', error);
     }
   };
 
@@ -204,20 +228,11 @@ export default function ProductManagement() {
     }
   };
 
-  const handleAddCategory = () => {
-    if (!newCategory) return;
-    if (!editedProduct.categories) {
-      setEditedProduct(prev => ({
-        ...prev,
-        categories: [newCategory]
-      }));
-    } else if (!editedProduct.categories.includes(newCategory)) {
-      setEditedProduct(prev => ({
-        ...prev,
-        categories: [...prev.categories!, newCategory]
-      }));
-    }
-    setNewCategory('');
+  const handleCategoryEdit = (index: number, newValue: string) => {
+    setEditedProduct(prev => ({
+      ...prev,
+      categories: prev.categories?.map((cat, i) => i === index ? newValue : cat) || []
+    }));
   };
 
   const handleRemoveCategory = (index: number) => {
@@ -227,14 +242,14 @@ export default function ProductManagement() {
     }));
   };
 
-  const handleCategoryEdit = (index: number, value: ProductCategory) => {
-    if (!editedProduct.categories) return;
-    const newCategories = [...editedProduct.categories];
-    newCategories[index] = value;
-    setEditedProduct(prev => ({
-      ...prev,
-      categories: newCategories
-    }));
+  const handleAddCategory = () => {
+    if (newCategory.trim()) {
+      setEditedProduct(prev => ({
+        ...prev,
+        categories: [...(prev.categories || []), newCategory.trim()]
+      }));
+      setNewCategory('');
+    }
   };
 
   const handleProductEdit = (index: number, value: string) => {
@@ -263,6 +278,12 @@ export default function ProductManagement() {
     }));
   };
 
+  const handleRequestSort = (property: keyof CanadianProduct) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
   const renderUploadButton = () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return null;
     
@@ -277,87 +298,42 @@ export default function ProductManagement() {
     );
   };
 
+  const handleExportCSV = () => {
+    // Implement CSV export logic here
+  };
+
   return (
-    <Box sx={{ 
-      width: '77%', 
-      height: 'calc(100vh - 114px)',
-      position: 'fixed',
-      top: 60,
-      left: 0,
-      right: 0,
-      margin: 'auto'
-    }}>
-      <Box sx={{ mt: 1, px: 1 }}>
-        <Typography variant="subtitle1" sx={{ color: 'primary.main', display: 'flex', justifyContent: 'space-between' }} >
-          Product Management
-          {renderUploadButton()}
-        </Typography>
+    <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => window.location.href = '/admin/canadian-product-upload'}
+            startIcon={<CloudUploadIcon />}
+          >
+            Import Products
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleExportCSV}
+            startIcon={<FileDownloadIcon />}
+          >
+            Export to CSV
+          </Button>
+        </Stack>
       </Box>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Box sx={{ 
-          mt: 2,
-          height: 'calc(100% - 100px)',
-          overflow: 'auto'
-        }}>
+      <Box sx={{ width: '100%', mt: 2 }}>
+        <Paper sx={{ width: '100%', mb: 2 }}>
           <TableContainer>
-            <Table size="small" stickyHeader>
-              <TableHead sx={{ position: 'sticky', top: 0, zIndex: 1 }}>
+            <Table size="small">
+              <TableHead>
                 <TableRow>
                   <TableCell 
                     padding="none" 
-                    sx={{ 
-                      pl: 1, 
-                      bgcolor: 'primary.main',
-                      color: 'common.white', 
-                      fontWeight: 'medium',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1
-                    }}
-                  >Brand Name</TableCell>
-                  <TableCell 
-                    padding="none" 
-                    sx={{ 
-                      pl: 1, 
-                      bgcolor: 'primary.main',
-                      color: 'common.white', 
-                      fontWeight: 'medium',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1
-                    }}
-                  >Location</TableCell>
-                  <TableCell 
-                    padding="none" 
-                    sx={{ 
-                      pl: 1, 
-                      bgcolor: 'primary.main',
-                      color: 'common.white', 
-                      fontWeight: 'medium',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1
-                    }}
-                  >Products</TableCell>
-                  <TableCell 
-                    padding="none" 
-                    sx={{ 
-                      pl: 1, 
-                      bgcolor: 'primary.main',
-                      color: 'common.white', 
-                      fontWeight: 'medium',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1
-                    }}
-                  >Categories</TableCell>
-                  <TableCell 
-                    padding="none" 
+                    onClick={() => handleRequestSort('brand_name')}
                     sx={{ 
                       pl: 1, 
                       bgcolor: 'primary.main',
@@ -366,17 +342,88 @@ export default function ProductManagement() {
                       position: 'sticky',
                       top: 0,
                       zIndex: 1,
-                      pr: 1
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
                     }}
-                  >Status</TableCell>
+                  >
+                    Brand Name {orderBy === 'brand_name' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
+                    onClick={() => handleRequestSort('city')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Location {orderBy === 'city' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
+                    onClick={() => handleRequestSort('products')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Products {orderBy === 'products' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
+                    onClick={() => handleRequestSort('categories')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Categories {orderBy === 'categories' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
+                    onClick={() => handleRequestSort('production_verified')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Status {orderBy === 'production_verified' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody >
-                {paginatedProducts.map((product, index) => (
+              <TableBody>
+                {paginatedProducts.map((product) => (
                   <React.Fragment key={product._id}>
                     <TableRow 
                       sx={{ 
-                        bgcolor: index % 1 === 0 ? 'gray.300' : 'common.white',
+                        bgcolor: 'common.white',
                         '&:hover': {
                           bgcolor: 'action.hover',
                           cursor: 'pointer',
@@ -384,11 +431,7 @@ export default function ProductManagement() {
                         },
                         '& > td': { py: 0.0 }
                       }}
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setEditedProduct({ ...product });
-                        setEditDialogOpen(true);
-                      }}
+                      onClick={() => handleEdit(product)}
                     >
                       <TableCell padding="none" sx={{ pl: 1 }}>
                         {product.brand_name}
@@ -397,33 +440,47 @@ export default function ProductManagement() {
                         {`${product.city}, ${product.province}`}
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
-                        {product.products.join(', ')}
+                        {product.products?.join(', ')}
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
-                        {product.categories.join(', ')}
+                        {product.categories?.join(', ')}
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
-                        <Switch
-                          checked={product.production_verified}
-                          onChange={(e) => {
-                            e.stopPropagation(); // Prevent row click when toggling switch
-                            const updatedProduct = { ...product, production_verified: e.target.checked };
-                            setProducts(products.map(p => p._id === product._id ? updatedProduct : p));
-                            updateCanadianProduct(
-                              product._id,
-                              { production_verified: e.target.checked },
-                              user?.uid || '',
-                              user?.email || '',
-                              user?.displayName || ''
-                            );
-                          }}
-                          size="small"
-                        />
+                        <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
+                          <Switch
+                            checked={product.production_verified}
+                            onChange={(e) => {
+                              const updatedProduct = { ...product, production_verified: e.target.checked };
+                              setProducts(products.map(p => p._id === product._id ? updatedProduct : p));
+                              updateCanadianProduct(
+                                product._id,
+                                { production_verified: e.target.checked },
+                                user?.uid || '',
+                                user?.email || '',
+                                user?.displayName || ''
+                              );
+                            }}
+                            size="small"
+                          />
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleDeleteClick(e, product)}
+                            sx={{ 
+                              color: 'error.main',
+                              '&:hover': { 
+                                bgcolor: 'error.light',
+                                color: 'error.contrastText'
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                     <TableRow 
                       sx={{ 
-                        bgcolor: index % 1 === 0 ? 'grey.300' : 'common.white',
+                        bgcolor: 'grey.300',
                         color: 'red',
                         '&:hover': {
                           bgcolor: 'action.hover',
@@ -438,11 +495,7 @@ export default function ProductManagement() {
                         },
                         mb: 2
                       }}
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setEditedProduct({ ...product });
-                        setEditDialogOpen(true);
-                      }}
+                      onClick={() => handleEdit(product)}
                     >
                       <TableCell colSpan={5} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
                         <Typography variant="body2" color="black">
@@ -456,7 +509,6 @@ export default function ProductManagement() {
                     </TableRow>
                   </React.Fragment>
                 ))}
-                {/* ------------------------------------------------------------------------------------------------------- */}
               </TableBody>
               <TableFooter>
                 <TableRow>
@@ -479,30 +531,14 @@ export default function ProductManagement() {
               </TableFooter>
             </Table>
           </TableContainer>
-        </Box>
-      )}
+        </Paper>
+      </Box>
 
       <Dialog 
         open={editDialogOpen} 
-        onClose={() => setEditDialogOpen(false)} 
-        maxWidth="md" 
+        onClose={handleCloseEditDialog}
+        maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: {
-            '& .MuiDialogTitle-root': {
-              p: 1.5,
-            },
-            '& .MuiDialogContent-root': {
-              p: 1.5,
-              '&:first-of-type': {
-                pt: 1.5
-              }
-            },
-            '& .MuiDialogActions-root': {
-              p: 1,
-            }
-          }
-        }}
       >
         <DialogTitle>Edit Product</DialogTitle>
         <DialogContent>
@@ -637,54 +673,98 @@ export default function ProductManagement() {
             </Box>
 
             <Box sx={{ mt: 0.5 }}>
-              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Categories</Typography>
-              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Add Category</InputLabel>
-                  <Select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value as ProductCategory)}
-                    label="Add Category"
-                  >
-                    <MenuItem value="">
-                      <em>Select a category</em>
-                    </MenuItem>
-                    {PRODUCT_CATEGORIES.map((category) => (
-                      <MenuItem 
-                        key={category} 
-                        value={category}
-                        disabled={editedProduct.categories?.includes(category)}
-                      >
-                        {category}
-                      </MenuItem>
+              <Typography variant="subtitle2" sx={{ mb: 0.0 }}>Categories</Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>Category Name</TableCell>
+                      <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(editedProduct.categories || []).map((category, index) => (
+                      <TableRow key={index}>
+                        <TableCell sx={{ py: 0.0 }}>
+                          <TextField
+                            value={category}
+                            onChange={(e) => handleCategoryEdit(index, e.target.value)}
+                            variant="standard"
+                            fullWidth
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.0 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveCategory(index)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </Select>
-                </FormControl>
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleAddCategory}
-                  disabled={!newCategory || editedProduct.categories?.includes(newCategory)}
-                >
-                  Add
-                </Button>
-              </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(editedProduct.categories || []).map((category, index) => (
-                  <Chip
-                    key={index}
-                    label={category}
-                    onDelete={() => handleRemoveCategory(index)}
-                    size="small"
-                  />
-                ))}
-              </Box>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>
+                        <TextField
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCategory();
+                            }
+                          }}
+                          placeholder="Add new category"
+                          variant="standard"
+                          fullWidth
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 0.0 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handleAddCategory}
+                          color="primary"
+                          disabled={!newCategory.trim()}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleCloseEditDialog}>Cancel</Button>
           <Button onClick={handleSave} variant="contained" color="primary">Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the product "{productToDelete?.brand_name}"?
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+          <Button 
+            onClick={handleDeleteConfirm}
+            color="error" 
+            variant="contained"
+          >
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

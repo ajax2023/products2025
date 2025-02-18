@@ -20,6 +20,7 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Stack
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -27,7 +28,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { batchImportCanadianProducts } from '../../utils/canadianProducts';
 import { BatchImportResult, CanadianProduct } from '../../types/product';
 import Papa from 'papaparse';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 import { getAuth, getIdToken } from 'firebase/auth';
@@ -41,6 +42,7 @@ interface CanadianProductUploadProps {
 export default function CanadianProductUpload({ userId, userEmail, userName }: CanadianProductUploadProps) {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<BatchImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -166,7 +168,7 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
       console.log(`Processed ${products.length} products from CSV`);
 
       // Upload all products
-      const uploadPromises = products.map(product => {
+      const uploadPromises = products.map(async product => {
         const productData = {
           ...product,
           added_by: currentUser.uid,
@@ -181,7 +183,20 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
           version: 1
         };
 
-        return addDoc(collection(db, 'canadian_products'), productData);
+        try {
+          if (product._id) {
+            // If product has an ID, try to update existing document
+            const docRef = doc(db, 'canadian_products', product._id);
+            await setDoc(docRef, productData, { merge: true });
+            return docRef;
+          } else {
+            // If no ID, create new document
+            return await addDoc(collection(db, 'canadian_products'), productData);
+          }
+        } catch (error) {
+          console.error(`Error uploading product: ${error.message}`, product);
+          throw error;
+        }
       });
 
       const results = await Promise.all(uploadPromises);
@@ -203,19 +218,68 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
     }
   };
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      // First verify auth state
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('You must be logged in to download products');
+      }
+
+      // Get all products from Firestore
+      const querySnapshot = await getDocs(collection(db, 'canadian_products'));
+      const products = querySnapshot.docs.map(doc => ({
+        _id: doc.id,
+        ...doc.data()
+      }));
+
+      // Convert products to CSV format
+      const csvData = products.map(product => ({
+        _id: product._id,
+        name: product.name,
+        description: product.description,
+        brand: product.brand,
+        manufacturer: product.manufacturer,
+        supplier: product.supplier,
+        country_of_origin: product.country_of_origin,
+        production_verified: product.production_verified,
+        notes: product.notes,
+        products: Array.isArray(product.products) ? product.products.join(';') : product.products,
+        categories: Array.isArray(product.categories) ? product.categories.join(';') : product.categories,
+        cdn_prod_tags: Array.isArray(product.cdn_prod_tags) ? product.cdn_prod_tags.join(';') : product.cdn_prod_tags
+      }));
+
+      // Generate CSV
+      const csv = Papa.unparse(csvData);
+      
+      // Create and download file
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `canadian_products_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setResult({
+        success: true,
+        message: `Successfully downloaded ${products.length} products`
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      setResult({
+        success: false,
+        message: error.message
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Box>
-      {/* Existing Upload UI */}
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<CloudUploadIcon />}
-        onClick={handleOpen}
-        sx={{ mb: 1 }}
-      >
-        Bulk Upload Products
-      </Button>
-
       <Dialog
         open={open}
         onClose={handleClose}
@@ -223,7 +287,7 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
         fullWidth
       >
         <DialogTitle>
-          Bulk Upload Canadian Products
+          Upload Canadian Products
           <IconButton
             aria-label="close"
             onClick={handleClose}
