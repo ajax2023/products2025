@@ -50,11 +50,10 @@ function App() {
                     <Box sx={{ 
                       display: 'flex', 
                       flexDirection: 'column',
-                      height: '100vh',
-                      overflow: 'hidden'
+                      minHeight: '100vh'
                     }}>
                       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
-                      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                      <Box sx={{ flex: 1, overflowY: 'auto' }}>
                         <Routes>
                           <Route path="/" element={<CanadianProductSearch />} />
                           <Route path="/settings" element={<Settings />} />

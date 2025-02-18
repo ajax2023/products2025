@@ -301,17 +301,8 @@ export default function UserManagement() {
   }
 
   return (
-    <Box sx={{ width: '85%', position: 'fixed',
-      top: 60, 
-      left: 0, 
-      right: 0, 
-      margin: '0 auto' }}>
+    <Box sx={{ width: '85%', margin: '0 auto', mt: 8, mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        
-        
-        {/* <Typography variant="h5" component="h5"> */}
-
-
         <Typography variant="h6" textAlign="center" color="primary" gutterBottom>
           User Management
         </Typography>
@@ -402,8 +393,8 @@ export default function UserManagement() {
             )}
           </Typography>
           {contributorRequests.length > 0 ? (
-            <TableContainer component={Paper}>
-              <Table>
+            <TableContainer component={Paper} sx={{ maxHeight: 300, overflowY: 'auto' }}>
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell>User</TableCell>
@@ -461,8 +452,8 @@ export default function UserManagement() {
       </Typography>
       
       <Paper elevation={0}>
-        <TableContainer>
-          <Table size="small">
+        <TableContainer sx={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Email</TableCell>

@@ -145,66 +145,53 @@ export async function searchCanadianProducts(criteria: {
   production_verified?: boolean;
   categories?: string[];
 }): Promise<CanadianProduct[]> {
-  // Check if we need to refresh the cache
-  const isCacheValid = await cacheService.isCacheValid();
-  const now = Date.now();
-  
-  if (!isCacheValid) {
-    // Full refresh needed
+  try {
+    // Get all products directly from Firestore
     const q = query(collection(db, COLLECTION_NAME));
     const querySnapshot = await getDocs(q);
-    const products = querySnapshot.docs.map(doc => ({ ...doc.data(), _id: doc.id } as CanadianProduct));
-    await cacheService.cacheProducts(products);
-    lastSyncTime = now;
-  } else if (now - lastSyncTime > SYNC_INTERVAL) {
-    // Get only recent updates
-    const updates = await getLatestUpdates();
-    if (updates.length > 0) {
-      await cacheService.cacheProducts(updates);
+    let results = querySnapshot.docs.map(doc => ({ ...doc.data(), _id: doc.id } as CanadianProduct));
+
+    // Apply filters
+    if (criteria.brand_name) {
+      const searchTerm = criteria.brand_name.toLowerCase();
+      results = results.filter(product => 
+        product.brand_name.toLowerCase().includes(searchTerm) ||
+        product.products.some(p => p.toLowerCase().includes(searchTerm)) ||
+        product.categories.some(c => c.toLowerCase().includes(searchTerm))
+      );
     }
+
+    if (criteria.province) {
+      results = results.filter(product => 
+        product.province.toLowerCase() === criteria.province?.toLowerCase()
+      );
+    }
+
+    if (criteria.city) {
+      results = results.filter(product => 
+        product.city.toLowerCase() === criteria.city?.toLowerCase()
+      );
+    }
+
+    if (typeof criteria.production_verified === 'boolean') {
+      results = results.filter(product => 
+        product.production_verified === criteria.production_verified
+      );
+    }
+
+    if (criteria.categories && criteria.categories.length > 0) {
+      results = results.filter(product => 
+        criteria.categories?.some(cat => 
+          product.categories.map(c => c.toLowerCase()).includes(cat.toLowerCase())
+        )
+      );
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Search error:', error);
+    throw error;
   }
-
-  // Get products from cache
-  let results = await cacheService.getCachedProducts();
-
-  // Apply filters
-  if (criteria.brand_name) {
-    const searchTerm = criteria.brand_name.toLowerCase();
-    results = results.filter(product => 
-      product.brand_name.toLowerCase().includes(searchTerm) ||
-      product.products.some(p => p.toLowerCase().includes(searchTerm)) ||
-      product.categories.some(c => c.toLowerCase().includes(searchTerm))
-    );
-  }
-
-  if (criteria.province) {
-    results = results.filter(product => 
-      product.province.toLowerCase() === criteria.province?.toLowerCase()
-    );
-  }
-
-  if (criteria.city) {
-    results = results.filter(product => 
-      product.city.toLowerCase() === criteria.city?.toLowerCase()
-    );
-  }
-
-  if (typeof criteria.production_verified === 'boolean') {
-    results = results.filter(product => 
-      product.production_verified === criteria.production_verified
-    );
-  }
-
-  if (criteria.categories && criteria.categories.length > 0) {
-    results = results.filter(product => 
-      criteria.categories?.some(cat => 
-        product.categories.map(c => c.toLowerCase()).includes(cat.toLowerCase())
-      )
-    );
-  }
-
-  // Sort by brand name
-  return results.sort((a, b) => a.brand_name.localeCompare(b.brand_name));
 }
 
 /**

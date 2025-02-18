@@ -315,20 +315,17 @@ export default function Settings() {
   }
 
   return (
-    <Box sx={{ p: 0.5, maxWidth: 900, margin: '50px auto',  position: 'fixed',
-      top: 10, 
-      left: 0, 
-      right: 0,  }}>
-      <Paper elevation={10} sx={{ p: 0.5, }}>
-        <Grid container spacing={1}>
+    <Box sx={{ p: 0.5, maxWidth: 900, margin: '0 auto' }}>
+      <Paper elevation={10} sx={{ p: 0.5 }}>
+        <Grid container spacing={2}>
           {/* Profile Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 1 }}>
+            <Card sx={{ p: 2 }}>
               <Grid container spacing={2}>
                 <Grid item>
                   <Box sx={{ textAlign: 'center' }}>
                     <Avatar
-                      sx={{ width: 70, height: 70, mb: 0.5 }}
+                      sx={{ width: 70, height: 70, mb: 1 }}
                       src={user?.photoURL || ''}
                       alt={user?.displayName || 'User'}
                       imgProps={{
@@ -378,7 +375,7 @@ export default function Settings() {
 
           {/* Location Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 1 }}>
+            <Card sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <LocationOnIcon color="primary" />
                 <Typography variant="h6">Location</Typography>
@@ -465,7 +462,7 @@ export default function Settings() {
 
           {/* Preferences Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 1 }}>
+            <Card sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <SettingsIcon color="primary" />
                 <Typography variant="h6">Preferences</Typography>
@@ -508,7 +505,7 @@ export default function Settings() {
 
           {/* Role Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 1 }}>
+            <Card sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <WorkIcon color="primary" />
                 <Typography variant="h6">Role & Permissions</Typography>
@@ -551,7 +548,7 @@ export default function Settings() {
 
           {/* Sharing Preferences Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 1 }}>
+            <Card sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <LockIcon sx={{ fontSize: '1rem', mr: 1, color: 'text.secondary' }} />
                 <Typography variant="h6" gutterBottom>
