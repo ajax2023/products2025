@@ -25,13 +25,17 @@ import {
   FormControlLabel,
   Switch,
   InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { CanadianProduct } from '../../types/product';
+import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
 import CanadianProductUpload from './CanadianProductUpload'; // Import the CanadianProductUpload component
@@ -68,7 +72,7 @@ export default function ProductManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Partial<CanadianProduct>>({});
   const [tabValue, setTabValue] = useState(0);
-  const [newCategory, setNewCategory] = useState('');
+  const [newCategory, setNewCategory] = useState<ProductCategory | ''>('');
   const [newProduct, setNewProduct] = useState('');
   const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(25);
@@ -201,11 +205,18 @@ export default function ProductManagement() {
   };
 
   const handleAddCategory = () => {
-    if (!newCategory.trim()) return;
-    setEditedProduct(prev => ({
-      ...prev,
-      categories: [...(prev.categories || []), newCategory.trim()]
-    }));
+    if (!newCategory) return;
+    if (!editedProduct.categories) {
+      setEditedProduct(prev => ({
+        ...prev,
+        categories: [newCategory]
+      }));
+    } else if (!editedProduct.categories.includes(newCategory)) {
+      setEditedProduct(prev => ({
+        ...prev,
+        categories: [...prev.categories!, newCategory]
+      }));
+    }
     setNewCategory('');
   };
 
@@ -216,7 +227,7 @@ export default function ProductManagement() {
     }));
   };
 
-  const handleCategoryEdit = (index: number, value: string) => {
+  const handleCategoryEdit = (index: number, value: ProductCategory) => {
     if (!editedProduct.categories) return;
     const newCategories = [...editedProduct.categories];
     newCategories[index] = value;
@@ -267,58 +278,100 @@ export default function ProductManagement() {
   };
 
   return (
-    <Box sx={{ width: '100%', typography: 'body1', p: 2 }}>
-      <Typography variant="h5" sx={{ mb: 3 }}>Product Management</Typography>
-      
-      
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ mb: 0.5 , mr: 2,display: 'flex', justifyContent: 'space-between' }} >
+    <Box sx={{ 
+      width: '77%', 
+      height: 'calc(100vh - 114px)',
+      position: 'fixed',
+      top: 60,
+      left: 0,
+      right: 0,
+      margin: 'auto'
+    }}>
+      <Box sx={{ mt: 1, px: 1 }}>
+        <Typography variant="subtitle1" sx={{ color: 'primary.main', display: 'flex', justifyContent: 'space-between' }} >
           Product Management
           {renderUploadButton()}
         </Typography>
-
-        <Tabs 
-          value={tabValue} 
-          onChange={(_, newValue) => setTabValue(newValue)} 
-          sx={{ minHeight: 32 }}
-          TabIndicatorProps={{ sx: { height: 2 } }}
-        >
-          <Tab label="Verified" sx={{ minHeight: 32, py: 0 }} />
-          <Tab label="Pending" sx={{ minHeight: 32, py: 0 }} />
-        </Tabs>
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
           <CircularProgress />
         </Box>
       ) : (
-        <TabPanel value={tabValue} index={tabValue}>
-          <TableContainer 
-            component={Paper} 
-            variant="outlined"
-            sx={{ 
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 1,
-              mb: 2,
-              '& .MuiTableCell-root': {
-                borderColor: 'divider'
-              }
-            }}
-          >
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'primary.main' }}>
-                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Brand Name</TableCell>
-                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Location</TableCell>
-                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Products</TableCell>
-                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Categories</TableCell>
-                  <TableCell padding="none" sx={{ pl: 1, color: 'common.white', fontWeight: 'medium' }}>Status</TableCell>
+        <Box sx={{ 
+          mt: 2,
+          height: 'calc(100% - 100px)',
+          overflow: 'auto'
+        }}>
+          <TableContainer>
+            <Table size="small" stickyHeader>
+              <TableHead sx={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                <TableRow>
+                  <TableCell 
+                    padding="none" 
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1
+                    }}
+                  >Brand Name</TableCell>
+                  <TableCell 
+                    padding="none" 
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1
+                    }}
+                  >Location</TableCell>
+                  <TableCell 
+                    padding="none" 
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1
+                    }}
+                  >Products</TableCell>
+                  <TableCell 
+                    padding="none" 
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1
+                    }}
+                  >Categories</TableCell>
+                  <TableCell 
+                    padding="none" 
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      pr: 1
+                    }}
+                  >Status</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody>
+              <TableBody >
                 {paginatedProducts.map((product, index) => (
                   <React.Fragment key={product._id}>
                     <TableRow 
@@ -333,6 +386,7 @@ export default function ProductManagement() {
                       }}
                       onClick={() => {
                         setSelectedProduct(product);
+                        setEditedProduct({ ...product });
                         setEditDialogOpen(true);
                       }}
                     >
@@ -386,6 +440,7 @@ export default function ProductManagement() {
                       }}
                       onClick={() => {
                         setSelectedProduct(product);
+                        setEditedProduct({ ...product });
                         setEditDialogOpen(true);
                       }}
                     >
@@ -424,7 +479,7 @@ export default function ProductManagement() {
               </TableFooter>
             </Table>
           </TableContainer>
-        </TabPanel>
+        </Box>
       )}
 
       <Dialog 
@@ -583,68 +638,47 @@ export default function ProductManagement() {
 
             <Box sx={{ mt: 0.5 }}>
               <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Categories</Typography>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ py: 0.0 }}>Category Name</TableCell>
-                      <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(editedProduct.categories || []).map((category, index) => (
-                      <TableRow key={index}>
-                        <TableCell sx={{ py: 0.0 }}>
-                          <TextField
-                            value={category}
-                            onChange={(e) => handleCategoryEdit(index, e.target.value)}
-                            variant="standard"
-                            fullWidth
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="right" sx={{ py: 0.0 }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveCategory(index)}
-                            color="error"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
+              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Add Category</InputLabel>
+                  <Select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value as ProductCategory)}
+                    label="Add Category"
+                  >
+                    <MenuItem value="">
+                      <em>Select a category</em>
+                    </MenuItem>
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <MenuItem 
+                        key={category} 
+                        value={category}
+                        disabled={editedProduct.categories?.includes(category)}
+                      >
+                        {category}
+                      </MenuItem>
                     ))}
-                    <TableRow>
-                      <TableCell sx={{ py: 0.0 }}>
-                        <TextField
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddCategory();
-                            }
-                          }}
-                          placeholder="Add new category"
-                          variant="standard"
-                          fullWidth
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="right" sx={{ py: 0.0 }}>
-                        <IconButton
-                          size="small"
-                          onClick={handleAddCategory}
-                          color="primary"
-                          disabled={!newCategory.trim()}
-                        >
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleAddCategory}
+                  disabled={!newCategory || editedProduct.categories?.includes(newCategory)}
+                >
+                  Add
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {(editedProduct.categories || []).map((category, index) => (
+                  <Chip
+                    key={index}
+                    label={category}
+                    onDelete={() => handleRemoveCategory(index)}
+                    size="small"
+                  />
+                ))}
+              </Box>
             </Box>
           </Box>
         </DialogContent>

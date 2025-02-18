@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { AuthContext } from './AuthContext';
 import { UserClaims } from './types';
 
@@ -30,13 +30,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Get user document for role
-      const userDoc = await getDocs(
-        query(collection(db, 'users'), where('_id', '==', user.uid))
-      );
+      // Get user document directly by ID
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
       
-      if (!userDoc.empty) {
-        const userData = userDoc.docs[0].data();
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
         const customClaims: UserClaims = {
           role: userData.role || 'viewer',
           permissions: [],  // We'll add specific permissions later
@@ -60,9 +59,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error refreshing claims:', error);
-      setClaims(null);
-      // On error, sign out
-      await auth.signOut();
+      // Default to viewer on error
+      setClaims({
+        role: 'viewer',
+        permissions: [],
+        metadata: {
+          updatedAt: Date.now(),
+          updatedBy: 'system'
+        }
+      });
     }
   }, [user]);
 

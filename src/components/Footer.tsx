@@ -19,11 +19,9 @@ export function Footer() {
 
   return (
     <AppBar 
-      position="fixed" 
+      position="static" 
       color="primary" 
       sx={{ 
-        top: 'auto', 
-        bottom: 0,
         backgroundColor: theme.palette.background.paper,
         borderTop: `1px solid ${theme.palette.divider}`,
       }}

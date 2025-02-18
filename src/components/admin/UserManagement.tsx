@@ -301,15 +301,24 @@ export default function UserManagement() {
   }
 
   return (
-    <Box sx={{ mt: 4, p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" component="h5">
+    <Box sx={{ width: '85%', position: 'fixed',
+      top: 60, 
+      left: 0, 
+      right: 0, 
+      margin: '0 auto' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        
+        
+        {/* <Typography variant="h5" component="h5"> */}
+
+
+        <Typography variant="h6" textAlign="center" color="primary" gutterBottom>
           User Management
         </Typography>
       </Box>
 
       {/* Search and Filters */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Paper sx={{ p: 1, mb: 1 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <TextField
             size="small"
@@ -381,15 +390,14 @@ export default function UserManagement() {
       {/* Contributor Requests Section */}
       {(currentUserRole === 'super_admin' || currentUserRole === 'admin') && (
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WorkIcon color="primary" />
-            <h5>Contributor Requests XXX</h5>
+            Contributor Requests
             {contributorRequests.length > 0 && (
               <Chip 
                 label={contributorRequests.length} 
                 color="primary" 
                 size="small" 
-                sx={{ ml: 1 }}
               />
             )}
           </Typography>

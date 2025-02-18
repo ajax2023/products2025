@@ -51,13 +51,13 @@ const features = [
 
 export default function Features() {
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, margin: "0 auto" }}>
-      <Paper elevation={3} sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
-        <Typography variant="h3" textAlign="center" color="primary" gutterBottom>
+    <Box sx={{ p: 1, maxWidth: 1200, margin: "0 auto" }}>
+      <Paper elevation={3} sx={{ p: 1, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
+        <Typography variant="h5" textAlign="center" color="primary" gutterBottom>
           Features
         </Typography>
 
-        <Typography variant="h6" textAlign="center" sx={{ mb: 4, color: "text.secondary" }}>
+        <Typography variant="h6" textAlign="center" sx={{ mb: 2, color: "text.secondary" }}>
           A comprehensive suite of tools for modern product management
         </Typography>
 

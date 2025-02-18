@@ -17,16 +17,16 @@ import {
 
 // Import all required icons
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import ReceiptIcon from '@mui/icons-material/Receipt';
-import BusinessIcon from '@mui/icons-material/Business';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+// import ReceiptIcon from '@mui/icons-material/Receipt';
+// import BusinessIcon from '@mui/icons-material/Business';
+// import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PeopleIcon from '@mui/icons-material/People';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import SportsTrophyIcon from '@mui/icons-material/SportsTrophy';
+// import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+// import SportsTrophyIcon from '@mui/icons-material/SportsTrophy';
 import HomeIcon from '@mui/icons-material/Home';
-import SearchIcon from '@mui/icons-material/Search';
-import LocalMallIcon from '@mui/icons-material/LocalMall';
+// import SearchIcon from '@mui/icons-material/Search';
+// import LocalMallIcon from '@mui/icons-material/LocalMall';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import GetAppIcon from '@mui/icons-material/GetApp';
 

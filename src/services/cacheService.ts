@@ -4,16 +4,18 @@ import { CanadianProduct } from '../types/product';
 interface ProductDB extends DBSchema {
   products: {
     key: string;
-    value: CanadianProduct;
+    value: CanadianProduct & { cacheKey: string };
     indexes: {
       'by-brand': string;
       'by-date': string;
+      'by-cache-key': string;
     };
   };
   metadata: {
     key: string;
     value: {
       lastUpdated: string;
+      cacheKey: string;
     };
   };
 }
@@ -39,21 +41,30 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 class CacheService {
   private db: IDBPDatabase<ProductDB> | null = null;
 
+  private getCacheKey(userRole?: string) {
+    const key = `products-${userRole || 'default'}`;
+    console.log('getCacheKey:', { userRole, key });
+    return key;
+  }
+
   async initDB() {
     if (this.db) return this.db;
 
+    console.log('initDB: Creating new database connection');
     this.db = await openDB<ProductDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
-        // Products store
+        console.log('initDB: Upgrading database schema');
+        // Products store with role-based keys
         const productStore = db.createObjectStore('products', {
-          keyPath: '_id'
+          keyPath: ['_id', 'cacheKey']
         });
         productStore.createIndex('by-brand', 'brand_name');
         productStore.createIndex('by-date', 'date_modified');
+        productStore.createIndex('by-cache-key', 'cacheKey');
 
         // Metadata store
         db.createObjectStore('metadata', {
-          keyPath: 'key'
+          keyPath: ['key', 'cacheKey']
         });
       }
     });
@@ -61,30 +72,49 @@ class CacheService {
     return this.db;
   }
 
-  async cacheProducts(products: CanadianProduct[]) {
+  async cacheProducts(products: CanadianProduct[], userRole?: string) {
+    console.log('cacheProducts: Starting', { count: products.length, userRole });
     const db = await this.initDB();
     const tx = db.transaction(['products', 'metadata'], 'readwrite');
+    const cacheKey = this.getCacheKey(userRole);
 
-    // Store products
-    await Promise.all([
-      ...products.map(product => tx.objectStore('products').put(product)),
-      tx.objectStore('metadata').put({
-        key: 'lastUpdate',
-        lastUpdated: new Date().toISOString()
-      })
-    ]);
+    try {
+      // Store products with cache key
+      await Promise.all([
+        ...products.map(product => tx.objectStore('products').put({
+          ...product,
+          cacheKey
+        })),
+        tx.objectStore('metadata').put({
+          key: 'lastUpdate',
+          cacheKey,
+          lastUpdated: new Date().toISOString()
+        })
+      ]);
 
-    await tx.done;
+      await tx.done;
+      console.log('cacheProducts: Success', { count: products.length, userRole });
+    } catch (error) {
+      console.error('cacheProducts: Error', { error, userRole });
+      throw error;
+    }
   }
 
-  async getCachedProducts(): Promise<CanadianProduct[]> {
+  async getCachedProducts(userRole?: string): Promise<CanadianProduct[]> {
+    console.log('getCachedProducts: Starting', { userRole });
     const db = await this.initDB();
-    return db.getAll('products');
+    const cacheKey = this.getCacheKey(userRole);
+    const index = db.transaction('products').store.index('by-cache-key');
+    const results = await index.getAll(cacheKey);
+    console.log('getCachedProducts: Success', { count: results.length, userRole });
+    return results;
   }
 
-  async searchCachedProducts(searchTerm: string): Promise<CanadianProduct[]> {
+  async searchCachedProducts(searchTerm: string, userRole?: string): Promise<CanadianProduct[]> {
     const db = await this.initDB();
-    const products = await this.getCachedProducts();
+    const cacheKey = this.getCacheKey(userRole);
+    const index = db.transaction('products').store.index('by-cache-key');
+    const products = await index.getAll(cacheKey);
     
     if (!searchTerm.trim()) return products;
 
@@ -96,25 +126,35 @@ class CacheService {
     );
   }
 
-  async isCacheValid(): Promise<boolean> {
+  async isCacheValid(userRole?: string): Promise<boolean> {
+    console.log('isCacheValid: Checking', { userRole });
     const db = await this.initDB();
-    const metadata = await db.get('metadata', 'lastUpdate');
+    const cacheKey = this.getCacheKey(userRole);
+    const metadata = await db.get('metadata', ['lastUpdate', cacheKey]);
     
-    if (!metadata) return false;
+    if (!metadata) {
+      console.log('isCacheValid: No metadata found', { userRole });
+      return false;
+    }
 
     const lastUpdate = new Date(metadata.lastUpdated).getTime();
     const now = new Date().getTime();
-    
-    return now - lastUpdate < CACHE_DURATION;
+    const isValid = now - lastUpdate < CACHE_DURATION;
+    console.log('isCacheValid: Result', { isValid, userRole, lastUpdate });
+    return isValid;
   }
 
-  async clearCache() {
+  async clearCache(userRole?: string) {
     const db = await this.initDB();
     const tx = db.transaction(['products', 'metadata'], 'readwrite');
+    const cacheKey = this.getCacheKey(userRole);
     
+    // Clear only products for this role
+    const index = tx.objectStore('products').index('by-cache-key');
+    const keys = await index.getAllKeys(cacheKey);
     await Promise.all([
-      tx.objectStore('products').clear(),
-      tx.objectStore('metadata').clear()
+      ...keys.map(key => tx.objectStore('products').delete(key)),
+      tx.objectStore('metadata').delete(['lastUpdate', cacheKey])
     ]);
 
     await tx.done;

@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './components/Login';
-import ProductForm from './components/ProductForm';
-import ProductList from './components/ProductList';
+// import ProductForm from './components/ProductForm';
+// import ProductList from './components/ProductList';
 import Settings from './components/Settings';
-import CompanyInfo from './components/CompanyInfo';
-import CompanyList from './components/CompanyList';
-import BrandList from './components/BrandList';
+// import CompanyInfo from './components/CompanyInfo';
+// import CompanyList from './components/CompanyList';
+// import BrandList from './components/BrandList';
 import { Navbar } from './components/Navbar';
 import { auth } from './firebaseConfig';
 import { ThemeProvider } from '@mui/material';
@@ -17,13 +17,15 @@ import UserManagement from './components/admin/UserManagement';
 import { ViewState } from './types/navigation';
 import BackgroundImage from './components/BackgroundImage';
 // import Receipts from './components/Receipts';
-import Leaderboard from './components/Leaderboard';
+// import Leaderboard from './components/Leaderboard';
 import Home from './components/Home';
 import Search from './components/Search';
 import CanadianProductSearch from './components/CanadianProductSearch';
 import { AuthProvider, RequireAuth, RequireAdmin, useAuth, ProtectedRoute } from './auth';
 import { NotificationProvider } from './components/common/NotificationSnackbar';
 import ProductManagement from './components/admin/ProductManagement';
+import { Footer } from './components/Footer';
+import { Box } from '@mui/material';
 
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
@@ -45,34 +47,47 @@ function App() {
                 <Route
                   path="/*"
                   element={
-                    <>
-                      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-                      <Routes>
-                        <Route path="/" element={<CanadianProductSearch />} />
-                        <Route path="/add" element={<ProductForm />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/companies" element={<CompanyList />} />
-                        <Route path="/companies/:id" element={<CompanyInfo />} />
-                        <Route path="/brands" element={<BrandList />} />
-                        <Route path="/admin/users" element={<UserManagement />} />
-                        {/* <Route path="/receipts" element={<Receipts />} /> */}
-                        <Route path="/leaderboard" element={<Leaderboard />} />
-                        <Route path="/home" element={<Home />} />
-                        <Route path="/search" element={<Search />} />
-                        <Route path="/canadian-products" element={<CanadianProductSearch />} />
-                        <Route
-                          path="/admin/products"
-                          element={
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      height: '100vh',
+                      overflow: 'hidden'
+                    }}>
+                      <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
+                      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                        <Routes>
+                          <Route path="/" element={<CanadianProductSearch />} />
+                          <Route path="/settings" element={<Settings />} />
+                         
+                          <Route path="/home" element={<Home />} />
+                          <Route path="/search" element={<Search />} />
+                          <Route path="/canadian-products" element={<CanadianProductSearch />} />
+                          <Route
+                            path="/admin/products"
+                            element={
+                              <ProtectedRoute
+                                requiredRole="admin"
+                                fallback="/login"
+                              >
+                                <ProductManagement />
+                              </ProtectedRoute>
+                            }
+                          />
+                           <Route 
+                           path="/admin/users" 
+                           element={
                             <ProtectedRoute
-                              requiredRole="admin"
-                              fallback="/login"
+                            requiredRole="admin"
+                            fallback="/login"
                             >
-                              <ProductManagement />
-                            </ProtectedRoute>
-                          }
-                        />
-                      </Routes>
-                    </>
+                           <UserManagement />
+                           </ProtectedRoute>
+                        }
+                      />
+                        </Routes>
+                      </Box>
+                      <Footer />
+                    </Box>
                   }
                 />
               </Routes>

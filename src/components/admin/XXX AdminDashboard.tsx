@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import ProductModerationQueue from './ProductModerationQueue';
 import PriceModeration from './PriceModeration';
-import CompanyManagement from './CompanyManagement';
+// import CompanyManagement from './CompanyManagement';
 import AdminManagement from './AdminManagement';
 
 interface TabPanelProps {
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
         )}
         {hasRole('company_admin') && (
           <TabPanel value={tabValue} index={2}>
-            <CompanyManagement adminId={currentAdmin.uid} />
+            {/* <CompanyManagement adminId={currentAdmin.uid} /> */}
           </TabPanel>
         )}
         {hasRole('super_admin') && (

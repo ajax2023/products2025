@@ -92,15 +92,6 @@ export default function Settings() {
         setError('');
         setLoading(true);
 
-        // Try to get cached settings first
-        const cachedSettings = localStorage.getItem(`userSettings-${user.uid}`);
-        if (cachedSettings) {
-          const parsedSettings = JSON.parse(cachedSettings);
-          setUserSettings(parsedSettings);
-          setUserRole(parsedSettings.role);
-          setLoading(false);
-        }
-
         // Get user and settings documents in parallel
         const [userDoc, settingsDoc] = await Promise.all([
           getDoc(doc(db, 'users', user.uid)),
@@ -116,6 +107,13 @@ export default function Settings() {
 
         const userData = userDoc.data();
         setUserRole(userData.role);
+
+        // Try to get cached settings for UI only
+        const cachedSettings = localStorage.getItem(`userSettings-${user.uid}`);
+        if (cachedSettings) {
+          const parsedSettings = JSON.parse(cachedSettings);
+          setUserSettings(parsedSettings);
+        }
 
         let settingsData: UserSettings;
         if (!settingsDoc.exists()) {
@@ -317,9 +315,12 @@ export default function Settings() {
   }
 
   return (
-    <Box sx={{ p: 1, maxWidth: 900, margin: '0 auto' }}>
-      <Paper elevation={10} sx={{ p: 1 }}>
-        <Grid container spacing={2}>
+    <Box sx={{ p: 0.5, maxWidth: 900, margin: '50px auto',  position: 'fixed',
+      top: 10, 
+      left: 0, 
+      right: 0,  }}>
+      <Paper elevation={10} sx={{ p: 0.5, }}>
+        <Grid container spacing={1}>
           {/* Profile Section */}
           <Grid item xs={12}>
             <Card sx={{ p: 1 }}>

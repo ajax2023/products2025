@@ -11,7 +11,7 @@ import {
   Chip,
   Link,
   CircularProgress,
-  InputAdornment,
+  InputBase,
   Table,
   TableBody,
   TableCell,
@@ -19,7 +19,6 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  InputBase
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckIcon from '@mui/icons-material/Check';
@@ -28,15 +27,15 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
 import { auth, db } from '../firebaseConfig';
-import { collection, query, getDocs, where, doc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, getDoc, limit } from 'firebase/firestore';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
+import { useAuth } from '../auth/useAuth'; // Correct import path
 
 export default function CanadianProductSearch() {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<CanadianProduct[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [stats, setStats] = useState<{
     total: number;
     verified: number;
@@ -47,37 +46,52 @@ export default function CanadianProductSearch() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [allProducts, setAllProducts] = useState<CanadianProduct[]>([]);
 
-  const countTotalProducts = (products: CanadianProduct[]) => {
-    return products.reduce((sum, p) => {
-      const productCount = p.products
-        .map(prod => prod.split(',').map(p => p.trim()))
-        .flat()
-        .filter(p => p.length > 0)
-        .length;
-      return sum + productCount;
-    }, 0);
-  };
-const countTotalCategories = (products: CanadianProduct[]) => {
-  return products.reduce((sum, p) => {
-    return sum + p.categories.length;
-  }, 0);
-}
-const countTotalStatus = (products: CanadianProduct[]) => {
-  return products.reduce((sum, p) => {
-    return sum + (p.production_verified ? 1 : 0);
-  }, 0);
-}
+  const { user } = useAuth();
 
-const countTotalTags = (products: CanadianProduct[]) => {
-  return products.reduce((sum, p) => {
-    return sum + p.cdn_prod_tags.length;
-  }, 0);
-}
+  // Debug log user state
+  useEffect(() => {
+    const verifyAuth = async () => {
+      if (!user?.uid) {
+        console.log('Auth: No user');
+        return;
+      }
 
+      try {
+        // Check user document
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        console.log('Auth: User document check', {
+          exists: userDoc.exists(),
+          data: userDoc.exists() ? userDoc.data() : null,
+          uid: user.uid,
+          email: user.email
+        });
 
+        // Try a test read
+        const testQuery = await getDocs(query(collection(db, 'canadian_products'), limit(1)));
+        console.log('Auth: Test query result', {
+          success: !testQuery.empty,
+          count: testQuery.size
+        });
+      } catch (error) {
+        console.error('Auth: Verification failed', error);
+      }
+    };
+
+    verifyAuth();
+  }, [user]);
+
+  // Simple direct Firestore query
   const fetchStats = async () => {
+    if (!user?.uid) {
+      console.log('fetchStats: No user', { uid: user?.uid });
+      return;
+    }
+    
+    console.log('fetchStats: Starting', { uid: user?.uid, email: user?.email });
     try {
       const snapshot = await getDocs(collection(db, 'canadian_products'));
+      console.log('fetchStats: Got data', { count: snapshot.size });
+
       const products: { [key: string]: CanadianProduct } = {};
       let total = 0;
       let verified = 0;
@@ -93,91 +107,36 @@ const countTotalTags = (products: CanadianProduct[]) => {
         }
       });
 
+      console.log('fetchStats: Processed', { total, verified, pending: total - verified });
+
       const newStats = {
         total,
         verified,
         pending: total - verified,
-        products
+        products,
       };
       setStats(newStats);
-      
-      // Cache the products
-      await cacheService.cacheProducts(productsList);
+      setAllProducts(productsList);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('fetchStats: Error', error);
+      // Log the full error details
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+      }
     }
   };
 
   useEffect(() => {
-    const initializeData = async () => {
-      try {
-        // Try to get cached data first
-        const products = await cacheService.getCachedProducts();
-        if (products.length > 0) {
-          let total = products.length;
-          let verified = products.filter(p => p.production_verified).length;
-          setStats({
-            total,
-            verified,
-            pending: total - verified,
-            products: products.reduce((acc, p) => ({ ...acc, [p._id]: p }), {})
-          });
-        }
+    if (user?.uid) {
+      fetchStats();
+    }
+  }, [user]);
 
-        // Get fresh data
-        await fetchStats();
-      } catch (error) {
-        console.error('Error initializing data:', error);
-      }
-    };
-
-    initializeData();
-  }, []);
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-        setIsAdmin(adminDoc.exists());
-      }
-    };
-
-    checkAdmin();
-  }, []);
-
-  // Initial cache population
-  useEffect(() => {
-    const initializeCache = async () => {
-      setLoading(true);
-      try {
-        const results = await searchCanadianProducts({});
-        setAllProducts(results);
-      } catch (error) {
-        console.error('Cache initialization error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeCache();
-  }, []);
-
-  // Periodic background sync
-  useEffect(() => {
-    const syncInterval = setInterval(async () => {
-      try {
-        const results = await searchCanadianProducts({}); 
-        setAllProducts(results);
-      } catch (error) {
-        console.error('Background sync error:', error);
-      }
-    }, 5 * 60 * 1000); // Every 5 minutes
-
-    return () => clearInterval(syncInterval);
-  }, []);
-
-  // Debounced search with cache
+  // Simple search function
   const debouncedSearch = useCallback(
     debounce(async (term: string) => {
       if (!term.trim()) {
@@ -188,23 +147,55 @@ const countTotalTags = (products: CanadianProduct[]) => {
 
       try {
         setLoading(true);
-        const results = await searchCanadianProducts({
-          brand_name: term,
-        });
-        setProducts(results);
+        const searchTerm = term.toLowerCase();
+        const filtered = allProducts.filter(product => 
+          product.brand_name.toLowerCase().includes(searchTerm) ||
+          product.products.some(p => p.toLowerCase().includes(searchTerm)) ||
+          product.categories.some(c => c.toLowerCase().includes(searchTerm))
+        );
+        setProducts(filtered);
       } catch (error) {
         console.error('Search error:', error);
       } finally {
         setLoading(false);
       }
     }, 300),
-    []
+    [allProducts]
   );
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchQuery(term);
     debouncedSearch(term);
+  };
+
+  const countTotalProducts = (products: CanadianProduct[]) => {
+    return products.reduce((sum, p) => {
+      const productCount = p.products
+        .map(prod => prod.split(',').map(p => p.trim()))
+        .flat()
+        .filter(p => p.length > 0)
+        .length;
+      return sum + productCount;
+    }, 0);
+  };
+
+  const countTotalCategories = (products: CanadianProduct[]) => {
+    return products.reduce((sum, p) => {
+      return sum + p.categories.length;
+    }, 0);
+  };
+
+  const countTotalStatus = (products: CanadianProduct[]) => {
+    return products.reduce((sum, p) => {
+      return sum + (p.production_verified ? 1 : 0);
+    }, 0);
+  };
+
+  const countTotalTags = (products: CanadianProduct[]) => {
+    return products.reduce((sum, p) => {
+      return sum + p.cdn_prod_tags.length;
+    }, 0);
   };
 
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -217,24 +208,34 @@ const countTotalTags = (products: CanadianProduct[]) => {
   };
 
   return (
-    <Box sx={{ maxWidth: '100%', margin: '100px auto', p: 0 }}>
-      {/* Search Header */}
-      <Box
-        sx={{
+    <Box sx={{ 
+      width: '95%',
+      height: 'calc(100vh - 164px)',
+      position: 'fixed',
+      top: 60,
+      left: 0,
+      right: 0,
+      margin: '0 auto',
+      bgcolor: 'background.paper',
+      pb: 7 // padding for footer
+    }}>
+      {/* Header Section */}
+      <Box sx={{ mt: 1, px: 1 }}>
+        <Box sx={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          mb: 1,
-          mt: 1,
-        }}
-      >
-        <Typography variant="h6" component="h6" gutterBottom>
+          justifyContent: 'center',
+          mb: 1
+        }}>
+          <img src="/2.png" alt="Canada Flag" style={{ width: '100px', height: 'auto' }} />
+        </Box>
+
+        <Typography variant="h6" component="h6" color="primary" align="center" gutterBottom>
           Canadian Products Search
         </Typography>
-  
+
         {/* Stats Display */}
         {stats && (
-          <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%', maxWidth: 700}}>
+          <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%'}}>
             <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
               <Grid container spacing={0}>
               <Grid item xs={2.4}>
@@ -264,8 +265,8 @@ const countTotalTags = (products: CanadianProduct[]) => {
                       {stats.total ?? <CircularProgress size={12} />}
                     </Typography>
                   </Box>
-                </Grid>
-      
+              </Grid>
+    
                 <Grid item xs={2.4}>
                   <Box textAlign="center">
                     <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
@@ -299,7 +300,6 @@ const countTotalTags = (products: CanadianProduct[]) => {
             display: 'flex',
             alignItems: 'center',
             width: '100%',
-            maxWidth: 700,
             mb: 2,
             mt: 2,
             border: '2px solid #1976D2',
@@ -338,7 +338,6 @@ const countTotalTags = (products: CanadianProduct[]) => {
         {!searchQuery && (
           <Box sx={{ 
             width: '100%', 
-            maxWidth: 700, 
             textAlign: 'center',
             mt: 1
           }}>
@@ -347,205 +346,134 @@ const countTotalTags = (products: CanadianProduct[]) => {
             </Typography>
           </Box>
         )}
+      </Box>
 
-        {/* Stats and Results - Only show if there's a search query */}
-        {searchQuery && (
-          <>
-            {/* Stats Section */}
-            <Paper sx={{ p: 0, mb: 0.5, mt: 1, width: '100%', maxWidth: 700 }}>
-              <Grid container spacing={0}>
-                <Grid item xs={2.4}>
-                  <Box>
-                    <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 1 }}>
-                      Search Results
-                    </Typography>
-                    
-                  </Box>
-                </Grid>
-                
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Products
-                    </Typography>
-                    <Typography variant="body2">
-                      {countTotalProducts(products)}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={2.4}>
-                 
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Brands-Companies
-                    </Typography>
-                    <Typography variant="body2">
-                      {products.length}
-                    </Typography>
-                  </Box>
-                </Grid>
-             
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-                      Verified
-                    </Typography>
-                    <Typography variant="body2">
-                      {products.filter(p => p.production_verified).length}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
-                      Pending
-                    </Typography>
-                    <Typography variant="body2">
-                      {products.filter(p => !p.production_verified).length}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Results Table */}
-            <TableContainer 
-              component={Paper} 
-              sx={{ 
-                width: '100%',
-                maxWidth: 700,
-                overflowX: 'auto',
-                mb: 2
-              }} 
-              aria-label="product results"
-            >
-              <Table 
-                size="small"
-                sx={{ 
-                  minWidth: {
-                    xs: 400,     
-                    sm: 650      
-                  },
-                  tableLayout: 'fixed'
-                }} 
-                aria-label="product results"
+      {/* Results Section */}
+      <Box sx={{ 
+        mt: 2,
+        height: 'calc(100% - 280px)', // increased space for header and footer
+        overflow: 'auto',
+        px: 2,
+        pb: 2
+      }}>
+        {searchQuery && products.length > 0 && (
+          <TableContainer>
+            <Table size="small" stickyHeader>
+              <TableHead
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'white'
+              }}
               >
-                <TableHead
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white'
-                }}
-                >
-                  <TableRow>
-                    <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({products.length})</TableCell>
-                    
-                    <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(products)})</TableCell>
+                <TableRow>
+                  <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({products.length})</TableCell>
+                  
+                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(products)})</TableCell>
 
-                    <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(products)})</TableCell>
-                    <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>({countTotalStatus(products)})</TableCell>
-                    <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Actions</TableCell>
-                    <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {products
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((product) => (
-                      <TableRow 
-                        key={product._id}
-                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                      >
-                        <TableCell>
-                          <Typography 
+                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(products)})</TableCell>
+                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>({countTotalStatus(products)})</TableCell>
+                  <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Actions</TableCell>
+                  <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {products
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((product) => (
+                    <TableRow 
+                      key={product._id}
+                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                    >
+                      <TableCell>
+                        <Typography 
+                          sx={{ 
+                            fontWeight: 500,
+                            fontSize: '0.875rem',
+                            color: 'text.primary'
+                          }}
+                        >
+                          {product.brand_name}
+                        </Typography>
+                      </TableCell>
+                  
+                      <TableCell>
+                        <Typography 
+                          sx={{ 
+                            fontSize: '0.875rem',
+                            color: 'text.secondary',
+                            maxWidth: '200px',
+                            whiteSpace: 'normal',
+                            wordBreak: 'normal'
+                          }}
+                        >
+                          {product.products.join(', ')}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography 
+                          sx={{ 
+                            fontSize: '0.875rem',
+                            color: 'text.secondary',
+                            maxWidth: '200px',
+                            whiteSpace: 'normal',
+                            wordBreak: 'normal'
+                          }}
+                        >
+                          {product.categories.join(', ')}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {product.production_verified ? (
+                          <CheckIcon 
                             sx={{ 
-                              fontWeight: 500,
-                              fontSize: '0.875rem',
-                              color: 'text.primary'
-                            }}
-                          >
-                            {product.brand_name}
-                          </Typography>
-                        </TableCell>
-                    
-                        <TableCell>
-                          <Typography 
+                              color: '#4CAF50',
+                              fontSize: '1rem'
+                            }} 
+                          />
+                        ) : (
+                          <CircleIcon 
                             sx={{ 
-                              fontSize: '0.875rem',
-                              color: 'text.secondary',
-                              maxWidth: '200px',
-                              whiteSpace: 'normal',
-                              wordBreak: 'normal'
+                              color: '#FF9800',
+                              fontSize: '0.8rem'
                             }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {product.website && (
+                          <Link
+                            href={product.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
                           >
-                            {product.products.join(', ')}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography 
-                            sx={{ 
-                              fontSize: '0.875rem',
-                              color: 'text.secondary',
-                              maxWidth: '200px',
-                              whiteSpace: 'normal',
-                              wordBreak: 'normal'
-                            }}
-                          >
-                            {product.categories.join(', ')}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {product.production_verified ? (
-                            <CheckIcon 
-                              sx={{ 
-                                color: '#4CAF50',
-                                fontSize: '1rem'
-                              }} 
-                            />
-                          ) : (
-                            <CircleIcon 
-                              sx={{ 
-                                color: '#FF9800',
-                                fontSize: '0.8rem'
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {product.website && (
-                            <Link
-                              href={product.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Website
-                            </Link>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Typography 
-                            sx={{ 
-                              fontSize: '0.875rem',
-                              color: 'text.secondary'
-                            }}
-                          >
-                            {product.city}, {product.province}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={products.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-              />
-            </TableContainer>
-          </>
+                            Website
+                          </Link>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography 
+                          sx={{ 
+                            fontSize: '0.875rem',
+                            color: 'text.secondary'
+                          }}
+                        >
+                          {product.city}, {product.province}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={products.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </TableContainer>
         )}
       </Box>
     </Box>

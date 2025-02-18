@@ -18,8 +18,19 @@ export default function Dashboard() {
   };
 
   return (
-    <Box sx={{ width: "100%", p: 0 }}>
-      <Paper elevation={10} sx={{ mb: 2 }}>
+    <Box sx={{ 
+      width: "95%",
+      height: 'calc(100vh - 114px)',
+      position: 'fixed',
+      top: 50, 
+      left: 0, 
+      right: 0,
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      pb: 7 // space for footer
+    }}>
+      <Paper elevation={10} sx={{ mb: 2, flex: 'none' }}>
         <Tabs value={tabIndex} onChange={handleChange} variant="fullWidth">
         <Tab label="Features" />
         <Tab label="About Us" />
@@ -29,7 +40,11 @@ export default function Dashboard() {
       </Paper>
 
       {/* Tab Content */}
-      <Box sx={{ p: 0 }}>
+      <Box sx={{ 
+        flex: 1,
+        overflow: 'auto',
+        pb: 2
+      }}>
         {tabIndex === 0 && <Features />}
         {tabIndex === 1 && <AboutUs />}
         {tabIndex === 2 && <SupportUs />}
