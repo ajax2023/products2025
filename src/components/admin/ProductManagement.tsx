@@ -27,7 +27,9 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Stack
+  Stack,
+  Link,
+  Tooltip
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -37,8 +39,10 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import SearchIcon from '@mui/icons-material/Search';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory } from '../../types/product';
-import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus } from '../../utils/canadianProducts';
+import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus, addCanadianProduct } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
 import CanadianProductUpload from './CanadianProductUpload'; // Import the CanadianProductUpload component
 
@@ -72,6 +76,7 @@ export default function ProductManagement() {
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<CanadianProduct | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addNewProductOpen, setAddNewProductOpen] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Partial<CanadianProduct>>({});
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [orderBy, setOrderBy] = useState<keyof CanadianProduct>('brand_name');
@@ -82,6 +87,7 @@ export default function ProductManagement() {
   const [pageSize, setPageSize] = useState(25);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<CanadianProduct | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadProducts = useCallback(async () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
@@ -100,6 +106,23 @@ export default function ProductManagement() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return products.filter(product => {
+      return (
+        product.brand_name?.toLowerCase().includes(query) ||
+        product.city?.toLowerCase().includes(query) ||
+        product.province?.toLowerCase().includes(query) ||
+        product.website?.toLowerCase().includes(query) ||
+        product.notes?.toLowerCase().includes(query) ||
+        product.products?.some(p => p.toLowerCase().includes(query)) ||
+        product.categories?.some(c => c.toLowerCase().includes(query))
+      );
+    });
+  }, [products, searchQuery]);
 
   const sortedProducts = useMemo(() => {
     const comparator = (a: CanadianProduct, b: CanadianProduct) => {
@@ -121,8 +144,8 @@ export default function ProductManagement() {
       return 0;
     };
 
-    return [...products].sort(comparator);
-  }, [products, order, orderBy]);
+    return [...filteredProducts].sort(comparator);
+  }, [filteredProducts, order, orderBy]);
 
   const paginatedProducts = useMemo(() => {
     const startIndex = page * pageSize;
@@ -284,6 +307,53 @@ export default function ProductManagement() {
     setOrderBy(property);
   };
 
+  const handleAddNewProduct = async () => {
+    if (!user) return;
+
+    try {
+      const docRef = await addCanadianProduct(
+        editedProduct,
+        user.uid,
+        user.email || '',
+        user.displayName || ''
+      );
+
+      const newProduct: CanadianProduct = {
+        _id: docRef.id,
+        ...editedProduct,
+        production_verified: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: user.uid,
+        updated_by: user.uid
+      };
+
+      setProducts([...products, newProduct]);
+      setAddNewProductOpen(false);
+      setEditedProduct({});
+    } catch (error) {
+      console.error('Error adding product:', error);
+    }
+  };
+
+  const handleOpenNewProduct = () => {
+    setEditedProduct({
+      brand_name: '',
+      city: '',
+      province: '',
+      website: '',
+      products: [],
+      categories: [],
+      notes: '',
+      production_verified: false
+    });
+    setAddNewProductOpen(true);
+  };
+
+  const handleExportCSV = () => {
+    // Implement CSV export logic here
+  };
+
   const renderUploadButton = () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return null;
     
@@ -298,13 +368,9 @@ export default function ProductManagement() {
     );
   };
 
-  const handleExportCSV = () => {
-    // Implement CSV export logic here
-  };
-
   return (
     <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
+      <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
         <Stack direction="row" spacing={2}>
           <Button
             variant="contained"
@@ -322,7 +388,30 @@ export default function ProductManagement() {
           >
             Export to CSV
           </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleOpenNewProduct}
+            startIcon={<AddIcon />}
+          >
+            New Product
+          </Button>
         </Stack>
+        <TextField
+          size="small"
+          placeholder="Search all fields..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+            sx: { bgcolor: 'background.paper' }
+          }}
+          sx={{ width: 300 }}
+        />
       </Box>
 
       <Box sx={{ width: '100%', mt: 2 }}>
@@ -399,6 +488,24 @@ export default function ProductManagement() {
                   >
                     Categories {orderBy === 'categories' && (order === 'desc' ? '▼' : '▲')}
                   </TableCell>
+                  <TableCell
+                    padding="none"
+                    onClick={() => handleRequestSort('website')}
+                    sx={{
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Website {orderBy === 'website' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+
                   <TableCell 
                     padding="none" 
                     onClick={() => handleRequestSort('production_verified')}
@@ -416,6 +523,23 @@ export default function ProductManagement() {
                   >
                     Status {orderBy === 'production_verified' && (order === 'desc' ? '▼' : '▲')}
                   </TableCell>
+                  {/* <TableCell 
+                    padding="none" 
+                    onClick={() => handleRequestSort('site_verified')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Site Verified {orderBy === 'site_verified' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell> */}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -447,11 +571,48 @@ export default function ProductManagement() {
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
                         <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
+                          {product.site_verified ? (
+                            <Tooltip title={`Verified by ${product.site_verified_by} on ${new Date(product.site_verified_at || '').toLocaleDateString()}`}>
+                              <CheckCircleIcon color="success" />
+                            </Tooltip>
+                          ) : null}
+                          {product.website ? (
+                            <>
+                              <Link 
+                                href={product.website} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                sx={{ 
+                                  textDecoration: 'none',
+                                  color: 'inherit',
+                                  '&:hover': { color: 'primary.main' }
+                                }}
+                              >
+                                {product.website}
+                              </Link>
+                              <IconButton
+                                size="small"
+                                onClick={() => window.open(product.website, '_blank')}
+                                sx={{ 
+                                  p: 0.5,
+                                  '&:hover': { color: 'primary.main' }
+                                }}
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                            </>
+                          ) : (
+                            'No website'
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
                           <Switch
                             checked={product.production_verified}
                             onChange={(e) => {
                               const updatedProduct = { ...product, production_verified: e.target.checked };
-                              setProducts(products.map(p => p._id === product._id ? updatedProduct : p));
+                              setProducts(prev => prev.map(p => p._id === product._id ? updatedProduct : p));
                               updateCanadianProduct(
                                 product._id,
                                 { production_verified: e.target.checked },
@@ -497,7 +658,7 @@ export default function ProductManagement() {
                       }}
                       onClick={() => handleEdit(product)}
                     >
-                      <TableCell colSpan={5} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
+                      <TableCell colSpan={6} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
                         <Typography variant="body2" color="black">
                           {product.notes || 'No notes'}
                         </Typography>
@@ -505,7 +666,7 @@ export default function ProductManagement() {
                     </TableRow>
                     {/* Add a small gap row */}
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ p: 0.5, border: 'none' }} />
+                      <TableCell colSpan={6} sx={{ p: 0.5, border: 'none' }} />
                     </TableRow>
                   </React.Fragment>
                 ))}
@@ -514,8 +675,8 @@ export default function ProductManagement() {
                 <TableRow>
                   <TablePagination
                     rowsPerPageOptions={[5, 10, 25, 50, 100]}
-                    colSpan={5}
-                    count={products.length}
+                    colSpan={7}
+                    count={filteredProducts.length}
                     rowsPerPage={pageSize}
                     page={page}
                     onPageChange={handleChangePage}
@@ -737,11 +898,296 @@ export default function ProductManagement() {
                 </Table>
               </TableContainer>
             </Box>
+
+            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Site Verification</Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={editedProduct.site_verified || false}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setEditedProduct(prev => ({
+                          ...prev,
+                          site_verified: true,
+                          site_verified_by: user?.email || '',
+                          site_verified_at: new Date().toISOString()
+                        }));
+                      } else {
+                        setEditedProduct(prev => ({
+                          ...prev,
+                          site_verified: false,
+                          site_verified_by: undefined,
+                          site_verified_at: undefined
+                        }));
+                      }
+                    }}
+                  />
+                }
+                label="Site Verified"
+              />
+              {editedProduct.site_verified && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Verified by {editedProduct.site_verified_by} on {new Date(editedProduct.site_verified_at || '').toLocaleDateString()}
+                </Typography>
+              )}
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>Cancel</Button>
           <Button onClick={handleSave} variant="contained" color="primary">Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog 
+        open={addNewProductOpen} 
+        onClose={() => {
+          setAddNewProductOpen(false);
+          setEditedProduct({});
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Add New Product</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              label="Brand Name"
+              value={editedProduct.brand_name || ''}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, brand_name: e.target.value }))}
+              fullWidth
+              size="small"
+              margin="none"
+              sx={{ mb: 2 }}
+            />
+
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                label="City"
+                value={editedProduct.city || ''}
+                onChange={(e) => setEditedProduct(prev => ({ ...prev, city: e.target.value }))}
+                fullWidth
+                size="small"
+                margin="none"
+              />
+              <TextField
+                label="Province"
+                value={editedProduct.province || ''}
+                onChange={(e) => setEditedProduct(prev => ({ ...prev, province: e.target.value }))}
+                fullWidth
+                size="small"
+                margin="none"
+              />
+            </Box>
+
+            <TextField
+              label="Website"
+              value={editedProduct.website || ''}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, website: e.target.value }))}
+              fullWidth
+              size="small"
+              margin="none"
+              sx={{ mb: 2 }}
+              InputProps={{
+                endAdornment: editedProduct.website && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => window.open(editedProduct.website, '_blank')}
+                    >
+                      <OpenInNewIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            
+            <TextField
+              label="Notes"
+              value={editedProduct.notes || ''}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, notes: e.target.value }))}
+              multiline
+              rows={2}
+              fullWidth
+              size="small"
+              margin="none"
+              placeholder="Add any notes about this product..."
+            />
+
+            <Box sx={{ mt: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.0 }}>Products</Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>Product Name</TableCell>
+                      <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(editedProduct.products || []).map((product, index) => (
+                      <TableRow key={index}>
+                        <TableCell sx={{ py: 0.0 }}>
+                          <TextField
+                            value={product}
+                            onChange={(e) => handleProductEdit(index, e.target.value)}
+                            variant="standard"
+                            fullWidth
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.0 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveProduct(index)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>
+                        <TextField
+                          value={newProduct}
+                          onChange={(e) => setNewProduct(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddProduct();
+                            }
+                          }}
+                          placeholder="Add new product"
+                          variant="standard"
+                          fullWidth
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 0.0 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handleAddProduct}
+                          color="primary"
+                          disabled={!newProduct.trim()}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+
+            <Box sx={{ mt: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.0 }}>Categories</Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>Category Name</TableCell>
+                      <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(editedProduct.categories || []).map((category, index) => (
+                      <TableRow key={index}>
+                        <TableCell sx={{ py: 0.0 }}>
+                          <TextField
+                            value={category}
+                            onChange={(e) => handleCategoryEdit(index, e.target.value)}
+                            variant="standard"
+                            fullWidth
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.0 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveCategory(index)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell sx={{ py: 0.0 }}>
+                        <TextField
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCategory();
+                            }
+                          }}
+                          placeholder="Add new category"
+                          variant="standard"
+                          fullWidth
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 0.0 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handleAddCategory}
+                          color="primary"
+                          disabled={!newCategory.trim()}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+
+            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Site Verification</Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={editedProduct.site_verified || false}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setEditedProduct(prev => ({
+                          ...prev,
+                          site_verified: true,
+                          site_verified_by: user?.email || '',
+                          site_verified_at: new Date().toISOString()
+                        }));
+                      } else {
+                        setEditedProduct(prev => ({
+                          ...prev,
+                          site_verified: false,
+                          site_verified_by: undefined,
+                          site_verified_at: undefined
+                        }));
+                      }
+                    }}
+                  />
+                }
+                label="Site Verified"
+              />
+              {editedProduct.site_verified && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Verified by {editedProduct.site_verified_by} on {new Date(editedProduct.site_verified_at || '').toLocaleDateString()}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setAddNewProductOpen(false);
+            setEditedProduct({});
+          }}>Cancel</Button>
+          <Button onClick={handleAddNewProduct} variant="contained" color="primary">Add Product</Button>
         </DialogActions>
       </Dialog>
 

@@ -90,6 +90,9 @@ export interface CanadianProduct {
   city: string;
   province: string;
   production_verified: boolean;
+  site_verified: boolean;
+  site_verified_by?: string;
+  site_verified_at?: string;
   notes?: string;
   products: string[];
   categories: ProductCategory[];
@@ -244,6 +247,9 @@ export function createCanadianProduct(data: Partial<CanadianProduct>): CanadianP
     city: data.city || '',
     province: data.province || '',
     production_verified: data.production_verified || false,
+    site_verified: data.site_verified || false,
+    site_verified_by: data.site_verified_by,
+    site_verified_at: data.site_verified_at,
     notes: data.notes || '',
     products: data.products || [],
     categories: data.categories || [],
