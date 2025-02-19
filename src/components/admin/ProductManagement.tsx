@@ -666,7 +666,7 @@ export default function ProductManagement() {
                     </TableRow>
                     {/* Add a small gap row */}
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ p: 0.5, border: 'none' }} />
+                      <TableCell colSpan={6} sx={{ p: 0.5, border: 'none', bgcolor: '#336699' }} />
                     </TableRow>
                   </React.Fragment>
                 ))}
