@@ -758,6 +758,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
         <DialogTitle>Edit Product</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 0.7 }}>
             <TextField
               label="Brand Name"
               value={editedProduct.brand_name || ''}
@@ -765,9 +766,31 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
               fullWidth
               size="small"
               margin="none"
-              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 }, mt: 0.7 }}
             />
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <TextField
+              label="Website"
+              value={editedProduct.website || ''}
+              onChange={(e) => setEditedProduct(prev => ({ ...prev, website: e.target.value }))}
+              fullWidth
+              size="small"
+              margin="none"
+              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 }, mt: 0.7 }}
+              InputProps={{
+                endAdornment: editedProduct.website && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => window.open(editedProduct.website, '_blank')}
+                    >
+                      <OpenInNewIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.7, mb: 0.7 }}>
               <TextField
                 label="City"
                 value={editedProduct.city || ''}
@@ -796,34 +819,15 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
               />
             </Box>
-            <TextField
-              label="Website"
-              value={editedProduct.website || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, website: e.target.value }))}
-              fullWidth
-              size="small"
-              margin="none"
-              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
-              InputProps={{
-                endAdornment: editedProduct.website && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => window.open(editedProduct.website, '_blank')}
-                    >
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+          
             
             <TextField
               label="Notes"
               value={editedProduct.notes || ''}
               onChange={(e) => setEditedProduct(prev => ({ ...prev, notes: e.target.value }))}
               multiline
-              rows={2}
+              rows={4}
+              sx={{ p: 0.0 }}
               fullWidth
               size="small"
               margin="none"
@@ -836,7 +840,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ py: 0.0 }}>Product Name</TableCell>
+                      <TableCell sx={{ py: 0.0 }}>Product Name - Note you must add the product after entering the text. Format - product 1, product 2, etc </TableCell>
                       <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -902,7 +906,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ py: 0.0 }}>Category Name</TableCell>
+                      <TableCell sx={{ py: 0.0 }}>Category Name- Note you must add the category after entering the text. Format - category 1, category 2, etc</TableCell>
                       <TableCell align="right" width={100} sx={{ py: 0.0 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
