@@ -369,8 +369,9 @@ export default function ProductManagement() {
   };
 
   return (
-    <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', mt: 2 }}>
       <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h5"  color="primary">Product Management</Typography>
         <Stack direction="row" spacing={2}>
           <Button
             variant="contained"
@@ -666,7 +667,7 @@ export default function ProductManagement() {
                     </TableRow>
                     {/* Add a small gap row */}
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ border: 'none', bgcolor: '#336699', maxheight: '2px', minheight: '2px' }} />
+                      <TableCell colSpan={6} sx={{ border: 'none', bgcolor: '#primary.main', maxheight: '1px', minheight: '1px' }} />
                     </TableRow>
                   </React.Fragment>
                 ))}
