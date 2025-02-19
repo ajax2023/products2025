@@ -89,6 +89,7 @@ export interface CanadianProduct {
   website: string;
   city: string;
   province: string;
+  country: string;
   production_verified: boolean;
   site_verified: boolean;
   site_verified_by?: string;
@@ -215,6 +216,7 @@ export function validateCanadianProduct(product: Partial<CanadianProduct>): stri
   // Required fields validation
   if (!product.city?.trim()) errors.push('City is required');
   if (!product.province?.trim()) errors.push('Province is required');
+  if (!product.country?.trim()) errors.push('Country is required');
   
   // Website URL validation
   if (product.website) {
@@ -246,6 +248,7 @@ export function createCanadianProduct(data: Partial<CanadianProduct>): CanadianP
     website: data.website || '',
     city: data.city || '',
     province: data.province || '',
+    country: data.country || 'Canada',
     production_verified: data.production_verified || false,
     site_verified: data.site_verified || false,
     site_verified_by: data.site_verified_by,

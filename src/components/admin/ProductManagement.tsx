@@ -41,6 +41,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus, addCanadianProduct } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
@@ -205,16 +206,21 @@ export default function ProductManagement() {
     if (!selectedProduct || !user) return;
 
     try {
+      const updatedProduct = {
+        ...editedProduct,
+        country: editedProduct.country || 'Canada'
+      };
+
       await updateCanadianProduct(
         selectedProduct._id,
-        editedProduct,
+        updatedProduct,
         user.uid,
         user.email || '',
         user.displayName || ''
       );
 
       setProducts(products.map(p => 
-        p._id === selectedProduct._id ? { ...p, ...editedProduct } : p
+        p._id === selectedProduct._id ? { ...p, ...updatedProduct } : p
       ));
       
       handleCloseEditDialog();
@@ -307,25 +313,64 @@ export default function ProductManagement() {
     setOrderBy(property);
   };
 
+  const handleOpenNewProduct = () => {
+    setEditedProduct({
+      brand_name: '',
+      city: '',
+      province: '',
+      country: 'Canada',
+      website: '',
+      products: [''],
+      categories: ['Medical Supplies'],
+      notes: '',
+      production_verified: false,
+      cdn_prod_tags: [],
+      is_active: true,
+      version: 1
+    });
+    setAddNewProductOpen(true);
+  };
+
   const handleAddNewProduct = async () => {
     if (!user) return;
 
     try {
+      const newProductData = {
+        ...editedProduct,
+        products: (editedProduct.products || []).filter(p => p.trim()),
+        categories: (editedProduct.categories || []).filter(c => c.trim())
+      };
+
+      if (!newProductData.products?.length) {
+        throw new Error('At least one product is required');
+      }
+
+      if (!newProductData.categories?.length) {
+        throw new Error('At least one category is required');
+      }
+
       const docRef = await addCanadianProduct(
-        editedProduct,
+        newProductData,
         user.uid,
         user.email || '',
         user.displayName || ''
       );
 
       const newProduct: CanadianProduct = {
-        _id: docRef.id,
-        ...editedProduct,
-        production_verified: false,
+        _id: docRef,
+        ...newProductData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         created_by: user.uid,
-        updated_by: user.uid
+        updated_by: user.uid,
+        added_by: user.uid,
+        added_by_email: user.email || '',
+        added_by_name: user.displayName || '',
+        modified_by: user.uid,
+        modified_by_email: user.email || '',
+        modified_by_name: user.displayName || '',
+        date_added: new Date().toISOString(),
+        date_modified: new Date().toISOString()
       };
 
       setProducts([...products, newProduct]);
@@ -336,22 +381,29 @@ export default function ProductManagement() {
     }
   };
 
-  const handleOpenNewProduct = () => {
-    setEditedProduct({
-      brand_name: '',
-      city: '',
-      province: '',
-      website: '',
-      products: [],
-      categories: [],
-      notes: '',
-      production_verified: false
-    });
-    setAddNewProductOpen(true);
-  };
-
   const handleExportCSV = () => {
     // Implement CSV export logic here
+  };
+
+  const handleCopyDetails = () => {
+    if (!selectedProduct) return;
+
+    const details = `Brand Name: ${selectedProduct.brand_name}
+City: ${selectedProduct.city}
+Province: ${selectedProduct.province}
+Website: ${selectedProduct.website || 'N/A'}
+Products: ${selectedProduct.products?.join(', ') || 'None'}
+Categories: ${selectedProduct.categories?.join(', ') || 'None'}
+Notes: ${selectedProduct.notes || 'N/A'}
+Production Verified: ${selectedProduct.production_verified ? 'Yes' : 'No'}
+Site Verified: ${selectedProduct.site_verified ? 'Yes' : 'No'}
+${selectedProduct.site_verified ? `Site Verified By: ${selectedProduct.site_verified_by}
+Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleDateString()}` : ''}`;
+
+    navigator.clipboard.writeText(details).then(() => {
+      // Show success message
+      // alert('Product details copied to clipboard!');
+    });
   };
 
   const renderUploadButton = () => {
@@ -614,6 +666,7 @@ export default function ProductManagement() {
                             onChange={(e) => {
                               const updatedProduct = { ...product, production_verified: e.target.checked };
                               setProducts(prev => prev.map(p => p._id === product._id ? updatedProduct : p));
+
                               updateCanadianProduct(
                                 product._id,
                                 { production_verified: e.target.checked },
@@ -728,6 +781,15 @@ export default function ProductManagement() {
                 label="Province"
                 value={editedProduct.province || ''}
                 onChange={(e) => setEditedProduct(prev => ({ ...prev, province: e.target.value }))}
+                fullWidth
+                size="small"
+                margin="none"
+                sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+              />
+              <TextField
+                label="Country"
+                value={editedProduct.country || 'Canada'}
+                onChange={(e) => setEditedProduct(prev => ({ ...prev, country: e.target.value }))}
                 fullWidth
                 size="small"
                 margin="none"
@@ -937,6 +999,13 @@ export default function ProductManagement() {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>Cancel</Button>
+          <Button
+            onClick={handleCopyDetails}
+            startIcon={<ContentCopyIcon />}
+            sx={{ mr: 'auto' }}
+          >
+            Copy Details
+          </Button>
           <Button onClick={handleSave} variant="contained" color="primary">Save</Button>
         </DialogActions>
       </Dialog>
@@ -976,6 +1045,14 @@ export default function ProductManagement() {
                 label="Province"
                 value={editedProduct.province || ''}
                 onChange={(e) => setEditedProduct(prev => ({ ...prev, province: e.target.value }))}
+                fullWidth
+                size="small"
+                margin="none"
+              />
+              <TextField
+                label="Country"
+                value={editedProduct.country || 'Canada'}
+                onChange={(e) => setEditedProduct(prev => ({ ...prev, country: e.target.value }))}
                 fullWidth
                 size="small"
                 margin="none"
