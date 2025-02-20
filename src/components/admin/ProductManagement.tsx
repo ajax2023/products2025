@@ -189,12 +189,7 @@ export default function ProductManagement() {
     if (!productToDelete || !user) return;
 
     try {
-      await deleteCanadianProduct(
-        productToDelete._id,
-        user.uid,
-        user.email || '',
-        user.displayName || ''
-      );
+      await deleteCanadianProduct(productToDelete._id);
       setProducts(products.filter(p => p._id !== productToDelete._id));
       handleCloseDeleteDialog();
     } catch (error) {
@@ -260,7 +255,7 @@ export default function ProductManagement() {
   const handleCategoryEdit = (index: number, newValue: string) => {
     setEditedProduct(prev => ({
       ...prev,
-      categories: prev.categories?.map((cat, i) => i === index ? newValue : cat) || []
+      categories: prev.categories?.map((cat, i) => i === index ? newValue as ProductCategory : cat) || []
     }));
   };
 
@@ -275,7 +270,7 @@ export default function ProductManagement() {
     if (newCategory.trim()) {
       setEditedProduct(prev => ({
         ...prev,
-        categories: [...(prev.categories || []), newCategory.trim()]
+        categories: [...(prev.categories || []), newCategory.trim() as ProductCategory]
       }));
       setNewCategory('');
     }
@@ -358,11 +353,16 @@ export default function ProductManagement() {
 
       const newProduct: CanadianProduct = {
         _id: docRef,
-        ...newProductData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        created_by: user.uid,
-        updated_by: user.uid,
+        brand_name: newProductData.brand_name || '',
+        website: newProductData.website || '',
+        city: newProductData.city || '',
+        province: newProductData.province || '',
+        country: newProductData.country || 'Canada',
+        production_verified: newProductData.production_verified || false,
+        site_verified: false,
+        products: newProductData.products || [],
+        categories: newProductData.categories || [],
+        cdn_prod_tags: newProductData.cdn_prod_tags || [],
         added_by: user.uid,
         added_by_email: user.email || '',
         added_by_name: user.displayName || '',
@@ -370,7 +370,9 @@ export default function ProductManagement() {
         modified_by_email: user.email || '',
         modified_by_name: user.displayName || '',
         date_added: new Date().toISOString(),
-        date_modified: new Date().toISOString()
+        date_modified: new Date().toISOString(),
+        is_active: newProductData.is_active ?? true,
+        version: newProductData.version || 1
       };
 
       setProducts([...products, newProduct]);
@@ -431,7 +433,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
             onClick={() => window.location.href = '/admin/canadian-product-upload'}
             startIcon={<CloudUploadIcon />}
           >
-            Import Products
+            Import
           </Button>
           <Button
             variant="contained"
@@ -439,7 +441,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
             onClick={handleExportCSV}
             startIcon={<FileDownloadIcon />}
           >
-            Export to CSV
+            Export
           </Button>
           <Button
             variant="contained"
@@ -447,7 +449,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
             onClick={handleOpenNewProduct}
             startIcon={<AddIcon />}
           >
-            New Product
+            Product
           </Button>
         </Stack>
         <TextField
