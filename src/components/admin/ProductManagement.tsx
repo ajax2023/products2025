@@ -722,7 +722,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                     </TableRow>
                     {/* Add a small gap row */}
                     <TableRow>
-                      <TableCell colSpan={7} sx={{ border: '2px solid primary.main',  bgcolor: 'primary.main', maxheight: '0.5px', minheight: '0.5px'}} />
+                      <TableCell colSpan={7} sx={{ border: 'none', bgcolor: 'primary.main', maxheight: '0.5px', minheight: '0.5px'}} />
                     </TableRow>
                   </React.Fragment>
                 ))}
