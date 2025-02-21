@@ -27,7 +27,7 @@ const AboutUs: React.FC = () => {
           </Typography>
           
           <Typography variant="h6" paragraph align="center" color="text.secondary">
-            We are dedicated to revolutionizing product management and inventory tracking
+            We are dedicated to providing a list of products that are made in Canada.
           </Typography>
 
           <Grid container spacing={4} sx={{ mt: 4 }}>
