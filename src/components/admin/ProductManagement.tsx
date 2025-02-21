@@ -425,7 +425,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
   return (
     <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', mt: 2 }}>
       <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5"  color="primary">Product Management XX</Typography>
+        <Typography variant="h5"  color="primary">Product Management</Typography>
         <Stack direction="row" spacing={2}>
           <Button
             variant="contained"
