@@ -29,7 +29,6 @@ import {
   Cancel as RejectIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import ProductImport from './ProductImport';
 
 interface ProductModerationQueueProps {
   adminId: string;
@@ -43,7 +42,6 @@ export default function ProductModerationQueue({ adminId }: ProductModerationQue
   const [actionDialog, setActionDialog] = useState<'approve' | 'reject' | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [detailsDialog, setDetailsDialog] = useState<Product | null>(null);
-  const [showImportDialog, setShowImportDialog] = useState(false);
 
   useEffect(() => {
     fetchPendingProducts();
@@ -130,13 +128,6 @@ export default function ProductModerationQueue({ adminId }: ProductModerationQue
             sx={{ ml: 1 }}
           />
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setShowImportDialog(true)}
-        >
-          Import Products
-        </Button>
       </Box>
 
       <TableContainer component={Paper} elevation={0}>
@@ -294,19 +285,6 @@ export default function ProductModerationQueue({ adminId }: ProductModerationQue
         <DialogActions>
           <Button onClick={() => setDetailsDialog(null)}>Close</Button>
         </DialogActions>
-      </Dialog>
-
-      {/* Import Dialog */}
-      <Dialog 
-        open={showImportDialog} 
-        onClose={() => setShowImportDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Import Products</DialogTitle>
-        <DialogContent>
-          <ProductImport onClose={() => setShowImportDialog(false)} />
-        </DialogContent>
       </Dialog>
     </Box>
   );

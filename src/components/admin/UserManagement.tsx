@@ -49,8 +49,6 @@ import {
   Clear as ClearIcon,
   Work as WorkIcon,
 } from '@mui/icons-material';
-import ProductImport from './ProductImport';
-import PriceImport from './PriceImport';
 
 const ROLES = ['super_admin', 'admin', 'contributor', 'viewer'] as const;
 const USER_STATUSES = ['active', 'inactive', 'pending'] as const;
@@ -67,8 +65,6 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [showProductImport, setShowProductImport] = useState(false);
-  const [showPriceImport, setShowPriceImport] = useState(false);
   const [contributorRequests, setContributorRequests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -576,32 +572,6 @@ export default function UserManagement() {
             Save Changes
           </Button>
         </DialogActions>
-      </Dialog>
-
-      {/* Product Import Dialog */}
-      <Dialog
-        open={showProductImport}
-        onClose={() => setShowProductImport(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Import Products</DialogTitle>
-        <DialogContent>
-          <ProductImport onClose={() => setShowProductImport(false)} />
-        </DialogContent>
-      </Dialog>
-
-      {/* Price Import Dialog */}
-      <Dialog
-        open={showPriceImport}
-        onClose={() => setShowPriceImport(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Import Prices</DialogTitle>
-        <DialogContent>
-          <PriceImport onClose={() => setShowPriceImport(false)} />
-        </DialogContent>
       </Dialog>
     </Box>
   );

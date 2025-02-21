@@ -722,7 +722,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                     </TableRow>
                     {/* Add a small gap row */}
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ border: 'none', bgcolor: '#primary.main', maxheight: '1px', minheight: '1px' }} />
+                      <TableCell colSpan={6} sx={{ border: 'none', bgcolor: 'primary.main', maxheight: '1px', minheight: '1px' }} />
                     </TableRow>
                   </React.Fragment>
                 ))}
@@ -739,7 +739,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                     onRowsPerPageChange={handleChangeRowsPerPage}
                     sx={{
                       bgcolor: 'primary.main',
-                      borderTop: '1px solid blue',
+                      borderTop: '2px solid blue',
                       borderColor: 'divider',
                       color: 'white'
                     }}
