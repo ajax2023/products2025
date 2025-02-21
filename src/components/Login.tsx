@@ -129,6 +129,7 @@ export default function Login() {
               variant="body2" 
               sx={{ 
                 color: '#666',
+                boxShadow: 2 ,
                 fontWeight: 500,
                 zIndex: 1
               }}
