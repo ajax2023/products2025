@@ -3,15 +3,10 @@ import {
   Box,
   TextField,
   IconButton,
-  Paper,
   Typography,
-  Grid,
-  Card,
-  CardContent,
-  Chip,
-  Link,
-  CircularProgress,
+  Paper,
   InputBase,
+  Divider,
   Table,
   TableBody,
   TableCell,
@@ -19,18 +14,29 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  Link,
+  Stack,
+  Chip,
+  Button,
+  CircularProgress,
+  Card,
+  CardContent,
+  Grid
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CheckIcon from '@mui/icons-material/Check';
 import CircleIcon from '@mui/icons-material/Circle';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import debounce from 'lodash/debounce';
+import { cacheService } from '../services/cacheService';
+import { useAuth } from '../auth/useAuth';
+import { default as LikeButton } from './LikeButton';
+import { default as ShareButton } from './ShareButton';
 import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
 import { auth, db } from '../firebaseConfig';
 import { collection, query, getDocs, where, doc, getDoc, limit } from 'firebase/firestore';
-import debounce from 'lodash/debounce';
-import { cacheService } from '../services/cacheService';
-import { useAuth } from '../auth/useAuth'; // Correct import path
 
 export default function CanadianProductSearch() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -136,37 +142,79 @@ export default function CanadianProductSearch() {
     }
   }, [user]);
 
-  // Simple search function
+  // Load initial data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        console.log('Loading initial data');
+        console.log('User state:', user ? 'Logged in' : 'Not logged in');
+        
+        const results = await searchCanadianProducts({});
+        console.log('Initial data loaded, results:', results.length);
+        setProducts(results);
+        setAllProducts(results);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, [user]); // Reload when user auth state changes
+
+  // Search function
   const debouncedSearch = useCallback(
     debounce(async (term: string) => {
       if (!term.trim()) {
-        setProducts([]);
-        setLoading(false);
+        // Only reset to initial data if the search is actually empty
+        const results = await searchCanadianProducts({});
+        setProducts(results);
+        setAllProducts(results);
         return;
       }
 
+      // Check if search query contains only special characters
+      if (!/[a-zA-Z0-9]/.test(term)) {
+        setProducts([]);
+        setAllProducts([]);
+        return;
+      }
+
+      console.log('Starting search with query:', term);
+      console.log('User state:', user ? 'Logged in' : 'Not logged in');
+      
+      setLoading(true);
       try {
-        setLoading(true);
-        const searchTerm = term.toLowerCase();
-        const filtered = allProducts.filter(product => 
-          product.brand_name.toLowerCase().includes(searchTerm) ||
-          product.products.some(p => p.toLowerCase().includes(searchTerm)) ||
-          product.categories.some(c => c.toLowerCase().includes(searchTerm))
-        );
-        setProducts(filtered);
+        console.log('Attempting search with:', {
+          isAuthenticated: !!user,
+          searchQuery: term,
+        });
+        
+        const results = await searchCanadianProducts({ brand_name: term });
+        console.log('Search completed, results:', results.length);
+        setProducts(results);
+        setAllProducts(results);
       } catch (error) {
         console.error('Search error:', error);
+        console.error('Full error details:', {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        });
       } finally {
         setLoading(false);
       }
     }, 300),
-    [allProducts]
+    [user]
   );
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchQuery(term);
-    debouncedSearch(term);
+    debouncedSearch(term);  // Pass the current term directly
   };
 
   const countTotalProducts = (products: CanadianProduct[]) => {
@@ -259,7 +307,7 @@ export default function CanadianProductSearch() {
                 <Grid item xs={2.4}>
                   <Box textAlign="center">
                     <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Total Brands
+                      Brands
                     </Typography>
                     <Typography variant="body2">
                       {stats.total ?? <CircularProgress size={12} />}
@@ -356,24 +404,25 @@ export default function CanadianProductSearch() {
         px: 2,
         pb: 2
       }}>
-        {searchQuery && products.length > 0 && (
+        {products.length > 0 ? (
           <TableContainer>
             <Table size="small" stickyHeader>
               <TableHead
-              sx={{
-                bgcolor: 'primary.main',
-                color: 'white'
-              }}
+                sx={{
+                  '& th': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    fontWeight: 'bold'
+                  }
+                }}
               >
                 <TableRow>
-                  <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({products.length})</TableCell>
-                  
+                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({products.length})</TableCell>
                   <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(products)})</TableCell>
-
-                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(products)})</TableCell>
-                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>({countTotalStatus(products)})</TableCell>
-                  <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>Actions</TableCell>
-                  <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
+                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(products)})</TableCell>
+                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>Verified ({countTotalStatus(products)})</TableCell>
+                  <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
+                  <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Link</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -385,29 +434,44 @@ export default function CanadianProductSearch() {
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
                       <TableCell>
-                        <Typography 
-                          sx={{ 
-                            fontWeight: 500,
-                            fontSize: '0.875rem',
-                            color: 'text.primary'
-                          }}
-                        >
-                          {product.brand_name}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <LikeButton 
+                              brandId={product._id}
+                              brandName={product.brand_name}
+                              initialLikeCount={product.likeStats?.totalLikes || 0}
+                            />
+                            
+                          </Box>
+                          <Typography 
+                            sx={{ 
+                              fontWeight: 500,
+                              fontSize: '0.875rem',
+                              color: 'text.primary'
+                            }}
+                          >
+                            {product.brand_name}
+                          </Typography>
+                        </Box>
                       </TableCell>
-                  
                       <TableCell>
-                        <Typography 
-                          sx={{ 
-                            fontSize: '0.875rem',
-                            color: 'text.secondary',
-                            maxWidth: '200px',
-                            whiteSpace: 'normal',
-                            wordBreak: 'normal'
-                          }}
-                        >
-                          {product.products.join(', ')}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <ShareButton
+                            brandName={product.brand_name}
+                            products={product.products}
+                            website={product.website}
+                          />
+                          <Typography 
+                            sx={{ 
+                              fontSize: '0.875rem',
+                              color: 'text.secondary',
+                              display: 'inline-flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            {product.products.join(', ')}
+                          </Typography>
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Typography 
@@ -440,28 +504,27 @@ export default function CanadianProductSearch() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {product.website && (
-                          <Link
-                            href={product.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Website
-                          </Link>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography 
-                          sx={{ 
-                            fontSize: '0.875rem',
-                            color: 'text.secondary'
-                          }}
-                        >
+                        <Typography variant="body2" color="text.secondary">
                           {product.city}, {product.province}
                         </Typography>
                       </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {product.website && (
+                            <Link
+                              href={product.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <IconButton size="small">
+                                <OpenInNewIcon sx={{ fontSize: '1rem' }} />
+                              </IconButton>
+                            </Link>
+                          )}
+                        </Box>
+                      </TableCell>
                     </TableRow>
-                ))}
+                  ))}
               </TableBody>
             </Table>
             <TablePagination
@@ -474,6 +537,16 @@ export default function CanadianProductSearch() {
               onRowsPerPageChange={handleChangeRowsPerPage}
             />
           </TableContainer>
+        ) : (
+          <Box sx={{ 
+            width: '100%', 
+            textAlign: 'center',
+            mt: 1
+          }}>
+            <Typography variant="h6" color="text.secondary">
+              No results found...
+            </Typography>
+          </Box>
         )}
       </Box>
     </Box>

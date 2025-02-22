@@ -1,4 +1,5 @@
 import { Location } from './common';
+import { ProductLikeStats, BrandLikeStats } from './likes';
 
 export const PRODUCT_CATEGORIES = [
   'Medical Supplies',
@@ -43,6 +44,8 @@ export interface CanadianProduct {
   modified_by_name: string;
   is_active: boolean;
   version: number;
+  isPubliclyVisible: boolean;
+  likeStats?: BrandLikeStats;  // Like statistics for the brand
 }
 
 export interface CanadianProductStats {
@@ -135,6 +138,7 @@ export function createCanadianProduct(data: Partial<CanadianProduct>): CanadianP
     modified_by_name: '',
     is_active: true,
     version: 1,
+    isPubliclyVisible: false,
     ...data
   };
 }

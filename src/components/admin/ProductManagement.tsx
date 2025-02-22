@@ -164,7 +164,18 @@ export default function ProductManagement() {
 
   const handleEdit = (product: CanadianProduct) => {
     setSelectedProduct(product);
-    setEditedProduct({ ...product });
+    setEditedProduct({
+      brand_name: product.brand_name,
+      website: product.website,
+      city: product.city,
+      province: product.province,
+      country: product.country,
+      products: product.products,
+      categories: product.categories,
+      cdn_prod_tags: product.cdn_prod_tags,
+      notes: product.notes,
+      isPubliclyVisible: product.isPubliclyVisible || false,
+    });
     setEditDialogOpen(true);
   };
 
@@ -230,15 +241,39 @@ export default function ProductManagement() {
     setUpdatingProducts(prev => new Set(prev).add(product._id));
 
     try {
-      const updatedProduct = { ...product, production_verified: !product.production_verified };
-      setProducts(prev => prev.map(p => p._id === product._id ? updatedProduct : p));
+      const updates = {
+        isPubliclyVisible: product.isPubliclyVisible,
+        brand_name: product.brand_name,
+        website: product.website,
+        city: product.city,
+        province: product.province,
+        country: product.country,
+        categories: product.categories,
+        products: product.products,
+        production_verified: product.production_verified,
+        site_verified: product.site_verified,
+        cdn_prod_tags: product.cdn_prod_tags || []
+      };
 
-      await updateVerificationStatus(
+      await updateCanadianProduct(
         product._id,
-        !product.production_verified,
-        user.uid,
-        user.email || '',
-        user.displayName || ''
+        updates,
+        user?.uid || '',
+        user?.email || '',
+        user?.displayName || ''
+      );
+
+      setProducts(prevProducts => 
+        prevProducts.map(p => 
+          p._id === product._id ? {
+            ...p,
+            ...updates,
+            modified_by: user?.uid || '',
+            modified_by_email: user?.email || '',
+            modified_by_name: user?.displayName || '',
+            date_modified: new Date().toISOString()
+          } : p
+        )
       );
     } catch (error) {
       console.error('Error updating verification status:', error);
@@ -494,6 +529,23 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                   </TableCell>
                   <TableCell 
                     padding="none" 
+                    onClick={() => handleRequestSort('website')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Website {orderBy === 'website' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
                     onClick={() => handleRequestSort('city')}
                     sx={{ 
                       pl: 1, 
@@ -543,24 +595,6 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                   >
                     Categories {orderBy === 'categories' && (order === 'desc' ? '▼' : '▲')}
                   </TableCell>
-                  <TableCell
-                    padding="none"
-                    onClick={() => handleRequestSort('website')}
-                    sx={{
-                      pl: 1, 
-                      bgcolor: 'primary.main',
-                      color: 'common.white', 
-                      fontWeight: 'medium',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1,
-                      cursor: 'pointer',
-                      '&:hover': { bgcolor: 'primary.dark' }
-                    }}
-                  >
-                    Website {orderBy === 'website' && (order === 'desc' ? '▼' : '▲')}
-                  </TableCell>
-
                   <TableCell 
                     padding="none" 
                     onClick={() => handleRequestSort('production_verified')}
@@ -578,9 +612,9 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                   >
                     Status {orderBy === 'production_verified' && (order === 'desc' ? '▼' : '▲')}
                   </TableCell>
-                  {/* <TableCell 
+                  <TableCell 
                     padding="none" 
-                    onClick={() => handleRequestSort('site_verified')}
+                    onClick={() => handleRequestSort('isPubliclyVisible')}
                     sx={{ 
                       pl: 1, 
                       bgcolor: 'primary.main',
@@ -593,36 +627,48 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                       '&:hover': { bgcolor: 'primary.dark' }
                     }}
                   >
-                    Site Verified {orderBy === 'site_verified' && (order === 'desc' ? '▼' : '▲')}
-                  </TableCell> */}
+                    Public {orderBy === 'isPubliclyVisible' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                    }}
+                  >
+                    Actions
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paginatedProducts.map((product) => (
                   <React.Fragment key={product._id}>
-                    <TableRow 
-                      sx={{ 
-                        bgcolor: 'common.white',
+                    <TableRow
+                      hover
+                      sx={{
+                        cursor: 'pointer',
                         '&:hover': {
                           bgcolor: 'action.hover',
-                          cursor: 'pointer',
-                          color: 'white'
                         },
-                        '& > td': { py: 0.0 }
+                        '& td': {
+                          borderBottom: 'none',
+                        }
                       }}
-                      onClick={() => handleEdit(product)}
+                      onClick={(e) => {
+                        // Only open edit dialog if not clicking a switch or button
+                        if (!(e.target as HTMLElement).closest('.MuiSwitch-root') && 
+                            !(e.target as HTMLElement).closest('.MuiIconButton-root')) {
+                          handleEdit(product);
+                        }
+                      }}
                     >
                       <TableCell padding="none" sx={{ pl: 1 }}>
                         {product.brand_name}
-                      </TableCell>
-                      <TableCell padding="none" sx={{ pl: 1 }}>
-                        {`${product.city}, ${product.province}`}
-                      </TableCell>
-                      <TableCell padding="none" sx={{ pl: 1 }}>
-                        {product.products?.join(', ')}
-                      </TableCell>
-                      <TableCell padding="none" sx={{ pl: 1 }}>
-                        {product.categories?.join(', ')}
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
                         <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
@@ -662,35 +708,114 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                         </Stack>
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
+                        {`${product.city}, ${product.province}`}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {product.products?.join(', ')}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {product.categories?.join(', ')}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
                         <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
                           <Switch
-                            checked={product.production_verified}
-                            onChange={(e) => {
-                              const updatedProduct = { ...product, production_verified: e.target.checked };
-                              setProducts(prev => prev.map(p => p._id === product._id ? updatedProduct : p));
+                            checked={product.production_verified || false}
+                            onChange={async (e) => {
+                              e.stopPropagation();
+                              const newStatus = e.target.checked;
+                              setUpdatingProducts(prev => new Set([...prev, product._id]));
+                              try {
+                                await updateVerificationStatus(
+                                  product._id,
+                                  newStatus,
+                                  user?.uid || '',
+                                  user?.email || '',
+                                  user?.displayName || '',
+                                  '' // Empty notes
+                                );
+                                
+                                setProducts(prevProducts => 
+                                  prevProducts.map(p => 
+                                    p._id === product._id ? {
+                                      ...p,
+                                      production_verified: newStatus,
+                                      modified_by: user?.uid || '',
+                                      modified_by_email: user?.email || '',
+                                      modified_by_name: user?.displayName || '',
+                                      date_modified: new Date().toISOString()
+                                    } : p
+                                  )
+                                );
+                              } catch (error) {
+                                console.error('Error updating verification status:', error);
+                                setProducts(prev => prev.map(p => p._id === product._id ? product : p));
+                              } finally {
+                                setUpdatingProducts(prev => {
+                                  const newSet = new Set(prev);
+                                  newSet.delete(product._id);
+                                  return newSet;
+                                });
+                              }
+                            }}
+                            disabled={updatingProducts.has(product._id)}
+                          />
+                        </Stack>
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        <Switch
+                          checked={product.isPubliclyVisible || false}
+                          onChange={async (e) => {
+                            e.stopPropagation();
+                            const newStatus = e.target.checked;
+                            setUpdatingProducts(prev => new Set([...prev, product._id]));
+                            try {
+                              const updatedProduct = {
+                                ...product,
+                                isPubliclyVisible: newStatus,
+                                modified_by: user?.uid || '',
+                                modified_by_email: user?.email || '',
+                                modified_by_name: user?.displayName || '',
+                                date_modified: new Date().toISOString()
+                              };
 
-                              updateCanadianProduct(
+                              await updateCanadianProduct(
                                 product._id,
-                                { production_verified: e.target.checked },
+                                updatedProduct,
                                 user?.uid || '',
                                 user?.email || '',
                                 user?.displayName || ''
                               );
-                            }}
-                            size="small"
-                          />
+                              
+                              setProducts(prevProducts => 
+                                prevProducts.map(p => 
+                                  p._id === product._id ? updatedProduct : p
+                                )
+                              );
+                            } catch (error) {
+                              console.error('Error updating public visibility:', error);
+                              setProducts(prev => prev.map(p => p._id === product._id ? product : p));
+                            } finally {
+                              setUpdatingProducts(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(product._id);
+                                return newSet;
+                              });
+                            }
+                          }}
+                          disabled={updatingProducts.has(product._id)}
+                        />
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
                           <IconButton
                             size="small"
-                            onClick={(e) => handleDeleteClick(e, product)}
+                            onClick={() => handleEdit(product)}
                             sx={{ 
-                              color: 'error.main',
-                              '&:hover': { 
-                                bgcolor: 'error.light',
-                                color: 'error.contrastText'
-                              }
+                              p: 0.5,
+                              '&:hover': { color: 'primary.main' }
                             }}
                           >
-                            <DeleteIcon fontSize="small" />
+                            <EditIcon fontSize="small" />
                           </IconButton>
                         </Stack>
                       </TableCell>
@@ -714,7 +839,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                       }}
                       onClick={() => handleEdit(product)}
                     >
-                      <TableCell colSpan={6} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
+                      <TableCell colSpan={8} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
                         <Typography variant="body2" color="black">
                           {product.notes || 'No notes'}
                         </Typography>
@@ -722,7 +847,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                     </TableRow>
                     {/* Add a small gap row */}
                     <TableRow>
-                      <TableCell colSpan={7} sx={{ border: 'none', bgcolor: 'primary.main', maxheight: '0.5px', minheight: '0.5px'}} />
+                      <TableCell colSpan={9} sx={{ border: 'none', bgcolor: 'primary.main', maxheight: '0.5px', minheight: '0.5px'}} />
                     </TableRow>
                   </React.Fragment>
                 ))}
@@ -731,7 +856,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 <TableRow>
                   <TablePagination
                     rowsPerPageOptions={[5, 10, 25, 50, 100]}
-                    colSpan={7}
+                    colSpan={9}
                     count={filteredProducts.length}
                     rowsPerPage={pageSize}
                     page={page}
@@ -759,74 +884,80 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
       >
         <DialogTitle>Edit Product</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Box sx={{ display: 'flex', gap: 0.5, mb: 0.7 }}>
-            <TextField
-              label="Brand Name"
-              value={editedProduct.brand_name || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, brand_name: e.target.value }))}
-              fullWidth
-              size="small"
-              margin="none"
-              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 }, mt: 0.7 }}
-            />
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
-              label="Website"
-              value={editedProduct.website || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, website: e.target.value }))}
-              fullWidth
-              size="small"
-              margin="none"
-              sx={{ '& .MuiOutlinedInput-root': { py: 0.0 }, mt: 0.7 }}
-              InputProps={{
-                endAdornment: editedProduct.website && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => window.open(editedProduct.website, '_blank')}
-                    >
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+                label="Brand Name"
+                value={editedProduct.brand_name || ''}
+                onChange={(e) => setEditedProduct({ ...editedProduct, brand_name: e.target.value })}
+                fullWidth
+                required
+                sx={{ mt: 2 }}
+              />
+              <TextField
+                label="Website"
+                value={editedProduct.website || ''}
+                onChange={(e) => setEditedProduct({ ...editedProduct, website: e.target.value })}
+                fullWidth
+                required
+                sx={{ mt: 2 }}
+                InputProps={{
+                  endAdornment: editedProduct.website && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => window.open(editedProduct.website, '_blank')}
+                      >
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
             </Box>
-            <Box sx={{ display: 'flex', gap: 0.7, mb: 0.7 }}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 label="City"
                 value={editedProduct.city || ''}
-                onChange={(e) => setEditedProduct(prev => ({ ...prev, city: e.target.value }))}
+                onChange={(e) => setEditedProduct({ ...editedProduct, city: e.target.value })}
                 fullWidth
-                size="small"
-                margin="none"
-                sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+                required
               />
               <TextField
                 label="Province"
                 value={editedProduct.province || ''}
-                onChange={(e) => setEditedProduct(prev => ({ ...prev, province: e.target.value }))}
+                onChange={(e) => setEditedProduct({ ...editedProduct, province: e.target.value })}
                 fullWidth
-                size="small"
-                margin="none"
-                sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+                required
               />
               <TextField
                 label="Country"
-                value={editedProduct.country || 'Canada'}
-                onChange={(e) => setEditedProduct(prev => ({ ...prev, country: e.target.value }))}
+                value={editedProduct.country || ''}
+                onChange={(e) => setEditedProduct({ ...editedProduct, country: e.target.value })}
                 fullWidth
-                size="small"
-                margin="none"
-                sx={{ '& .MuiOutlinedInput-root': { py: 0.0 } }}
+                required
               />
             </Box>
-          
-            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editedProduct.isPubliclyVisible || false}
+                  onChange={(e) => setEditedProduct({ ...editedProduct, isPubliclyVisible: e.target.checked })}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>Publicly Visible</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    When enabled, this product will be visible to non-logged-in users
+                  </Typography>
+                </Box>
+              }
+            />
             <TextField
               label="Notes"
               value={editedProduct.notes || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) => setEditedProduct({ ...editedProduct, notes: e.target.value })}
               multiline
               rows={4}
               sx={{ p: 0.0 }}
@@ -1001,7 +1132,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 </Typography>
               )}
             </Box>
-          </Box>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>Cancel</Button>
@@ -1027,70 +1158,78 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
       >
         <DialogTitle>Add New Product</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              label="Brand Name"
-              value={editedProduct.brand_name || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, brand_name: e.target.value }))}
-              fullWidth
-              size="small"
-              margin="none"
-              sx={{ mb: 2 }}
-            />
-
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Brand Name"
+                value={editedProduct.brand_name || ''}
+                onChange={(e) => setEditedProduct({ ...editedProduct, brand_name: e.target.value })}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Website"
+                value={editedProduct.website || ''}
+                onChange={(e) => setEditedProduct({ ...editedProduct, website: e.target.value })}
+                fullWidth
+                required
+                InputProps={{
+                  endAdornment: editedProduct.website && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => window.open(editedProduct.website, '_blank')}
+                      >
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 label="City"
                 value={editedProduct.city || ''}
-                onChange={(e) => setEditedProduct(prev => ({ ...prev, city: e.target.value }))}
+                onChange={(e) => setEditedProduct({ ...editedProduct, city: e.target.value })}
                 fullWidth
-                size="small"
-                margin="none"
+                required
               />
               <TextField
                 label="Province"
                 value={editedProduct.province || ''}
-                onChange={(e) => setEditedProduct(prev => ({ ...prev, province: e.target.value }))}
+                onChange={(e) => setEditedProduct({ ...editedProduct, province: e.target.value })}
                 fullWidth
-                size="small"
-                margin="none"
+                required
               />
               <TextField
                 label="Country"
-                value={editedProduct.country || 'Canada'}
-                onChange={(e) => setEditedProduct(prev => ({ ...prev, country: e.target.value }))}
+                value={editedProduct.country || ''}
+                onChange={(e) => setEditedProduct({ ...editedProduct, country: e.target.value })}
                 fullWidth
-                size="small"
-                margin="none"
+                required
               />
             </Box>
-
-            <TextField
-              label="Website"
-              value={editedProduct.website || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, website: e.target.value }))}
-              fullWidth
-              size="small"
-              margin="none"
-              sx={{ mb: 2 }}
-              InputProps={{
-                endAdornment: editedProduct.website && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => window.open(editedProduct.website, '_blank')}
-                    >
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editedProduct.isPubliclyVisible || false}
+                  onChange={(e) => setEditedProduct({ ...editedProduct, isPubliclyVisible: e.target.checked })}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>Publicly Visible</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    When enabled, this product will be visible to non-logged-in users
+                  </Typography>
+                </Box>
+              }
             />
-            
             <TextField
               label="Notes"
               value={editedProduct.notes || ''}
-              onChange={(e) => setEditedProduct(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) => setEditedProduct({ ...editedProduct, notes: e.target.value })}
               multiline
               rows={2}
               fullWidth
@@ -1264,7 +1403,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 </Typography>
               )}
             </Box>
-          </Box>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => {

@@ -5,88 +5,104 @@ import { doc, getDoc } from 'firebase/firestore';
 import { AuthContext } from './AuthContext';
 import { UserClaims } from './types';
 
+interface AuthState {
+  user: User | null;
+  claims: UserClaims | null;
+  loading: boolean;
+  role: string;
+  settings: any;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [claims, setClaims] = useState<UserClaims | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    claims: null,
+    loading: true,
+    role: 'viewer',
+    settings: {}
+  });
 
   const refreshClaims = useCallback(async () => {
-    if (!user) {
-      setClaims(null);
+    if (!authState.user) {
+      setAuthState(prev => ({ ...prev, claims: null }));
       return;
     }
     
     try {
       // Special case for ajax@online101.ca
-      if (user.email === 'ajax@online101.ca') {
-        setClaims({
-          role: 'super_admin',
-          permissions: ['*'],
-          metadata: {
-            updatedAt: Date.now(),
-            updatedBy: 'system'
+      if (authState.user.email === 'ajax@online101.ca') {
+        setAuthState(prev => ({
+          ...prev,
+          claims: {
+            role: 'super_admin',
+            permissions: ['*'],
+            metadata: {
+              updatedAt: Date.now(),
+              updatedBy: 'system'
+            }
           }
-        });
+        }));
         return;
       }
 
-      // Get user document directly by ID
-      const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const customClaims: UserClaims = {
-          role: userData.role || 'viewer',
-          permissions: [],  // We'll add specific permissions later
-          metadata: {
-            updatedAt: Date.now(),
-            updatedBy: 'system'
+      const userDoc = await getDoc(doc(db, 'users', authState.user.uid));
+      const userData = userDoc.data();
+
+      if (userData) {
+        setAuthState(prev => ({
+          ...prev,
+          claims: {
+            role: userData.role || 'viewer',
+            permissions: userData.permissions || [],
+            metadata: {
+              updatedAt: Date.now(),
+              updatedBy: 'system'
+            }
           }
-        };
-        
-        setClaims(customClaims);
-      } else {
-        // Default to viewer if no user document
-        setClaims({
-          role: 'viewer',
-          permissions: [],
-          metadata: {
-            updatedAt: Date.now(),
-            updatedBy: 'system'
-          }
-        });
+        }));
       }
     } catch (error) {
       console.error('Error refreshing claims:', error);
-      // Default to viewer on error
-      setClaims({
-        role: 'viewer',
-        permissions: [],
-        metadata: {
-          updatedAt: Date.now(),
-          updatedBy: 'system'
-        }
-      });
     }
-  }, [user]);
+  }, [authState.user]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      setUser(user);
       if (user) {
-        await refreshClaims();
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        
+        setAuthState({
+          user,
+          claims: null,
+          loading: false,
+          role: userData?.role || 'viewer',
+          settings: userData?.settings || {}
+        });
+        
+        refreshClaims();
       } else {
-        setClaims(null);
+        setAuthState({
+          user: null,
+          claims: null,
+          loading: false,
+          role: 'viewer',
+          settings: {}
+        });
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [refreshClaims]);
 
+  const contextValue = {
+    ...authState,
+    refreshClaims,
+    setContext: setAuthState
+  };
+
   return (
-    <AuthContext.Provider value={{ user, claims, loading, refreshClaims }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

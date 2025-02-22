@@ -70,8 +70,9 @@ export async function updateCanadianProduct(
   }
 
   const currentData = docSnap.data() as CanadianProduct;
-  const updatedData = {
-    ...currentData,
+  
+  // Only update the specified fields
+  const updateFields = {
     ...updates,
     modified_by: userId,
     modified_by_email: userEmail,
@@ -79,12 +80,7 @@ export async function updateCanadianProduct(
     date_modified: new Date().toISOString(),
   };
 
-  const errors = validateCanadianProduct(updatedData);
-  if (errors.length > 0) {
-    throw new Error(`Validation failed: ${errors.join(', ')}`);
-  }
-
-  await updateDoc(docRef, updatedData);
+  await updateDoc(docRef, updateFields);
 }
 
 /**
@@ -136,60 +132,75 @@ async function getLatestUpdates(): Promise<CanadianProduct[]> {
 }
 
 /**
- * Search Canadian products by various criteria
+ * Search for Canadian products based on criteria
+ * For non-authenticated users, only public products will be returned
  */
 export async function searchCanadianProducts(criteria: {
   brand_name?: string;
   province?: string;
   city?: string;
-  production_verified?: boolean;
   categories?: string[];
 }): Promise<CanadianProduct[]> {
   try {
-    // Get all products directly from Firestore
-    const q = query(collection(db, COLLECTION_NAME));
+    console.log('Starting search with criteria:', criteria);
+    
+    // Start with base query
+    let q = query(collection(db, COLLECTION_NAME));
+
+    // If user is not authenticated, only show public products
+    if (!auth.currentUser) {
+      console.log('Non-authenticated user - filtering for public products');
+      q = query(q, where('isPubliclyVisible', '==', true));
+    }
+
+    // Get all documents that match the visibility criteria
     const querySnapshot = await getDocs(q);
     let results = querySnapshot.docs.map(doc => ({ ...doc.data(), _id: doc.id } as CanadianProduct));
 
-    // Apply filters
+    // Apply search filters in memory for better search experience
     if (criteria.brand_name) {
       const searchTerm = criteria.brand_name.toLowerCase();
-      results = results.filter(product => 
-        product.brand_name.toLowerCase().includes(searchTerm) ||
-        product.products.some(p => p.toLowerCase().includes(searchTerm)) ||
-        product.categories.some(c => c.toLowerCase().includes(searchTerm))
-      );
+      // Skip search if the term contains only special characters
+      if (/[a-zA-Z0-9]/.test(searchTerm)) {
+        console.log('Filtering by brand name:', searchTerm);
+        results = results.filter(product => {
+          const productName = product.brand_name.toLowerCase();
+          const words = searchTerm.split(/\s+/).filter(word => word.length > 0);
+          return words.every(word => productName.includes(word));
+        });
+      } else {
+        console.log('Search term contains only special characters, skipping search');
+        results = [];
+      }
     }
 
     if (criteria.province) {
       results = results.filter(product => 
-        product.province.toLowerCase() === criteria.province?.toLowerCase()
+        product.province === criteria.province
       );
     }
 
     if (criteria.city) {
       results = results.filter(product => 
-        product.city.toLowerCase() === criteria.city?.toLowerCase()
-      );
-    }
-
-    if (typeof criteria.production_verified === 'boolean') {
-      results = results.filter(product => 
-        product.production_verified === criteria.production_verified
+        product.city === criteria.city
       );
     }
 
     if (criteria.categories && criteria.categories.length > 0) {
       results = results.filter(product => 
-        criteria.categories?.some(cat => 
-          product.categories.map(c => c.toLowerCase()).includes(cat.toLowerCase())
-        )
+        criteria.categories!.some(cat => product.categories.includes(cat))
       );
     }
 
+    console.log('Search completed, results:', results.length);
     return results;
   } catch (error) {
     console.error('Search error:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     throw error;
   }
 }
@@ -365,9 +376,8 @@ export async function updateVerificationStatus(
   notes?: string
 ): Promise<void> {
   const productRef = doc(db, COLLECTION_NAME, productId);
-  const verificationHistoryRef = collection(db, 'canadian_products_verification_history');
-
   const productSnap = await getDoc(productRef);
+  
   if (!productSnap.exists()) {
     throw new Error('Product not found');
   }
@@ -375,30 +385,17 @@ export async function updateVerificationStatus(
   const product = productSnap.data() as CanadianProduct;
   const previousStatus = product.production_verified;
 
-  // Only track if status actually changed
+  // Only update if status actually changed
   if (previousStatus !== newStatus) {
-    const change: VerificationStatusChange = {
-      productId,
-      brandName: product.brand_name,
-      previousStatus,
-      newStatus,
-      changedBy: userId,
-      changedByEmail: userEmail,
-      changedByName: userName,
-      changeDate: new Date().toISOString(),
-      notes,
+    const updateFields = {
+      production_verified: newStatus,
+      modified_by: userId,
+      modified_by_email: userEmail,
+      modified_by_name: userName,
+      date_modified: new Date().toISOString(),
     };
-
-    await Promise.all([
-      updateDoc(productRef, {
-        production_verified: newStatus,
-        modified_by: userId,
-        modified_by_email: userEmail,
-        modified_by_name: userName,
-        date_modified: change.changeDate,
-      }),
-      addDoc(verificationHistoryRef, change),
-    ]);
+    
+    await updateDoc(productRef, updateFields);
   }
 }
 
