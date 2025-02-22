@@ -383,7 +383,7 @@ export default function CanadianProductSearch() {
           </IconButton>
         </Paper>
 
-        {!searchQuery && (
+        {/* {!searchQuery && (
           <Box sx={{ 
             width: '100%', 
             textAlign: 'center',
@@ -393,7 +393,7 @@ export default function CanadianProductSearch() {
               Enter text to get a list of brands and products...
             </Typography>
           </Box>
-        )}
+        )} */}
       </Box>
 
       {/* Results Section */}
