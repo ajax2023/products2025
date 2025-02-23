@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -28,6 +28,10 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CheckIcon from '@mui/icons-material/Check';
 import CircleIcon from '@mui/icons-material/Circle';
+import StoreIcon from '@mui/icons-material/Store';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import CategoryIcon from '@mui/icons-material/Category';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 import { useAuth } from '../auth/useAuth';
@@ -51,6 +55,9 @@ export default function CanadianProductSearch() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [allProducts, setAllProducts] = useState<CanadianProduct[]>([]);
+  const [productFilter, setProductFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
 
   const { user } = useAuth();
 
@@ -255,6 +262,38 @@ export default function CanadianProductSearch() {
     setPage(0);
   };
 
+  // Filter products based on all criteria
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      // Product filter
+      const matchesProduct = !productFilter || 
+        product.products.some(p => 
+          p.toLowerCase().includes(productFilter.toLowerCase())
+        );
+
+      // Category filter
+      const matchesCategory = !categoryFilter ||
+        product.categories.some(c =>
+          c.toLowerCase().includes(categoryFilter.toLowerCase())
+        );
+
+      // Location filter - check city and province
+      const matchesLocation = !locationFilter ||
+        (product.city?.toLowerCase().includes(locationFilter.toLowerCase()) ||
+         product.province?.toLowerCase().includes(locationFilter.toLowerCase()));
+
+      return matchesProduct && matchesCategory && matchesLocation;
+    });
+  }, [products, productFilter, categoryFilter, locationFilter]);
+
+  // Update table to use filteredProducts
+  const visibleProducts = useMemo(() => {
+    return filteredProducts.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [filteredProducts, page, rowsPerPage]);
+
   return (
     <Box sx={{ 
       width: '95%',
@@ -344,10 +383,11 @@ export default function CanadianProductSearch() {
         <Paper
           component="form"
           sx={{
-            p: '2px 4px',
+            p: 2,
             display: 'flex',
+            flexDirection: 'row',
             alignItems: 'center',
-            width: '100%',
+            gap: 2,
             mb: 2,
             mt: 2,
             border: '2px solid #1976D2',
@@ -356,16 +396,59 @@ export default function CanadianProductSearch() {
           }}
           onSubmit={(e) => e.preventDefault()}
         >
-          <SearchIcon sx={{ ml: 1, color: 'action.active' }} />
-          <InputBase
-            sx={{ ml: 1, flex: 1 }}
-            placeholder="Search for products or categories..."
-            value={searchQuery}
-            onChange={handleSearch}
-            endAdornment={loading && (
-              <CircularProgress size={20} sx={{ mr: 1 }} />
-            )}
-          />
+          {/* Brand Search */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <StoreIcon sx={{ color: 'action.active' }} />
+            <InputBase
+              sx={{ ml: 1, flex: 1 }}
+              placeholder="Search brands..."
+              value={searchQuery}
+              onChange={handleSearch}
+              endAdornment={loading && (
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+              )}
+            />
+          </Box>
+
+          <Divider orientation="vertical" flexItem />
+
+          {/* Product Search */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <Inventory2Icon sx={{ color: 'action.active' }} />
+            <InputBase
+              sx={{ ml: 1, flex: 1 }}
+              placeholder="Filter by product..."
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+            />
+          </Box>
+
+          <Divider orientation="vertical" flexItem />
+
+          {/* Category Search */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <CategoryIcon sx={{ color: 'action.active' }} />
+            <InputBase
+              sx={{ ml: 1, flex: 1 }}
+              placeholder="Filter by category..."
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            />
+          </Box>
+
+          <Divider orientation="vertical" flexItem />
+
+          {/* Location Search */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <LocationOnIcon sx={{ color: 'action.active' }} />
+            <InputBase
+              sx={{ ml: 1, flex: 1 }}
+              placeholder="Filter by location..."
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+            />
+          </Box>
+
           <IconButton 
             sx={{ ml: 1 }}
             onClick={async () => {
@@ -382,18 +465,6 @@ export default function CanadianProductSearch() {
             <RefreshIcon />
           </IconButton>
         </Paper>
-
-        {/* {!searchQuery && (
-          <Box sx={{ 
-            width: '100%', 
-            textAlign: 'center',
-            mt: 1
-          }}>
-            <Typography variant="h6" color="text.secondary">
-              Enter text to get a list of brands and products...
-            </Typography>
-          </Box>
-        )} */}
       </Box>
 
       {/* Results Section */}
@@ -404,7 +475,11 @@ export default function CanadianProductSearch() {
         px: 2,
         pb: 2
       }}>
-        {products.length > 0 ? (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
           <TableContainer>
             <Table size="small" stickyHeader>
               <TableHead
@@ -417,136 +492,124 @@ export default function CanadianProductSearch() {
                 }}
               >
                 <TableRow>
-                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({products.length})</TableCell>
-                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(products)})</TableCell>
-                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(products)})</TableCell>
-                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>Verified ({countTotalStatus(products)})</TableCell>
+                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({filteredProducts.length})</TableCell>
+                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(filteredProducts)})</TableCell>
+                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(filteredProducts)})</TableCell>
+                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>Verified ({countTotalStatus(filteredProducts)})</TableCell>
                   <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
                   <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Link</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {products
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((product) => (
-                    <TableRow 
-                      key={product._id}
-                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                    >
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <LikeButton 
-                              brandId={product._id}
-                              brandName={product.brand_name}
-                              initialLikeCount={product.likeStats?.totalLikes || 0}
-                            />
-                            
-                          </Box>
-                          <Typography 
-                            sx={{ 
-                              fontWeight: 500,
-                              fontSize: '0.875rem',
-                              color: 'text.primary'
-                            }}
-                          >
-                            {product.brand_name}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <ShareButton
+                {visibleProducts.map((product, index) => (
+                  <TableRow 
+                    key={product._id}
+                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <LikeButton 
+                            brandId={product._id}
                             brandName={product.brand_name}
-                            products={product.products}
-                            website={product.website}
+                            initialLikeCount={product.likeStats?.totalLikes || 0}
                           />
-                          <Typography 
-                            sx={{ 
-                              fontSize: '0.875rem',
-                              color: 'text.secondary',
-                              display: 'inline-flex',
-                              alignItems: 'center'
-                            }}
-                          >
-                            {product.products.join(', ')}
-                          </Typography>
+                          
                         </Box>
-                      </TableCell>
-                      <TableCell>
+                        <Typography 
+                          sx={{ 
+                            fontWeight: 500,
+                            fontSize: '0.875rem',
+                            color: 'text.primary'
+                          }}
+                        >
+                          {product.brand_name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <ShareButton
+                          brandName={product.brand_name}
+                          products={product.products}
+                          website={product.website}
+                        />
                         <Typography 
                           sx={{ 
                             fontSize: '0.875rem',
                             color: 'text.secondary',
-                            maxWidth: '200px',
-                            whiteSpace: 'normal',
-                            wordBreak: 'normal'
+                            display: 'inline-flex',
+                            alignItems: 'center'
                           }}
                         >
-                          {product.categories.join(', ')}
+                          {product.products.join(', ')}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {product.production_verified ? (
-                          <CheckIcon 
-                            sx={{ 
-                              color: '#4CAF50',
-                              fontSize: '1rem'
-                            }} 
-                          />
-                        ) : (
-                          <CircleIcon 
-                            sx={{ 
-                              color: '#FF9800',
-                              fontSize: '0.8rem'
-                            }}
-                          />
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography 
+                        sx={{ 
+                          fontSize: '0.875rem',
+                          color: 'text.secondary',
+                          maxWidth: '200px',
+                          whiteSpace: 'normal',
+                          wordBreak: 'normal'
+                        }}
+                      >
+                        {product.categories.join(', ')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {product.production_verified ? (
+                        <CheckIcon 
+                          sx={{ 
+                            color: '#4CAF50',
+                            fontSize: '1rem'
+                          }} 
+                        />
+                      ) : (
+                        <CircleIcon 
+                          sx={{ 
+                            color: '#FF9800',
+                            fontSize: '0.8rem'
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {product.city}, {product.province}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {product.website && (
+                          <Link
+                            href={product.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <IconButton size="small">
+                              <OpenInNewIcon sx={{ fontSize: '1rem' }} />
+                            </IconButton>
+                          </Link>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {product.city}, {product.province}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {product.website && (
-                            <Link
-                              href={product.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <IconButton size="small">
-                                <OpenInNewIcon sx={{ fontSize: '1rem' }} />
-                              </IconButton>
-                            </Link>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
             <TablePagination
               rowsPerPageOptions={[5, 10, 25]}
               component="div"
-              count={products.length}
+              count={filteredProducts.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
             />
           </TableContainer>
-        ) : (
-          <Box sx={{ 
-            width: '100%', 
-            textAlign: 'center',
-            mt: 1
-          }}>
-            <Typography variant="h6" color="text.secondary">
-              No results found...
-            </Typography>
-          </Box>
         )}
       </Box>
     </Box>

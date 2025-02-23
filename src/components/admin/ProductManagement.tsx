@@ -29,7 +29,8 @@ import {
   InputLabel,
   Stack,
   Link,
-  Tooltip
+  Tooltip,
+  Divider
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,6 +43,10 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import StoreIcon from '@mui/icons-material/Store';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import CategoryIcon from '@mui/icons-material/Category';
 import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus, addCanadianProduct } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
@@ -71,6 +76,106 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+const SearchBar = React.memo(({ 
+  searchQuery,
+  productFilter,
+  categoryFilter,
+  locationFilter,
+  loading,
+  onSearchChange,
+  onProductChange,
+  onCategoryChange,
+  onLocationChange
+}: {
+  searchQuery: string;
+  productFilter: string;
+  categoryFilter: string;
+  locationFilter: string;
+  loading: boolean;
+  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onProductChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onCategoryChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onLocationChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) => (
+  <Paper
+    component="form"
+    sx={{
+      p: 2,
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      mb: 2,
+      mt: 2,
+      border: '2px solid #1976D2',
+      borderRadius: '10px',
+      backgroundColor: '#fff'
+    }}
+    onSubmit={(e) => e.preventDefault()}
+  >
+    {/* Brand Search */}
+    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+      <StoreIcon sx={{ color: 'action.active' }} />
+      <TextField
+        size="small"
+        sx={{ ml: 1, flex: 1 }}
+        placeholder="Search brands..."
+        value={searchQuery}
+        onChange={onSearchChange}
+        InputProps={{
+          endAdornment: loading && (
+            <InputAdornment position="end">
+              <CircularProgress size={20} />
+            </InputAdornment>
+          )
+        }}
+      />
+    </Box>
+
+    <Divider orientation="vertical" flexItem />
+
+    {/* Product Search */}
+    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+      <Inventory2Icon sx={{ color: 'action.active' }} />
+      <TextField
+        size="small"
+        sx={{ ml: 1, flex: 1 }}
+        placeholder="Filter by product..."
+        value={productFilter}
+        onChange={onProductChange}
+      />
+    </Box>
+
+    <Divider orientation="vertical" flexItem />
+
+    {/* Category Search */}
+    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+      <CategoryIcon sx={{ color: 'action.active' }} />
+      <TextField
+        size="small"
+        sx={{ ml: 1, flex: 1 }}
+        placeholder="Filter by category..."
+        value={categoryFilter}
+        onChange={onCategoryChange}
+      />
+    </Box>
+
+    <Divider orientation="vertical" flexItem />
+
+    {/* Location Search */}
+    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+      <LocationOnIcon sx={{ color: 'action.active' }} />
+      <TextField
+        size="small"
+        sx={{ ml: 1, flex: 1 }}
+        placeholder="Filter by location..."
+        value={locationFilter}
+        onChange={onLocationChange}
+      />
+    </Box>
+  </Paper>
+));
+
 export default function ProductManagement() {
   const { user, claims } = useAuth();
   const [products, setProducts] = useState<CanadianProduct[]>([]);
@@ -89,6 +194,9 @@ export default function ProductManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<CanadianProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productFilter, setProductFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
 
   const loadProducts = useCallback(async () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
@@ -109,21 +217,31 @@ export default function ProductManagement() {
   }, [loadProducts]);
 
   const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return products;
-    
-    const query = searchQuery.toLowerCase().trim();
     return products.filter(product => {
-      return (
-        product.brand_name?.toLowerCase().includes(query) ||
-        product.city?.toLowerCase().includes(query) ||
-        product.province?.toLowerCase().includes(query) ||
-        product.website?.toLowerCase().includes(query) ||
-        product.notes?.toLowerCase().includes(query) ||
-        product.products?.some(p => p.toLowerCase().includes(query)) ||
-        product.categories?.some(c => c.toLowerCase().includes(query))
-      );
+      // Search query filter (brand name)
+      const matchesSearch = !searchQuery || 
+        product.brand_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Product filter
+      const matchesProduct = !productFilter || 
+        product.products.some(p => 
+          p.toLowerCase().includes(productFilter.toLowerCase())
+        );
+
+      // Category filter
+      const matchesCategory = !categoryFilter ||
+        product.categories.some(c =>
+          c.toLowerCase().includes(categoryFilter.toLowerCase())
+        );
+
+      // Location filter
+      const matchesLocation = !locationFilter ||
+        (product.city?.toLowerCase().includes(locationFilter.toLowerCase()) ||
+         product.province?.toLowerCase().includes(locationFilter.toLowerCase()));
+
+      return matchesSearch && matchesProduct && matchesCategory && matchesLocation;
     });
-  }, [products, searchQuery]);
+  }, [products, searchQuery, productFilter, categoryFilter, locationFilter]);
 
   const sortedProducts = useMemo(() => {
     const comparator = (a: CanadianProduct, b: CanadianProduct) => {
@@ -365,6 +483,7 @@ export default function ProductManagement() {
     if (!user) return;
 
     try {
+      setLoading(true);
       const newProductData = {
         ...editedProduct,
         products: (editedProduct.products || []).filter(p => p.trim()),
@@ -379,15 +498,8 @@ export default function ProductManagement() {
         throw new Error('At least one category is required');
       }
 
-      const docRef = await addCanadianProduct(
-        newProductData,
-        user.uid,
-        user.email || '',
-        user.displayName || ''
-      );
-
       const newProduct: CanadianProduct = {
-        _id: docRef,
+        _id: '', // Will be set by the backend
         brand_name: newProductData.brand_name || '',
         website: newProductData.website || '',
         city: newProductData.city || '',
@@ -397,24 +509,34 @@ export default function ProductManagement() {
         site_verified: false,
         products: newProductData.products || [],
         categories: newProductData.categories || [],
-        cdn_prod_tags: newProductData.cdn_prod_tags || [],
-        added_by: user.uid,
-        added_by_email: user.email || '',
-        added_by_name: user.displayName || '',
-        modified_by: user.uid,
-        modified_by_email: user.email || '',
-        modified_by_name: user.displayName || '',
+        cdn_prod_tags: [],
+        added_by: user?.uid || '',
+        added_by_email: user?.email || '',
+        added_by_name: user?.displayName || '',
+        modified_by: user?.uid || '',
+        modified_by_email: user?.email || '',
+        modified_by_name: user?.displayName || '',
         date_added: new Date().toISOString(),
         date_modified: new Date().toISOString(),
         is_active: newProductData.is_active ?? true,
-        version: newProductData.version || 1
+        version: newProductData.version || 1,
+        isPubliclyVisible: true
       };
 
-      setProducts([...products, newProduct]);
+      const docRef = await addCanadianProduct(
+        newProduct,
+        user.uid,
+        user.email || '',
+        user.displayName || ''
+      );
+
+      setProducts([...products, { ...newProduct, _id: docRef }]);
       setAddNewProductOpen(false);
       setEditedProduct({});
     } catch (error) {
       console.error('Error adding product:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -487,22 +609,19 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
             Product
           </Button>
         </Stack>
-        <TextField
-          size="small"
-          placeholder="Search all fields..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-            sx: { bgcolor: 'background.paper' }
-          }}
-          sx={{ width: 300 }}
-        />
       </Box>
+
+      <SearchBar
+        searchQuery={searchQuery}
+        productFilter={productFilter}
+        categoryFilter={categoryFilter}
+        locationFilter={locationFilter}
+        loading={loading}
+        onSearchChange={(e) => setSearchQuery(e.target.value)}
+        onProductChange={(e) => setProductFilter(e.target.value)}
+        onCategoryChange={(e) => setCategoryFilter(e.target.value)}
+        onLocationChange={(e) => setLocationFilter(e.target.value)}
+      />
 
       <Box sx={{ width: '100%', mt: 2 }}>
         <Paper sx={{ width: '100%', mb: 2 }}>
