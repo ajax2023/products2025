@@ -369,7 +369,6 @@ export default function ProductManagement() {
         categories: product.categories,
         products: product.products,
         production_verified: product.production_verified,
-        site_verified: product.site_verified,
         cdn_prod_tags: product.cdn_prod_tags || []
       };
 
@@ -935,6 +934,17 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                             }}
                           >
                             <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProductToDelete(product);
+                              setDeleteDialogOpen(true);
+                            }}
+                            sx={{ color: 'error.main' }}
+                          >
+                            <DeleteIcon />
                           </IconButton>
                         </Stack>
                       </TableCell>

@@ -511,6 +511,7 @@ export default function CanadianProductSearch() {
                             brandId={product._id}
                             brandName={product.brand_name}
                             initialLikeCount={product.likeStats?.totalLikes || 0}
+                            
                           />
                           
                         </Box>
@@ -588,7 +589,7 @@ export default function CanadianProductSearch() {
                             rel="noopener noreferrer"
                           >
                             <IconButton size="small">
-                              <OpenInNewIcon sx={{ fontSize: '1rem' }} />
+                              <OpenInNewIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
                             </IconButton>
                           </Link>
                         )}
