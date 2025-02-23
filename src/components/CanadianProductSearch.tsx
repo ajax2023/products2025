@@ -32,6 +32,7 @@ import StoreIcon from '@mui/icons-material/Store';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CategoryIcon from '@mui/icons-material/Category';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 import { useAuth } from '../auth/useAuth';
@@ -386,6 +387,7 @@ export default function CanadianProductSearch() {
             p: 1,
             display: 'flex',
             flexDirection: 'row',
+            flexWrap: 'wrap',
             alignItems: 'center',
             gap: 1,
             mb: 1,
@@ -397,7 +399,7 @@ export default function CanadianProductSearch() {
           onSubmit={(e) => e.preventDefault()}
         >
           {/* Brand Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <StoreIcon sx={{ color: 'primary.main' }} />
             <InputBase
               sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
@@ -413,7 +415,7 @@ export default function CanadianProductSearch() {
           
 
           {/* Product Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <Inventory2Icon sx={{ color: 'primary.main' }} />
             <InputBase
               sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
@@ -425,7 +427,7 @@ export default function CanadianProductSearch() {
 
           
           {/* Category Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <CategoryIcon sx={{ color: 'primary.main' }} />
             <InputBase
               sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
@@ -437,7 +439,7 @@ export default function CanadianProductSearch() {
 
           
           {/* Location Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <LocationOnIcon sx={{ color: 'primary.main' }} />
             <InputBase
               sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
@@ -447,7 +449,7 @@ export default function CanadianProductSearch() {
             />
           </Box>
 
-          <IconButton 
+          {/* <IconButton 
             sx={{ ml: 1, color: 'primary.main' }}
             onClick={async () => {
               setLoading(true);
@@ -461,7 +463,7 @@ export default function CanadianProductSearch() {
             aria-label="refresh"
           >
             <RefreshIcon />
-          </IconButton>
+          </IconButton> */}
         </Paper>
       </Box>
 
@@ -490,12 +492,42 @@ export default function CanadianProductSearch() {
                 }}
               >
                 <TableRow>
-                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Brand ({filteredProducts.length})</TableCell>
-                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>Products ({countTotalProducts(filteredProducts)})</TableCell>
-                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>Categories ({countTotalCategories(filteredProducts)})</TableCell>
-                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>Verified ({countTotalStatus(filteredProducts)})</TableCell>
-                  <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>Location</TableCell>
-                  <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>Link</TableCell>
+                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                      <StoreIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span>Brand ({filteredProducts.length})</span>
+                    </Box>
+                  </TableCell>
+                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                      <Inventory2Icon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span>Products ({countTotalProducts(filteredProducts)})</span>
+                    </Box>
+                  </TableCell>
+                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                      <CategoryIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span>Categories ({countTotalCategories(filteredProducts)})</span>
+                    </Box>
+                  </TableCell>
+                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                      <VerifiedIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span> ({countTotalStatus(filteredProducts)})</span>
+                    </Box>
+                  </TableCell>
+                  <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                      <LocationOnIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span>Location</span>
+                    </Box>
+                  </TableCell>
+                  <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                      <OpenInNewIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span>Link</span>
+                    </Box>
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
