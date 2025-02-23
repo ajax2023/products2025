@@ -322,7 +322,7 @@ export default function CanadianProductSearch() {
 
         {/* Stats Display */}
         {stats && (
-          <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%'}}>
+          <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%', border: '1px solid #1976D2', borderRadius: '10px' }}>
             <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
               <Grid container spacing={0}>
               <Grid item xs={2.4}>
@@ -383,13 +383,13 @@ export default function CanadianProductSearch() {
         <Paper
           component="form"
           sx={{
-            p: 2,
+            p: 1,
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 2,
-            mb: 2,
-            mt: 2,
+            gap: 1,
+            mb: 1,
+            mt: 1,
             border: '2px solid #1976D2',
             borderRadius: '10px',
             backgroundColor: '#fff'
@@ -398,9 +398,9 @@ export default function CanadianProductSearch() {
         >
           {/* Brand Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <StoreIcon sx={{ color: 'action.active' }} />
+            <StoreIcon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1 }}
+              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
               placeholder="Search brands..."
               value={searchQuery}
               onChange={handleSearch}
@@ -410,39 +410,37 @@ export default function CanadianProductSearch() {
             />
           </Box>
 
-          <Divider orientation="vertical" flexItem />
+          
 
           {/* Product Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <Inventory2Icon sx={{ color: 'action.active' }} />
+            <Inventory2Icon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1 }}
+              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
               placeholder="Filter by product..."
               value={productFilter}
               onChange={(e) => setProductFilter(e.target.value)}
             />
           </Box>
 
-          <Divider orientation="vertical" flexItem />
-
+          
           {/* Category Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <CategoryIcon sx={{ color: 'action.active' }} />
+            <CategoryIcon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1 }}
+              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
               placeholder="Filter by category..."
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             />
           </Box>
 
-          <Divider orientation="vertical" flexItem />
-
+          
           {/* Location Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <LocationOnIcon sx={{ color: 'action.active' }} />
+            <LocationOnIcon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1 }}
+              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
               placeholder="Filter by location..."
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
@@ -450,7 +448,7 @@ export default function CanadianProductSearch() {
           </Box>
 
           <IconButton 
-            sx={{ ml: 1 }}
+            sx={{ ml: 1, color: 'primary.main' }}
             onClick={async () => {
               setLoading(true);
               try {
