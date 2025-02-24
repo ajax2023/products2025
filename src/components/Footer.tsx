@@ -25,8 +25,9 @@ export function Footer() {
       position="static" 
       color="primary" 
       sx={{ 
-        backgroundColor: theme.palette.background.paper,
+        backgroundColor: '#1976D2',
         borderTop: `1px solid ${theme.palette.divider}`,
+        zIndex: '10',
       }}
     >
       <Toolbar sx={{ 
@@ -36,20 +37,22 @@ export function Footer() {
         overflow: 'hidden'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            2025 Canadian Products Directory
-          </Typography>
-          <Typography 
+        <Typography 
             variant="caption" 
             color="text.secondary" 
             sx={{ 
               opacity: 0.7,
               fontFamily: 'monospace',
-              fontSize: '0.7rem'
+              fontSize: '0.7rem',
+              color: 'white'
             }}
           >
             {buildNumber}
           </Typography>
+             <Typography variant="caption" color="white">
+            2025 Canadian Products
+          </Typography>
+       
         </Box>
 
         <Box 
