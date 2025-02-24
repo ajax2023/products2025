@@ -51,7 +51,7 @@ export function Footer() {
             {buildNumber}
           </Typography>
           <Typography variant="caption" color="white">
-            2025 Canadian Products
+            2025 Canadian ProductsX
           </Typography>
         </Box>
 
