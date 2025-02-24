@@ -18,7 +18,8 @@ export function Footer() {
   const theme = useTheme();
   const buildTime = import.meta.env.VITE_BUILD_TIME;
   const buildDate = buildTime ? new Date(buildTime) : new Date();
-  const buildNumber = `Beta-${(buildDate.getMonth() + 1).toString().padStart(2, '0')}${buildDate.getDate().toString().padStart(2, '0')}${buildDate.getFullYear().toString().slice(2)}-${buildDate.getHours().toString().padStart(2, '0')}:${buildDate.getMinutes().toString().padStart(2, '0')}`;
+  const formatNumber = (num: number) => num.toString().padStart(2, '0');
+  const buildNumber = `Beta-${formatNumber(buildDate.getMonth() + 1)}${formatNumber(buildDate.getDate())}${buildDate.getFullYear().toString().slice(2)}-${formatNumber(buildDate.getHours())}:${formatNumber(buildDate.getMinutes())}`;
 
   return (
     <AppBar 
@@ -37,7 +38,7 @@ export function Footer() {
         overflow: 'hidden'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Typography 
+          <Typography 
             variant="caption" 
             color="text.secondary" 
             sx={{ 
@@ -49,10 +50,9 @@ export function Footer() {
           >
             {buildNumber}
           </Typography>
-             <Typography variant="caption" color="white">
+          <Typography variant="caption" color="white">
             2025 Canadian Products
           </Typography>
-       
         </Box>
 
         <Box 
