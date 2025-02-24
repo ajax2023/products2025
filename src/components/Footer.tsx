@@ -16,10 +16,17 @@ import SecurityIcon from '@mui/icons-material/Security';
 
 export function Footer() {
   const theme = useTheme();
-  const buildTime = import.meta.env.VITE_BUILD_TIME;
-  const buildDate = buildTime ? new Date(buildTime) : new Date();
-  const formatNumber = (num: number) => num.toString().padStart(2, '0');
-  const buildNumber = `Beta-${formatNumber(buildDate.getMonth() + 1)}${formatNumber(buildDate.getDate())}${buildDate.getFullYear().toString().slice(2)}-${formatNumber(buildDate.getHours())}:${formatNumber(buildDate.getMinutes())}`;
+  const now = new Date();
+  const buildNumber = `Beta-${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getFullYear()).slice(2)}-${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  console.log('Date parts:', {
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+    year: now.getFullYear(),
+    hours: now.getHours(),
+    minutes: now.getMinutes(),
+    buildNumber
+  });
 
   return (
     <AppBar 
@@ -51,7 +58,7 @@ export function Footer() {
             {buildNumber}
           </Typography>
           <Typography variant="caption" color="white">
-            2025 Canadian ProductsX
+            2025 Canadian Products
           </Typography>
         </Box>
 
