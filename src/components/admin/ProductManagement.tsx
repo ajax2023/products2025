@@ -331,8 +331,13 @@ export default function ProductManagement() {
 
     try {
       const updatedProduct = {
-        ...editedProduct,
-        country: editedProduct.country || 'Canada'
+        ...selectedProduct, // Preserve existing fields
+        ...editedProduct,   // Apply edits
+        country: editedProduct.country || 'Canada',
+        site_verified: selectedProduct.site_verified, // Preserve site verification
+        site_verified_by: selectedProduct.site_verified_by,
+        site_verified_at: selectedProduct.site_verified_at,
+        production_verified: selectedProduct.production_verified
       };
 
       await updateCanadianProduct(
