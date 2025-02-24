@@ -287,7 +287,7 @@ export default function ProductManagement() {
       website: product.website,
       city: product.city,
       province: product.province,
-      country: product.country,
+      country: product.country || 'Canada',
       products: product.products,
       categories: product.categories,
       cdn_prod_tags: product.cdn_prod_tags,
