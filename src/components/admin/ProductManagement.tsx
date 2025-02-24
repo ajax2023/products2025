@@ -293,6 +293,9 @@ export default function ProductManagement() {
       cdn_prod_tags: product.cdn_prod_tags,
       notes: product.notes,
       isPubliclyVisible: product.isPubliclyVisible || false,
+      site_verified: product.site_verified || false,
+      site_verified_by: product.site_verified_by || '',
+      site_verified_at: product.site_verified_at || ''
     });
     setEditDialogOpen(true);
   };
@@ -331,13 +334,8 @@ export default function ProductManagement() {
 
     try {
       const updatedProduct = {
-        ...selectedProduct, // Preserve existing fields
-        ...editedProduct,   // Apply edits
-        country: editedProduct.country || 'Canada',
-        site_verified: selectedProduct.site_verified, // Preserve site verification
-        site_verified_by: selectedProduct.site_verified_by,
-        site_verified_at: selectedProduct.site_verified_at,
-        production_verified: selectedProduct.production_verified
+        ...editedProduct,
+        country: editedProduct.country || 'Canada'
       };
 
       await updateCanadianProduct(
@@ -1251,8 +1249,8 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                         setEditedProduct(prev => ({
                           ...prev,
                           site_verified: false,
-                          site_verified_by: undefined,
-                          site_verified_at: undefined
+                          site_verified_by: '',
+                          site_verified_at: ''
                         }));
                       }
                     }}
@@ -1522,8 +1520,8 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                         setEditedProduct(prev => ({
                           ...prev,
                           site_verified: false,
-                          site_verified_by: undefined,
-                          site_verified_at: undefined
+                          site_verified_by: '',
+                          site_verified_at: ''
                         }));
                       }
                     }}
