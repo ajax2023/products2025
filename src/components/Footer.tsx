@@ -48,9 +48,10 @@ export function Footer() {
             {BUILD_NUMBER}
           </Typography>
           <Typography variant="caption" color="white">
-            2025 Canadian Products
+            2025 Canadian Products1
           </Typography>
         </Box>
+
 
         <Box 
           component="div"
