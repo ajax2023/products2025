@@ -13,20 +13,12 @@ import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import InfoIcon from '@mui/icons-material/Info';
 import ContactSupportIcon from '@mui/icons-material/ContactSupport';
 import SecurityIcon from '@mui/icons-material/Security';
+import { BUILD_TIME } from '../buildInfo';
 
 export function Footer() {
   const theme = useTheme();
-  const now = new Date();
-  const buildNumber = `Beta-${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getFullYear()).slice(2)}-${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-  console.log('Date parts:', {
-    month: now.getMonth() + 1,
-    day: now.getDate(),
-    year: now.getFullYear(),
-    hours: now.getHours(),
-    minutes: now.getMinutes(),
-    buildNumber
-  });
+  const buildDate = new Date(BUILD_TIME);
+  const buildNumber = `Beta-${String(buildDate.getMonth() + 1).padStart(2, '0')}${String(buildDate.getDate()).padStart(2, '0')}${String(buildDate.getFullYear()).slice(2)}-${String(buildDate.getHours()).padStart(2, '0')}:${String(buildDate.getMinutes()).padStart(2, '0')}`;
 
   return (
     <AppBar 

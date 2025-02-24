@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import { VitePWA } from 'vite-plugin-pwa'
+import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -34,6 +35,9 @@ export default defineConfig({
       }
     })
   ],
+  define: {
+    BUILD_TIME: JSON.stringify(new Date().toISOString())
+  },
   server: {
     port: 3000,
     // Add history API fallback for client-side routing
