@@ -1,3 +1,2 @@
-// This will be replaced during build time
-declare const BUILD_TIME: string;
-export { BUILD_TIME };
+// This file is auto-generated. Do not edit.
+export const BUILD_NUMBER = 'Beta-022325-19:35';
