@@ -165,8 +165,8 @@ export async function searchCanadianProducts(criteria: {
         console.log('Filtering by brand name:', searchTerm);
         results = results.filter(product => {
           const productName = product.brand_name.toLowerCase();
-          const words = searchTerm.split(/\s+/).filter(word => word.length > 0);
-          return words.every(word => productName.includes(word));
+          const words = searchTerm.split(/\s+/).filter(word => word.length > 0); // Ignore empty words
+          return words.every(word => productName.includes(word)); //
         });
       } else {
         console.log('Search term contains only special characters, skipping search');

@@ -37,7 +37,12 @@ const ShareButton: React.FC<ShareButtonProps> = (props) => {
         <IconButton
           onClick={handleOpenDialog}
           size="small"
-          sx={{ color: 'primary.main' }}
+          sx={{ 
+            color: 'primary.main',
+            '& .MuiSvgIcon-root': { 
+              fontSize: '1.1rem'
+            }
+          }}
         >
           <ShareIcon />
         </IconButton>

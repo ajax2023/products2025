@@ -21,11 +21,16 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  Grid
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
 import CircleIcon from '@mui/icons-material/Circle';
 import StoreIcon from '@mui/icons-material/Store';
@@ -33,6 +38,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CategoryIcon from '@mui/icons-material/Category';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 import { useAuth } from '../auth/useAuth';
@@ -59,6 +65,8 @@ export default function CanadianProductSearch() {
   const [productFilter, setProductFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<CanadianProduct | null>(null);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
 
   const { user } = useAuth();
 
@@ -492,19 +500,19 @@ export default function CanadianProductSearch() {
                 }}
               >
                 <TableRow>
-                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="22%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <StoreIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Brand ({filteredProducts.length})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="30%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <Inventory2Icon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Products ({countTotalProducts(filteredProducts)})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="20%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <CategoryIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Categories ({countTotalCategories(filteredProducts)})</span>
@@ -516,16 +524,10 @@ export default function CanadianProductSearch() {
                       <span> ({countTotalStatus(filteredProducts)})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <LocationOnIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Location</span>
-                    </Box>
-                  </TableCell>
-                  <TableCell width="10%" sx={{ fontWeight: 'bold', color: 'white' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
-                      <OpenInNewIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
-                      <span>Link</span>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -543,15 +545,32 @@ export default function CanadianProductSearch() {
                             brandId={product._id}
                             brandName={product.brand_name}
                             initialLikeCount={product.likeStats?.totalLikes || 0}
-                            
                           />
-                          
+                          {product.website && (
+                            <Link
+                              href={product.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <IconButton size="small">
+                                <OpenInNewIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
+                              </IconButton>
+                            </Link>
+                          )}
                         </Box>
                         <Typography 
                           sx={{ 
                             fontWeight: 500,
                             fontSize: '0.875rem',
-                            color: 'text.primary'
+                            color: 'text.primary',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              textDecoration: 'underline'
+                            }
+                          }}
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setNotesDialogOpen(true);
                           }}
                         >
                           {product.brand_name}
@@ -560,17 +579,43 @@ export default function CanadianProductSearch() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <ShareButton
-                          brandName={product.brand_name}
-                          products={product.products}
-                          website={product.website}
-                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <ShareButton
+                            brandName={product.brand_name}
+                            products={product.products}
+                            website={product.website}
+                          />
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setSelectedProduct(product);
+                              setNotesDialogOpen(true);
+                            }}
+                            sx={{ 
+                              padding: '4px',
+                              '& .MuiSvgIcon-root': { 
+                                fontSize: '1.1rem',
+                                color: 'primary.main'
+                              }
+                            }}
+                          >
+                            <InfoOutlinedIcon />
+                          </IconButton>
+                        </Box>
                         <Typography 
                           sx={{ 
                             fontSize: '0.875rem',
                             color: 'text.secondary',
                             display: 'inline-flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              textDecoration: 'underline'
+                            }
+                          }}
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setNotesDialogOpen(true);
                           }}
                         >
                           {product.products.join(', ')}
@@ -584,7 +629,15 @@ export default function CanadianProductSearch() {
                           color: 'text.secondary',
                           maxWidth: '200px',
                           whiteSpace: 'normal',
-                          wordBreak: 'normal'
+                          wordBreak: 'normal',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setNotesDialogOpen(true);
                         }}
                       >
                         {product.categories.join(', ')}
@@ -608,41 +661,97 @@ export default function CanadianProductSearch() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setNotesDialogOpen(true);
+                        }}
+                      >
                         {product.city}, {product.province}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {product.website && (
-                          <Link
-                            href={product.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <IconButton size="small">
-                              <OpenInNewIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
-                            </IconButton>
-                          </Link>
-                        )}
-                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
             <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
+              rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"
               count={filteredProducts.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'white'
+              }}
             />
           </TableContainer>
         )}
       </Box>
+
+      {/* Notes Dialog */}
+      <Dialog
+        open={notesDialogOpen}
+        onClose={() => setNotesDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          pb: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h6" component="div" sx={{ 
+            color: 'primary.main',
+            fontWeight: 500
+          }}>
+            {selectedProduct?.brand_name} - Notes
+          </Typography>
+          <IconButton
+            aria-label="close"
+            onClick={() => setNotesDialogOpen(false)}
+            sx={{
+              color: (theme) => theme.palette.grey[500],
+              '&:hover': {
+                color: (theme) => theme.palette.grey[700],
+                backgroundColor: (theme) => theme.palette.grey[100]
+              }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <DialogContentText sx={{ 
+            whiteSpace: 'pre-line',
+            color: 'text.primary',
+            fontSize: '0.95rem',
+            lineHeight: 1.6
+          }}>
+            {selectedProduct?.notes || 'No notes available'}
+          </DialogContentText>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }
