@@ -39,6 +39,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CategoryIcon from '@mui/icons-material/Category';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 import { useAuth } from '../auth/useAuth';
@@ -67,6 +68,7 @@ export default function CanadianProductSearch() {
   const [locationFilter, setLocationFilter] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<CanadianProduct | null>(null);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [readingProductId, setReadingProductId] = useState<string | null>(null);
 
   const { user } = useAuth();
 
@@ -303,6 +305,23 @@ export default function CanadianProductSearch() {
     );
   }, [filteredProducts, page, rowsPerPage]);
 
+  // Function to read text aloud
+  const readNotes = useCallback((product: CanadianProduct) => {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const text = `Notes for ${product.brand_name}. ${product.notes || 'No notes available.'}`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      utterance.onstart = () => setReadingProductId(product._id);
+      utterance.onend = () => setReadingProductId(null);
+      utterance.onerror = () => setReadingProductId(null);
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []);
+
   return (
     <Box sx={{ 
       width: '95%',
@@ -330,7 +349,7 @@ export default function CanadianProductSearch() {
         </Typography>
 
         {/* Stats Display */}
-        {stats && (
+        {/* {stats && (
           <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%', border: '1px solid #1976D2', borderRadius: '10px' }}>
             <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
               <Grid container spacing={0}>
@@ -386,7 +405,7 @@ export default function CanadianProductSearch() {
               </Grid>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Search Bar */}
         <Paper
@@ -477,11 +496,11 @@ export default function CanadianProductSearch() {
 
       {/* Results Section */}
       <Box sx={{ 
-        mt: 2,
-        height: 'calc(100% - 280px)', // increased space for header and footer
+        mt: 0.5,
+        height: 'calc(100% - 150px)', // increased space for header and footer
         overflow: 'auto',
-        px: 2,
-        pb: 2
+        px: 0.5,
+        pb: 0.5
       }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -601,6 +620,34 @@ export default function CanadianProductSearch() {
                           >
                             <InfoOutlinedIcon />
                           </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => readNotes(product)}
+                            sx={{ 
+                              padding: '4px',
+                              '& .MuiSvgIcon-root': { 
+                                fontSize: '1.1rem',
+                                color: theme => readingProductId === product._id ? theme.palette.secondary.main : theme.palette.primary.main,
+                                animation: readingProductId === product._id ? 'pulse 1s infinite' : 'none'
+                              },
+                              '@keyframes pulse': {
+                                '0%': {
+                                  transform: 'scale(1)',
+                                  opacity: 1
+                                },
+                                '50%': {
+                                  transform: 'scale(1.1)',
+                                  opacity: 0.7
+                                },
+                                '100%': {
+                                  transform: 'scale(1)',
+                                  opacity: 1
+                                }
+                              }
+                            }}
+                          >
+                            <VolumeUpIcon />
+                          </IconButton>
                         </Box>
                         <Typography 
                           sx={{ 
@@ -692,7 +739,44 @@ export default function CanadianProductSearch() {
               onRowsPerPageChange={handleChangeRowsPerPage}
               sx={{
                 bgcolor: 'primary.main',
-                color: 'white'
+                color: 'white',
+                height: '40px',
+                maxHeight: '40px',
+                minHeight: '40px',
+                overflow: 'hidden',
+                p: 0.5,
+                '& .MuiToolbar-root': {
+                  height: '40px',
+                  minHeight: '40px',
+                  pl: 2,
+                  pr: 2,
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                },
+                '& .MuiTablePagination-select': {
+                  color: 'white',
+                  '&:focus': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                },
+                '& .MuiTablePagination-selectIcon': {
+                  color: 'white'
+                },
+                '& .MuiTablePagination-displayedRows': {
+                  margin: 0
+                },
+                '& .MuiTablePagination-actions': {
+                  marginLeft: 2,
+                  '& .MuiIconButton-root': {
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    '&.Mui-disabled': {
+                      color: 'rgba(255, 255, 255, 0.3)'
+                    }
+                  }
+                }
               }}
             />
           </TableContainer>
@@ -707,7 +791,7 @@ export default function CanadianProductSearch() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '16px',
+            borderRadius: '12px',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
             background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)'
           }
@@ -717,13 +801,14 @@ export default function CanadianProductSearch() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          pb: 1,
+          pb: 0.5,
           borderBottom: '1px solid',
           borderColor: 'divider'
         }}>
-          <Typography variant="h6" component="div" sx={{ 
+          <Typography variant="h5" component="div" sx={{ 
             color: 'primary.main',
-            fontWeight: 500
+            fontWeight: 500,
+            fontSize: '1rem'
           }}>
             {selectedProduct?.brand_name} - Notes
           </Typography>
@@ -741,7 +826,7 @@ export default function CanadianProductSearch() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
+        <DialogContent sx={{ mt: 1 }}>
           <DialogContentText sx={{ 
             whiteSpace: 'pre-line',
             color: 'text.primary',
