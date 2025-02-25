@@ -325,7 +325,7 @@ export default function CanadianProductSearch() {
   return (
     <Box sx={{ 
       width: '95%',
-      height: 'calc(100vh - 164px)',
+      height: 'calc(100vh - 175px)',
       position: 'fixed',
       top: 60,
       left: 0,
@@ -525,25 +525,25 @@ export default function CanadianProductSearch() {
                       <span>Brand ({filteredProducts.length})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="30%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="40%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <Inventory2Icon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Products ({countTotalProducts(filteredProducts)})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="25%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <CategoryIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Categories ({countTotalCategories(filteredProducts)})</span>
                     </Box>
-                  </TableCell>
+                  </TableCell> 
                   <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <VerifiedIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span> ({countTotalStatus(filteredProducts)})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="15%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <LocationOnIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Location</span>
