@@ -497,7 +497,7 @@ export default function CanadianProductSearch() {
       {/* Results Section */}
       <Box sx={{ 
         mt: 0.5,
-        height: 'calc(100% - 150px)', // increased space for header and footer
+        height: !user ? 'calc(100% - 194px)' : 'calc(100% - 150px)', // Add 44px when user is not logged in
         overflow: 'auto',
         px: 0.5,
         pb: 0.5

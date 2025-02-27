@@ -315,7 +315,7 @@ export default function Settings() {
   }
 
   return (
-    <Box sx={{ p: 0.5, maxWidth: 900, margin: '0 auto' }}>
+    <Box sx={{ p: 0.5, maxWidth: 900, margin: '0px auto' }}>
       <Paper elevation={10} sx={{ p: 0.5 }}>
         <Grid container spacing={2}>
           {/* Profile Section */}
@@ -376,7 +376,7 @@ export default function Settings() {
           {/* Location Section */}
           <Grid item xs={12}>
             <Card sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <LocationOnIcon color="primary" />
                 <Typography variant="h6">Location</Typography>
 
@@ -406,7 +406,7 @@ export default function Settings() {
                     }
                   />
           
-              </Box>
+              </Box> */}
               <Grid container spacing={1}>
                 <Grid item xs={12} sm={4}>
                   <TextField
@@ -530,7 +530,9 @@ export default function Settings() {
                     You currently have access to a limited number of features.
                   </Typography>
                   <Typography variant="body2">
-                    Register to unlock access to our full database of 1,500+ Canadian products. We're adding more products all the time, and some features are exclusively available to registered users.
+                    Register <strong>FOR FREE</strong> to unlock access to our full database of 1,500+ Canadian products.                  </Typography>
+                  <Typography variant="body2">
+                    We're adding more products all the time, and some features are exclusively available to registered users.
                   </Typography>
                   <Button
                     variant="contained"

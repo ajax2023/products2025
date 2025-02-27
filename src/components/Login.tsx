@@ -87,7 +87,13 @@ export default function Login() {
                 zIndex: 1
               }}
             />
-
+      
+            <Box         sx={{ 
+            zIndex: 1,
+                backgroundColor: '#fff',
+                p: 1,
+                borderRadius: 2
+              }}>  
             <Typography 
               variant="h6" 
               component="h1" 
@@ -96,16 +102,29 @@ export default function Login() {
                 fontWeight: 600,
                 color: '#336699',
                 zIndex: 1,
-                backgroundColor: '#fff',
-                p: 2,
-                borderRadius: 2
               }}
             >
               Canada2025.com <br />
-              Please sign in to continue...
-              Support Canada - eh! <br /> Mexico and the Commonwealth
             </Typography>
 
+            <Typography sx={{ 
+                fontWeight: 600,
+                color: '#336699',
+                zIndex: 1,
+              }}>
+            Please sign in to continue...
+            Support Canada - eh!  
+
+            </Typography>
+            <Typography sx={{ 
+                fontWeight: 600,
+                color: '#336699',
+                zIndex: 1,
+              }}>
+            ...and Mexico, the Commonwealth and allies in other Countries!
+
+            </Typography>
+</Box>
 
             <Button
               variant="contained"

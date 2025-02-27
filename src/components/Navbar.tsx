@@ -50,26 +50,35 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('Before install prompt fired');
       // Prevent Chrome 67 and earlier from automatically showing the prompt
       e.preventDefault();
       // Stash the event so it can be triggered later
       setDeferredPrompt(e);
       // Update UI to show install button
+      console.log('Setting isInstallable to true');
       setIsInstallable(true);
     };
 
     // Check if app is already installed
     const checkInstalled = () => {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstallable(false);
-      }
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      console.log('Is app in standalone mode?', isStandalone);
+      console.log('Setting isInstallable to:', !isStandalone);
+      setIsInstallable(!isStandalone);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', () => setIsInstallable(false));
+    window.addEventListener('appinstalled', () => {
+      console.log('App was installed');
+      setIsInstallable(false);
+    });
+    
+    console.log('Running initial installation check...');
     checkInstalled();
 
     return () => {
+      console.log('Cleaning up install prompt listeners');
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', () => setIsInstallable(false));
     };
