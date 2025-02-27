@@ -29,6 +29,11 @@ export default function Login() {
     }
   };
 
+  const handleVisitorSignIn = async () => {
+    // go to canada2025.com
+    window.location.href = 'https://canada2025.com';
+  };
+
   return (
     <Container maxWidth="sm">
       <Box 
@@ -84,25 +89,23 @@ export default function Login() {
             />
 
             <Typography 
-              variant="h5" 
+              variant="h6" 
               component="h1" 
               gutterBottom
               sx={{ 
                 fontWeight: 600,
-                color: '#1a1a1a',
-                zIndex: 1
+                color: '#336699',
+                zIndex: 1,
+                backgroundColor: '#fff',
+                p: 2,
+                borderRadius: 2
               }}
             >
-              Canada2025.com
+              Canada2025.com <br />
+              Please sign in to continue...
+              Support Canada - eh! <br /> Mexico and the Commonwealth
             </Typography>
 
-            <Typography 
-              variant="subtitle1" 
-              gutterBottom
-              sx={{ mb: 3, zIndex: 1 }}
-            >
-              Please sign in to continue
-            </Typography>
 
             <Button
               variant="contained"
@@ -119,23 +122,48 @@ export default function Login() {
                 '&:hover': {
                   backgroundColor: '#3367d6'
                 },
-                mb: 3
+                mb: 1
               }}
             >
               Sign in with Google
             </Button>
 
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: '#666',
-                boxShadow: 2 ,
-                fontWeight: 500,
-                zIndex: 1
+            <Button
+              variant="contained"
+              color="primary" // light yellow
+              onClick={handleVisitorSignIn}
+              // startIcon={<GoogleIcon />}
+              size="medium"
+              sx={{
+                // textTransform: 'capitals',
+                // textTransform: '',
+                px: 4,
+                py: 1.5,
+                color: '#336699',
+                borderRadius: 2,
+                backgroundColor: '#f0c42f',
+                '&:hover': {
+                  backgroundColor: '#333333',
+                  color: '#fff'
+                },
+                mb: 1
               }}
             >
-              Buy Canadian - eh!
-            </Typography>
+              First I'll just look around...
+            </Button>
+            {/* <Typography 
+              variant="body2" 
+              sx={{ 
+                fontWeight: 600,
+                color: '#336699',
+                zIndex: 1,
+                backgroundColor: '#fff',
+                p: 2,
+                borderRadius: 2
+              }}
+            >
+              Support Canada - eh!
+            </Typography> */}
           </Box>
         )}
       </Box>

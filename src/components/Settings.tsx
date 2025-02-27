@@ -51,7 +51,7 @@ export default function Settings() {
     _id: '',
     email: '',
     displayName: '',
-    role: 'contributor',
+    role: 'viewer', // Default role is viewer
     status: 'active',
     location: {
       country: 'Canada',
@@ -64,9 +64,9 @@ export default function Settings() {
       useLocation: false
     },
     sharing: {
-      showPicture: true,
-      showUsername: true,
-      showCountry: true,
+      showPicture: false,
+      showUsername: false,
+      showCountry: false,
       showOnLeaderboard: false
     },
     created_at: new Date().toISOString(),
@@ -514,16 +514,35 @@ export default function Settings() {
                 <Typography variant="body1">
                   Current Role: <strong>{loading ? 'Loading...' : userRole}</strong>
                 </Typography>
-                {!loading && userRole && (
+                {!loading && (
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    {userRole === 'viewer' && 'As a viewer, you can view products and their prices.'}
-                    {userRole === 'contributor' && 'As a contributor, you can add products and prices, and edit your own entries.'}
-                    {userRole === 'admin' && 'As an admin, you have full access to manage products, prices, and users.'}
+                    {userRole === 'viewer' && 'As a viewer, you can view products.'}
+                    {userRole === 'contributor' && 'As a contributor, you can add products.'}
+                    {userRole === 'admin' && 'As an admin, you have full access to manage products, and users.'}
                     {userRole === 'super_admin' && 'As a super admin, you have complete control over the system.'}
+                    {!user && 'Unregistered User - you can access a small number of products.'}
                   </Typography>
                 )}
               </Box>
-              {userRole === 'viewer' && contributorRequestStatus === 'none' && (
+              {!user && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    You currently have access to a limited number of features.
+                  </Typography>
+                  <Typography variant="body2">
+                    Register to unlock access to our full database of 1,500+ Canadian products. We're adding more products all the time, and some features are exclusively available to registered users.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    href="/login"
+                    sx={{ mt: 2 }}
+                  >
+                    Register Now
+                  </Button>
+                </Alert>
+              )}
+              {user && userRole === 'viewer' && contributorRequestStatus === 'none' && (
                 <Button
                   variant="outlined"
                   color="primary"
@@ -548,7 +567,7 @@ export default function Settings() {
 
           {/* Sharing Preferences Section */}
           <Grid item xs={12}>
-            <Card sx={{ p: 2 }}>
+            {/* <Card sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <LockIcon sx={{ fontSize: '1rem', mr: 1, color: 'text.secondary' }} />
                 <Typography variant="h6" gutterBottom>
@@ -617,7 +636,7 @@ export default function Settings() {
                   label="Show my contributions on leaderboard"
                 />
               </FormGroup>
-            </Card>
+            </Card> */}
           </Grid>
 
           {/* Actions Section */}
