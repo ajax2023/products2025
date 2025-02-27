@@ -546,7 +546,52 @@ const ProductManagement: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    // Implement CSV export logic here
+    if (!products.length) {
+      alert('No products to export');
+      return;
+    }
+
+    try {
+      // Convert products to CSV format
+      const csvData = products.map(product => ({
+        _id: product._id,
+        brand_name: product.brand_name || '',
+        website: product.website || '',
+        city: product.city || '',
+        province: product.province || '',
+        country: product.country || 'Canada',
+        production_verified: product.production_verified ? 'true' : 'false',
+        site_verified: product.site_verified ? 'true' : 'false',
+        products: Array.isArray(product.products) ? product.products.join(';') : '',
+        categories: Array.isArray(product.categories) ? product.categories.join(';') : '',
+        cdn_prod_tags: Array.isArray(product.cdn_prod_tags) ? product.cdn_prod_tags.join(';') : '',
+        notes: product.notes || '',
+        date_added: product.date_added || '',
+        date_modified: product.date_modified || ''
+      }));
+
+      // Generate CSV
+      const headers = Object.keys(csvData[0]).join(',');
+      const rows = csvData.map(row => 
+        Object.values(row).map(value => 
+          typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
+        ).join(',')
+      );
+      const csv = [headers, ...rows].join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `canadian_products_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Error exporting products: ' + error.message);
+    }
   };
 
   const handleCopyDetails = () => {
