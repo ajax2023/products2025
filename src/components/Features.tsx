@@ -5,60 +5,89 @@ import {
   Paper, 
   Grid, 
   Card, 
-  CardContent,
-  CardHeader,
-  Icon
+  CardContent
 } from "@mui/material";
-import InventoryIcon from '@mui/icons-material/Inventory';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import GroupsIcon from '@mui/icons-material/Groups';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import StorefrontIcon from '@mui/icons-material/Storefront';
-import SecurityIcon from '@mui/icons-material/Security';
+import SearchIcon from '@mui/icons-material/Search';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import ShareIcon from '@mui/icons-material/Share';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
-const features = [
+const sections = [
   {
-    title: "Product Management",
-    description: "Efficiently manage your product catalog with easy-to-use forms. Add, edit, and organize products with detailed information and specifications.",
-    icon: <InventoryIcon fontSize="large" color="primary" />
+    title: "Why This App Exists",
+    description: "This app was created in response to U.S. tariffs, helping Canadians discover and support Canadian-made products. It empowers consumers to make informed choices that strengthen the Canadian economy."
   },
   {
-    title: "Company & Brand Management",
-    description: "Keep track of companies and brands in your ecosystem. Manage relationships between products, companies, and brands seamlessly.",
-    icon: <StorefrontIcon fontSize="large" color="primary" />
+    title: "What You Can Do",
+    description: "Search for Canadian-made products and brands, favorite brands you want to support, share products with others, and support Canadian businesses by making informed purchases."
   },
   {
-    title: "User Management",
-    description: "Comprehensive user management system with role-based access control. Administrators can manage user permissions and access levels.",
-    icon: <GroupsIcon fontSize="large" color="primary" />
+    title: "Why Buy Canadian?",
+    description: "Supporting local jobs, strengthening the economy, and ensuring high-quality, regulated products."
   },
   {
-    title: "Receipt Management",
-    description: "Track and manage receipts efficiently. Upload, categorize, and maintain a detailed history of all transactions.",
-    icon: <ReceiptLongIcon fontSize="large" color="primary" />
-  },
-  {
-    title: "Analytics & Insights",
-    description: "Get valuable insights into your product performance with built-in analytics. Track trends and make data-driven decisions.",
-    icon: <BarChartIcon fontSize="large" color="primary" />
-  },
-  {
-    title: "Secure Authentication",
-    description: "Enterprise-grade security with Firebase authentication. Keep your data safe with robust user authentication and authorization.",
-    icon: <SecurityIcon fontSize="large" color="primary" />
+    title: "Future Features",
+    description: "Coming soon: Vendor deals, a shopping cart feature, and community contributions."
   }
 ];
 
-export default function Features() {
+const features = [
+  {
+    title: "Search for Canadian Products",
+    description: "Easily find and browse Canadian-made products from various brands.",
+    icon: <SearchIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Favorite Brands",
+    description: "Save and track your favorite Canadian brands for quick access.",
+    icon: <FavoriteIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Share with Others",
+    description: "Spread awareness by sharing Canadian-made products with your network.",
+    icon: <ShareIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Future: Vendor Deals",
+    description: "Vendors will soon be able to list exclusive promotions and discounts.",
+    icon: <LocalOfferIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Future: Shopping Cart",
+    description: "A shopping cart feature is in development to help you with your shopping experience.",
+    icon: <ShoppingCartIcon fontSize="large" color="primary" />
+  }
+];
+
+export default function AboutThisApp() {
   return (
-    <Box sx={{ p: 1, maxWidth: 1200, margin: "0 auto" }}>
-      <Paper elevation={3} sx={{ p: 1, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
-        <Typography variant="h5" textAlign="center" color="primary" gutterBottom>
-          Features
+    <Box sx={{ p: 2, maxWidth: 1200, margin: "0 auto" }}>
+      <Paper elevation={3} sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
+        
+        <Typography variant="h4" textAlign="center" color="primary" gutterBottom>
+          About This App
         </Typography>
 
-        <Typography variant="h6" textAlign="center" sx={{ mb: 2, color: "text.secondary" }}>
-          A comprehensive suite of tools for modern product management
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {sections.map((section, index) => (
+            <Grid item xs={12} md={6} key={index}>
+              <Card sx={{ height: "100%", p: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {section.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {section.description}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Typography variant="h5" textAlign="center" color="primary" gutterBottom>
+          Features
         </Typography>
 
         <Grid container spacing={3}>

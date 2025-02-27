@@ -805,13 +805,29 @@ export default function CanadianProductSearch() {
           borderBottom: '1px solid',
           borderColor: 'divider'
         }}>
-          <Typography variant="h5" component="div" sx={{ 
-            color: 'primary.main',
-            fontWeight: 500,
-            fontSize: '1rem'
-          }}>
-            {selectedProduct?.brand_name} - Notes
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" component="div" sx={{ 
+              color: 'primary.main',
+              fontWeight: 500,
+              fontSize: '1rem'
+            }}>
+              {selectedProduct?.brand_name} - Notes
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => selectedProduct && readNotes(selectedProduct)}
+              sx={{ 
+                padding: '4px',
+                '& .MuiSvgIcon-root': { 
+                  fontSize: '1.1rem',
+                  color: theme => readingProductId === selectedProduct?._id ? theme.palette.secondary.main : theme.palette.primary.main,
+                  animation: readingProductId === selectedProduct?._id ? 'pulse 1s infinite' : 'none'
+                }
+              }}
+            >
+              <VolumeUpIcon />
+            </IconButton>
+          </Box>
           <IconButton
             aria-label="close"
             onClick={() => setNotesDialogOpen(false)}

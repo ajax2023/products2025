@@ -19,6 +19,10 @@ import { NotificationProvider } from './components/common/NotificationSnackbar';
 import ProductManagement from './components/admin/ProductManagement';
 import { Footer } from './components/Footer';
 import { Box } from '@mui/material';
+import { PromotionalBanner } from './components/PromotionalBanner';
+import AboutUs from './components/AboutUs';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import Terms from './components/Terms';
 
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
@@ -46,7 +50,7 @@ function App() {
                       minHeight: '100vh'
                     }}>
                       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
-                      <Box sx={{ flex: 1, overflowY: 'auto' }}>
+                      <Box sx={{ flex: 1, overflowY: 'auto', paddingBottom: '40px' }}>
                         <Routes>
                           <Route path="/" element={<CanadianProductSearch />} />
                           <Route path="/settings" element={<Settings />} />
@@ -54,6 +58,9 @@ function App() {
                           <Route path="/home" element={<Home />} />
                           <Route path="/search" element={<Search />} />
                           <Route path="/canadian-products" element={<CanadianProductSearch />} />
+                          <Route path="/about" element={<AboutUs />} />
+                          <Route path="/privacy" element={<PrivacyPolicy />} />
+                          <Route path="/terms" element={<Terms />} />
                           <Route
                             path="/admin/products"
                             element={
@@ -78,7 +85,10 @@ function App() {
                       />
                         </Routes>
                       </Box>
-                      <Footer />
+                      <Box sx={{ position: 'relative', zIndex: 1000 }}>
+                        <PromotionalBanner />
+                        <Footer />
+                      </Box>
                     </Box>
                   }
                 />

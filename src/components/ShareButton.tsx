@@ -26,10 +26,10 @@ const ShareButton: React.FC<ShareButtonProps> = (props) => {
     setDialogOpen(false);
   };
 
-  console.log('[ShareButton] Rendering:', { 
-    brandName: props.brandName,
-    dialogOpen 
-  });
+  // console.log('[ShareButton] Rendering:', { 
+  //   brandName: props.brandName,
+  //   dialogOpen 
+  // });
 
   return (
     <>

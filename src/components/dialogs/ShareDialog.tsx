@@ -135,13 +135,13 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
     setComment(newComment);
   };
 
-  console.log('[ShareDialog] Rendering:', { 
-    open, 
-    brandName, 
-    productsCount: products.length,
-    selectedCount: selectedProducts.length,
-    hasComment: !!comment 
-  });
+  // console.log('[ShareDialog] Rendering:', { 
+  //   open, 
+  //   brandName, 
+  //   productsCount: products.length,
+  //   selectedCount: selectedProducts.length,
+  //   hasComment: !!comment 
+  // });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

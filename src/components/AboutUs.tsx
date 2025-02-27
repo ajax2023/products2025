@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -6,8 +7,7 @@ import {
   Paper,
   Grid,
   Card,
-  CardContent,
-  Avatar,
+  CardContent
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -22,38 +22,41 @@ const AboutUs: React.FC = () => {
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
         <StyledPaper elevation={3}>
-          <Typography variant="h3" component="h1" gutterBottom align="center" color="primary">
-            About Us
+          <Typography variant="h5" component="h1" gutterBottom align="center" color="primary">
+              <Link to="/about" style={{ color: "red", fontWeight: "bold" }}>About Us</Link>
           </Typography>
           
           <Typography variant="h6" paragraph align="center" color="text.secondary">
-            We are dedicated to providing a list of products that are made in Canada.
+          Supporting Canadian-made products, businesses, and economic independence—because <span style={{ color: "red", fontWeight: "bold" }}>Canada is NOT for sale!</span>
           </Typography>
 
           <Grid container spacing={4} sx={{ mt: 4 }}>
             <Grid item xs={12} md={6}>
-              <Card>
+              <Card elevation={6}>
                 <CardContent>
                   <Typography variant="h5" gutterBottom color="primary">
                     Our Mission
                   </Typography>
                   <Typography variant="body1" paragraph>
-                    To provide businesses with powerful, intuitive tools for managing their products
-                    and inventory, enabling them to make data-driven decisions and optimize their operations.
+                    This app was created in response to U.S. tariffs and the increasing difficulty of finding 
+                    truly Canadian-made products. Our mission is to help Canadians make informed choices that 
+                    support **local businesses, jobs, and economic strength.**
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Card>
+              <Card elevation={6}>
                 <CardContent>
                   <Typography variant="h5" gutterBottom color="primary">
                     Our Vision
                   </Typography>
                   <Typography variant="body1" paragraph>
-                    To become the leading platform for product management, helping businesses
-                    of all sizes streamline their operations and achieve sustainable growth.
+                    We believe in a strong and independent Canada. This platform is just the beginning—our future plans include:<br />
+                    ✅ **Vendor Deals & Promotions**   <br />
+                    ✅ **Shopping Cart Features**   <br />
+                    ✅ **Community Contributions**   
                   </Typography>
                 </CardContent>
               </Card>
@@ -65,22 +68,22 @@ const AboutUs: React.FC = () => {
               Why Choose Us?
             </Typography>
             <Grid container spacing={3} sx={{ mt: 2 }}>
-              {[
+              {[  
                 {
-                  title: 'User-Friendly Interface',
-                  description: 'Intuitive design that makes product management effortless',
+                  title: 'Find Verified Canadian Products',
+                  description: 'Easily search and browse Canadian-made products from trusted brands.',
                 },
                 {
-                  title: 'Advanced Analytics',
-                  description: 'Powerful insights to help you make informed decisions',
+                  title: 'Support Local Businesses',
+                  description: 'Every product you choose helps create jobs and strengthen Canada’s economy.',
                 },
                 {
-                  title: 'Reliable Support',
-                  description: '24/7 customer support to assist you with any questions',
+                  title: 'Easily Discover & Share',
+                  description: 'Spread awareness and help others buy Canadian with built-in sharing tools.',
                 },
               ].map((feature, index) => (
                 <Grid item xs={12} md={4} key={index}>
-                  <Card sx={{ height: '100%' }}>
+                  <Card sx={{ height: '100%' }} elevation={6}>
                     <CardContent>
                       <Typography variant="h6" gutterBottom color="primary">
                         {feature.title}

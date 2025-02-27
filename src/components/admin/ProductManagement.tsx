@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Table,
@@ -176,8 +177,9 @@ const SearchBar = React.memo(({
   </Paper>
 ));
 
-export default function ProductManagement() {
+const ProductManagement: React.FC = () => {
   const { user, claims } = useAuth();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<CanadianProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<CanadianProduct | null>(null);
@@ -197,6 +199,7 @@ export default function ProductManagement() {
   const [productFilter, setProductFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const loadProducts = useCallback(async () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
@@ -567,6 +570,10 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
     });
   };
 
+  const handleImportClick = () => {
+    setIsUploadOpen(true);
+  };
+
   const renderUploadButton = () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return null;
     
@@ -586,14 +593,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
       <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h5"  color="primary">Product Management</Typography>
         <Stack direction="row" spacing={2}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => window.location.href = '/admin/canadian-product-upload'}
-            startIcon={<CloudUploadIcon />}
-          >
-            Import
-          </Button>
+          {renderUploadButton()}
           <Button
             variant="contained"
             color="primary"
@@ -1568,6 +1568,16 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
           </Button>
         </DialogActions>
       </Dialog>
+
+      {isUploadOpen && (
+        <CanadianProductUpload 
+          userId={user?.uid || ''}
+          userEmail={user?.email || ''}
+          userName={user?.displayName || user?.email || 'Unknown User'}
+        />
+      )}
     </Box>
   );
 }
+
+export default ProductManagement;

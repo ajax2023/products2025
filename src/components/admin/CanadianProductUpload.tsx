@@ -280,6 +280,15 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
 
   return (
     <Box>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleOpen}
+        startIcon={<CloudUploadIcon />}
+      >
+        Import
+      </Button>
+
       <Dialog
         open={open}
         onClose={handleClose}

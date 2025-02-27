@@ -134,7 +134,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             }}
           >
             {/* Home */}
-            <Link to="/home" style={{ textDecoration: 'none', color: 'inherit' }}>
+            {/* <Link to="/home" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
                 color="inherit"
                 sx={{
@@ -147,7 +147,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                   <HomeIcon />
                 </Tooltip>
               </IconButton>
-            </Link>
+            </Link> */}
 
             {/* Canadian Products */}
             <Link to="/canadian-products" style={{ textDecoration: 'none', color: 'inherit' }}>

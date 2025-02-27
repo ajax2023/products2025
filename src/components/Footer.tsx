@@ -9,10 +9,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import InfoIcon from '@mui/icons-material/Info';
 import ContactSupportIcon from '@mui/icons-material/ContactSupport';
 import SecurityIcon from '@mui/icons-material/Security';
+import Balance from '@mui/icons-material/Balance';  
+import HomeIcon from '@mui/icons-material/Home';
+
 import { BUILD_NUMBER } from '../buildInfo';
 
 export function Footer() {
@@ -20,9 +22,11 @@ export function Footer() {
 
   return (
     <AppBar 
-      position="static" 
+      position="fixed" 
       color="primary" 
       sx={{ 
+        top: 'auto',
+        bottom: 0,
         backgroundColor: '#1976D2',
         borderTop: `1px solid ${theme.palette.divider}`,
         zIndex: '10',
@@ -52,7 +56,6 @@ export function Footer() {
           </Typography>
         </Box>
 
-
         <Box 
           component="div"
           sx={{
@@ -67,18 +70,11 @@ export function Footer() {
             }
           }}
         >
-          <Link to="/privacy" style={{ textDecoration: 'none', color: 'inherit' }}>
+  
+          <Link to="/home" style={{ textDecoration: 'none', color: 'inherit' }}>
             <IconButton color="inherit" size="small">
-              <Tooltip title="Privacy Policy">
-                <PrivacyTipIcon />
-              </Tooltip>
-            </IconButton>
-          </Link>
-
-          <Link to="/terms" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <IconButton color="inherit" size="small">
-              <Tooltip title="Terms of Service">
-                <SecurityIcon />
+              <Tooltip title="Home">
+                <HomeIcon />
               </Tooltip>
             </IconButton>
           </Link>
@@ -98,6 +94,23 @@ export function Footer() {
               </Tooltip>
             </IconButton>
           </Link>
+
+          <Link to="/privacy" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <IconButton color="inherit" size="small">
+              <Tooltip title="Privacy Policy">
+                <SecurityIcon />
+              </Tooltip>
+            </IconButton>
+          </Link>
+
+          <Link to="/terms" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <IconButton color="inherit" size="small">
+              <Tooltip title="Terms and Conditions">
+                <Balance />
+              </Tooltip>
+            </IconButton>
+          </Link>
+
         </Box>
       </Toolbar>
     </AppBar>

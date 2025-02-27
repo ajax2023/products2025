@@ -113,31 +113,16 @@ service cloud.firestore {
     }
 
     // Canadian Products collection
-    match /canadian_products/{document=**} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null 
-        && request.resource.data.added_by == request.auth.uid
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'contributor'
-        );
-      allow update: if request.auth != null 
-        && (resource.data.added_by == request.auth.uid || (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid))
-          && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
-          )
-        ))
-        && request.resource.data.modified_by == request.auth.uid;
-      allow delete: if request.auth != null 
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
-        );
+    match /canadian_products/{productId} {
+      // Anyone can read public products, authenticated users can read all products
+      allow read: if resource.data.isPubliclyVisible == true || isSignedIn();
+      
+      // Only authenticated users can create, update, or delete
+      allow create, update, delete: if isSignedIn();
+
+      // Allow updating like stats separately
+      allow update: if isSignedIn() || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeStats']));
     }
 
     // Brand Likes collection
@@ -150,6 +135,15 @@ service cloud.firestore {
     match /brandLikeStats/{brandId} {
       allow read: if true;  // Anyone can read like stats
       allow write: if request.auth != null;  // Must be signed in to update stats
+    }
+
+    // Public Stats collection
+    match /public_stats/{docId} {
+      // Anyone can read public stats
+      allow read: if true;
+      
+      // Only admins can write to public stats
+      allow write: if isAdmin();
     }
   }
 }

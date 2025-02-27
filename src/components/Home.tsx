@@ -1,54 +1,143 @@
-import React, { useState } from "react";
+import React from "react";
 import { 
   Box, 
-  Tabs, 
-  Tab, 
   Typography, 
-  Paper 
+  Paper, 
+  Grid, 
+  Card, 
+  CardContent
 } from "@mui/material";
-import Features from "./Features";
-import AboutUs from "./AboutUs";
-import SupportUs from "./SupportUs";
+import SearchIcon from '@mui/icons-material/Search';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import ShareIcon from '@mui/icons-material/Share';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
-export default function Dashboard() {
-  const [tabIndex, setTabIndex] = useState(0);
+const sections = [
+  {
+    title: "Why This App Exists",
+    description: "This app was created in response to U.S. tariffs, helping Canadians discover and support Canadian-made products. It empowers consumers to make informed choices that strengthen the Canadian economy."
+  },
+  {
+    title: "What You Can Do",
+    description: "Search for Canadian-made products and brands, favorite brands you want to support, share products with others, and support Canadian businesses by making informed purchases."
+  },
+  {
+    title: "Why Buy Canadian?",
+    description: "Supporting local jobs, strengthening the economy, and ensuring high-quality, regulated products."
+  },
+  {
+    title: "Future Features",
+    description: "Coming soon: Vendor deals, a shopping cart feature, and community contributions."
+  }
+];
 
-  const handleChange = (event: React.SyntheticEvent, newIndex: number) => {
-    setTabIndex(newIndex);
-  };
+const features = [
+  {
+    title: "Search for Canadian Products",
+    description: "Easily find and browse Canadian-made products from various brands.",
+    icon: <SearchIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Favorite Brands",
+    description: "Save and track your favorite Canadian brands for quick access.",
+    icon: <FavoriteIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Share with Others",
+    description: "Spread awareness by sharing Canadian-made products with your network.",
+    icon: <ShareIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Future: Vendor Deals",
+    description: "Vendors will soon be able to list exclusive promotions and discounts.",
+    icon: <LocalOfferIcon fontSize="large" color="primary" />
+  },
+  {
+    title: "Future: Shopping Cart",
+    description: "A shopping cart feature is in development to help you with your shopping experience.",
+    icon: <ShoppingCartIcon fontSize="large" color="primary" />
+  }
+];
 
+export default function AboutThisApp() {
   return (
     <Box sx={{ 
-      width: "95%",
-      height: 'calc(100vh - 114px)',
-      position: 'fixed',
-      top: 50, 
-      left: 0, 
-      right: 0,
-      margin: '0 auto',
+      p: 2, 
+      maxWidth: 1200, 
+      margin: "30px auto",
+      minHeight: 'calc(100vh - 64px)', 
       display: 'flex',
       flexDirection: 'column',
-      pb: 7 // space for footer
+      pb: '100px' 
     }}>
-      <Paper elevation={10} sx={{ mb: 2, flex: 'none' }}>
-        <Tabs value={tabIndex} onChange={handleChange} variant="fullWidth">
-        <Tab label="Features" />
-        <Tab label="About Us" />
-        <Tab label="Support us" />
-          
-        </Tabs>
-      </Paper>
-
-      {/* Tab Content */}
-      <Box sx={{ 
-        flex: 1,
-        overflow: 'auto',
-        pb: 2
+      <Paper elevation={3} sx={{ 
+        p: 3, 
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        flex: 1 
       }}>
-        {tabIndex === 0 && <Features />}
-        {tabIndex === 1 && <AboutUs />}
-        {tabIndex === 2 && <SupportUs />}
-      </Box>
+        
+        <Typography variant="h5" textAlign="center" color="primary" gutterBottom>
+          About This App
+        </Typography>
+
+        <Grid container spacing={3} sx={{ mb: 10 }}>
+          {sections.map((section, index) => (
+            <Grid item xs={12} md={6} key={index}>
+              <Card sx={{ height: "90%", p: 2 }} elevation={6}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {section.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {section.description}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Typography variant="h5" textAlign="center" color="primary" gutterBottom sx={{ mt: 4 }}>
+          Features
+        </Typography>
+
+        <Grid container spacing={3}>
+          {features.map((feature, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <Card sx={{ 
+                height: "100%", 
+                display: 'flex', 
+                flexDirection: 'column',
+                transition: 'transform 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-5px)',
+                  boxShadow: 6
+                }
+              }}
+              elevation={6}
+              >
+                <CardContent sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center',
+                  textAlign: 'center'
+                }}>
+                  <Box sx={{ mb: 2 }}>
+                    {feature.icon}
+                  </Box>
+                  <Typography variant="h6" gutterBottom>
+                    {feature.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {feature.description}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
     </Box>
   );
 }

@@ -2,6 +2,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { defineString } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const functions = require("firebase-functions");
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -132,3 +133,76 @@ exports.searchProducts = onRequest({
     });
   }
 });
+
+/**
+ * Updates the public stats document with current counts
+ */
+exports.updatePublicStats = functions.pubsub
+  .schedule('every 1 hours')  // Changed to hourly to reduce costs
+  .onRun(async (context) => {
+    try {
+      console.log('Starting public stats update...');
+      
+      // Get count of active users
+      const usersSnapshot = await admin
+        .firestore()
+        .collection('users')
+        .where('status', '==', 'active')
+        .get();
+      
+      console.log('Found active users:', usersSnapshot.size);
+      
+      // Get count of Canadian products and public products
+      const productsSnapshot = await admin
+        .firestore()
+        .collection('canadian_products')
+        .get();
+      
+      const totalProducts = productsSnapshot.size;
+      const publicProducts = productsSnapshot.docs.filter(
+        doc => doc.data().isPubliclyVisible === true
+      ).length;
+      
+      console.log('Product counts:', { total: totalProducts, public: publicProducts });
+      
+      // Update the public stats document
+      await admin.firestore()
+        .doc('public_stats/user_counts')
+        .set({
+          activeUsers: usersSnapshot.size,
+          totalProducts,
+          publicProducts,
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        });
+      
+      console.log('Public stats updated successfully');
+      return null;
+    } catch (error) {
+      console.error('Error updating public stats:', error);
+      throw error;
+    }
+  });
+
+/**
+ * Also update stats when user status changes
+ */
+exports.onUserStatusChange = functions.firestore
+  .document('users/{userId}')
+  .onWrite(async (change, context) => {
+    // Only update if status field changed
+    const oldStatus = change.before.data()?.status;
+    const newStatus = change.after.data()?.status;
+    
+    if (oldStatus === newStatus) {
+      return null;
+    }
+    
+    // Trigger the stats update
+    try {
+      await exports.updatePublicStats.run();
+      console.log('Public stats updated after user status change');
+    } catch (error) {
+      console.error('Error updating stats after user change:', error);
+      throw error;
+    }
+  });
