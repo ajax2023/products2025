@@ -117,7 +117,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           <Box>
           {/* Logo */}
           <img 
-            src="/maple-leaf.svg" 
+            src="/maple-leaf.png" 
             alt="Maple Leaf"
             style={{ 
               height: '30px',
