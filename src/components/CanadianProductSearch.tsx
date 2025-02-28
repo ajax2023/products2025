@@ -25,7 +25,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText
+  DialogContentText,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -87,14 +87,14 @@ export default function CanadianProductSearch() {
           exists: userDoc.exists(),
           data: userDoc.exists() ? userDoc.data() : null,
           uid: user.uid,
-          email: user.email
+          email: user.email,
         });
 
         // Try a test read
         const testQuery = await getDocs(query(collection(db, 'canadian_products'), limit(1)));
         console.log('Auth: Test query result', {
           success: !testQuery.empty,
-          count: testQuery.size
+          count: testQuery.size,
         });
       } catch (error) {
         console.error('Auth: Verification failed', error);
@@ -110,7 +110,7 @@ export default function CanadianProductSearch() {
       console.log('fetchStats: No user', { uid: user?.uid });
       return;
     }
-    
+
     console.log('fetchStats: Starting', { uid: user?.uid, email: user?.email });
     try {
       const snapshot = await getDocs(collection(db, 'canadian_products'));
@@ -121,7 +121,7 @@ export default function CanadianProductSearch() {
       let verified = 0;
 
       const productsList: CanadianProduct[] = [];
-      snapshot.forEach((doc) => {
+      snapshot.forEach(doc => {
         const product = { ...doc.data(), _id: doc.id } as CanadianProduct;
         products[doc.id] = product;
         productsList.push(product);
@@ -148,7 +148,7 @@ export default function CanadianProductSearch() {
         console.error('Error details:', {
           message: error.message,
           stack: error.stack,
-          name: error.name
+          name: error.name,
         });
       }
     }
@@ -167,7 +167,7 @@ export default function CanadianProductSearch() {
       try {
         console.log('Loading initial data');
         console.log('User state:', user ? 'Logged in' : 'Not logged in');
-        
+
         const results = await searchCanadianProducts({});
         console.log('Initial data loaded, results:', results.length);
         setProducts(results);
@@ -202,14 +202,14 @@ export default function CanadianProductSearch() {
 
       console.log('Starting search with query:', term);
       console.log('User state:', user ? 'Logged in' : 'Not logged in');
-      
+
       setLoading(true);
       try {
         console.log('Attempting search with:', {
           isAuthenticated: !!user,
           searchQuery: term,
         });
-        
+
         const results = await searchCanadianProducts({ brand_name: term });
         console.log('Search completed, results:', results.length);
         setProducts(results);
@@ -220,7 +220,7 @@ export default function CanadianProductSearch() {
           name: error.name,
           message: error.message,
           code: error.code,
-          stack: error.stack
+          stack: error.stack,
         });
       } finally {
         setLoading(false);
@@ -232,7 +232,7 @@ export default function CanadianProductSearch() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchQuery(term);
-    debouncedSearch(term);  // Pass the current term directly
+    debouncedSearch(term); // Pass the current term directly
   };
 
   const countTotalProducts = (products: CanadianProduct[]) => {
@@ -240,8 +240,7 @@ export default function CanadianProductSearch() {
       const productCount = p.products
         .map(prod => prod.split(',').map(p => p.trim()))
         .flat()
-        .filter(p => p.length > 0)
-        .length;
+        .filter(p => p.length > 0).length;
       return sum + productCount;
     }, 0);
   };
@@ -277,21 +276,20 @@ export default function CanadianProductSearch() {
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       // Product filter
-      const matchesProduct = !productFilter || 
-        product.products.some(p => 
-          p.toLowerCase().includes(productFilter.toLowerCase())
-        );
+      const matchesProduct =
+        !productFilter ||
+        product.products.some(p => p.toLowerCase().includes(productFilter.toLowerCase()));
 
       // Category filter
-      const matchesCategory = !categoryFilter ||
-        product.categories.some(c =>
-          c.toLowerCase().includes(categoryFilter.toLowerCase())
-        );
+      const matchesCategory =
+        !categoryFilter ||
+        product.categories.some(c => c.toLowerCase().includes(categoryFilter.toLowerCase()));
 
       // Location filter - check city and province
-      const matchesLocation = !locationFilter ||
-        (product.city?.toLowerCase().includes(locationFilter.toLowerCase()) ||
-         product.province?.toLowerCase().includes(locationFilter.toLowerCase()));
+      const matchesLocation =
+        !locationFilter ||
+        product.city?.toLowerCase().includes(locationFilter.toLowerCase()) ||
+        product.province?.toLowerCase().includes(locationFilter.toLowerCase());
 
       return matchesProduct && matchesCategory && matchesLocation;
     });
@@ -299,10 +297,7 @@ export default function CanadianProductSearch() {
 
   // Update table to use filteredProducts
   const visibleProducts = useMemo(() => {
-    return filteredProducts.slice(
-      page * rowsPerPage,
-      page * rowsPerPage + rowsPerPage
-    );
+    return filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   }, [filteredProducts, page, rowsPerPage]);
 
   // Function to read text aloud
@@ -313,105 +308,116 @@ export default function CanadianProductSearch() {
 
       const text = `Notes for ${product.brand_name}. ${product.notes || 'No notes available.'}`;
       const utterance = new SpeechSynthesisUtterance(text);
-      
+
       utterance.onstart = () => setReadingProductId(product._id);
       utterance.onend = () => setReadingProductId(null);
       utterance.onerror = () => setReadingProductId(null);
-      
+
       window.speechSynthesis.speak(utterance);
     }
   }, []);
 
   return (
-    <Box sx={{ 
-      width: '95%',
-      height: 'calc(100vh - 175px)',
-      position: 'fixed',
-      top: 60,
-      left: 0,
-      right: 0,
-      margin: '0 auto',
-      bgcolor: 'background.paper',
-      pb: 7 // padding for footer
-    }}>
+    <Box
+      sx={{
+        width: '95%',
+        height: 'calc(100vh - 175px)',
+        position: 'fixed',
+        top: 60,
+        left: 0,
+        right: 0,
+        margin: '0 auto',
+        bgcolor: 'background.paper',
+        pb: 7, // padding for footer
+      }}
+    >
       {/* Header Section */}
       <Box sx={{ mt: 1, px: 1 }}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          mb: 1
-        }}>
-          <img src="/2.png" alt="Canada Flag" style={{ width: '100px', height: 'auto' }} />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'center',
+            mb: 1,
+          }}
+        >
+          {/* Product of Canada */}
+          <Paper
+            elevation={3}
+            sx={{
+              bgcolor: 'success.light',
+              color: 'success.dark',
+              p: 0.5,
+              borderLeft: '5px solid',
+              borderColor: 'success.main',
+              borderRadius: 2,
+              minHeight: 80, // Ensure both boxes have the same height
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
+              <img src="/Product_of_Canada.png" alt="Canada Flag" style={{ width: '80px', height: 'auto' }} />
+            </Box>
+            <Box sx={{ p: 1 }}>
+              <Typography variant="h6" fontWeight="bold">
+                Product of Canada
+              </Typography>
+              <Typography variant="body1">At least 98% of the product comes from Canada.</Typography>
+            </Box>
+          </Paper>
+
+          <Box
+            sx={{
+              ml: 1,
+              mr: 1,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <img src="/2.png" alt="Canada Flag" style={{ width: '100px', height: 'auto' }} />
+          </Box>
+
+          {/* Made in Canada */}
+          <Paper
+            elevation={3}
+            sx={{
+              bgcolor: 'primary.light',
+              color: 'primary.dark',
+              p: 0.5,
+              borderLeft: '5px solid',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              minHeight: 80, // Ensure both boxes have the same height
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
+              <img src="/Made_in_Canada.png" alt="Canada Flag" style={{ width: '80px', height: 'auto' }} />
+            </Box>
+            <Box sx={{ p: 1 }}>
+              <Typography variant="h6" fontWeight="bold">
+                Made in Canada
+              </Typography>
+              <Typography variant="body1">At least 51% of the product comes from Canada.</Typography>
+            </Box>
+          </Paper>
         </Box>
 
         <Typography variant="h6" component="h6" color="primary" align="center" gutterBottom>
           Canadian Products Search
         </Typography>
 
-        {/* Stats Display */}
-        {/* {stats && (
-          <Card sx={{p: 0, mb: 1.5, mt: 0, width: '100%', border: '1px solid #1976D2', borderRadius: '10px' }}>
-            <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
-              <Grid container spacing={0}>
-              <Grid item xs={2.4}>
-                  <Box>
-                    <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 1 }}>
-                      Totals
-                    </Typography>
-                    
-                  </Box>
-                </Grid>
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Products
-                    </Typography>
-                    <Typography variant="body2">
-                      {stats ? countTotalProducts(Object.values(stats.products || {})) : <CircularProgress size={12} />}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
-                      Brands
-                    </Typography>
-                    <Typography variant="body2">
-                      {stats.total ?? <CircularProgress size={12} />}
-                    </Typography>
-                  </Box>
-              </Grid>
-    
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-                      Verified
-                    </Typography>
-                    <Typography variant="body2">
-                      {stats.verified ?? <CircularProgress size={12} />}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={2.4}>
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
-                      Pending
-                    </Typography>
-                    <Typography variant="body2">
-                      {stats.pending ?? <CircularProgress size={12} />}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        )} */}
-
         {/* Search Bar */}
         <Paper
           component="form"
           sx={{
-            p: 1,
+            p: 0.5,
             display: 'flex',
             flexDirection: 'row',
             flexWrap: 'wrap',
@@ -421,87 +427,95 @@ export default function CanadianProductSearch() {
             mt: 1,
             border: '2px solid #1976D2',
             borderRadius: '10px',
-            backgroundColor: '#fff'
+            backgroundColor: '#fff',
           }}
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={e => e.preventDefault()}
         >
           {/* Brand Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <StoreIcon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
+              sx={{
+                ml: 1,
+                flex: 1,
+                color: 'primary.main',
+                border: '1px solid #1976D2',
+                borderRadius: '4px',
+                pl: 0.5,
+              }}
               placeholder="Search brands..."
               value={searchQuery}
               onChange={handleSearch}
-              endAdornment={loading && (
-                <CircularProgress size={20} sx={{ mr: 1 }} />
-              )}
+              endAdornment={loading && <CircularProgress size={20} sx={{ mr: 1 }} />}
             />
           </Box>
-
-          
 
           {/* Product Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <Inventory2Icon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
+              sx={{
+                ml: 1,
+                flex: 1,
+                color: 'primary.main',
+                border: '1px solid #1976D2',
+                borderRadius: '4px',
+                pl: 0.5,
+              }}
               placeholder="Filter by product..."
               value={productFilter}
-              onChange={(e) => setProductFilter(e.target.value)}
+              onChange={e => setProductFilter(e.target.value)}
             />
           </Box>
 
-          
           {/* Category Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <CategoryIcon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
+              sx={{
+                ml: 1,
+                flex: 1,
+                color: 'primary.main',
+                border: '1px solid #1976D2',
+                borderRadius: '4px',
+                pl: 0.5,
+              }}
               placeholder="Filter by category..."
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={e => setCategoryFilter(e.target.value)}
             />
           </Box>
 
-          
           {/* Location Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
             <LocationOnIcon sx={{ color: 'primary.main' }} />
             <InputBase
-              sx={{ ml: 1, flex: 1, color: 'primary.main' , border: '1px solid #1976D2', borderRadius: '4px', pl: 0.5 }}
+              sx={{
+                ml: 1,
+                flex: 1,
+                color: 'primary.main',
+                border: '1px solid #1976D2',
+                borderRadius: '4px',
+                pl: 0.5,
+              }}
               placeholder="Filter by location..."
               value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
+              onChange={e => setLocationFilter(e.target.value)}
             />
           </Box>
-
-          {/* <IconButton 
-            sx={{ ml: 1, color: 'primary.main' }}
-            onClick={async () => {
-              setLoading(true);
-              try {
-                await forceSync();
-                debouncedSearch(searchQuery);
-              } finally {
-                setLoading(false);
-              }
-            }}
-            aria-label="refresh"
-          >
-            <RefreshIcon />
-          </IconButton> */}
         </Paper>
       </Box>
 
       {/* Results Section */}
-      <Box sx={{ 
-        mt: 0.5,
-        height: !user ? 'calc(100% - 194px)' : 'calc(100% - 150px)', // Add 44px when user is not logged in
-        overflow: 'auto',
-        px: 0.5,
-        pb: 0.5
-      }}>
+      <Box
+        sx={{
+          mt: 0.5,
+          height: !user ? 'calc(100% - 194px)' : 'calc(100% - 150px)', // Add 44px when user is not logged in
+          overflow: 'auto',
+          px: 0.5,
+          pb: 0.5,
+        }}
+      >
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <CircularProgress />
@@ -514,8 +528,8 @@ export default function CanadianProductSearch() {
                   '& th': {
                     backgroundColor: 'primary.main',
                     color: 'white',
-                    fontWeight: 'bold'
-                  }
+                    fontWeight: 'bold',
+                  },
                 }}
               >
                 <TableRow>
@@ -536,7 +550,7 @@ export default function CanadianProductSearch() {
                       <CategoryIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Categories ({countTotalCategories(filteredProducts)})</span>
                     </Box>
-                  </TableCell> 
+                  </TableCell>
                   <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
                       <VerifiedIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
@@ -553,39 +567,35 @@ export default function CanadianProductSearch() {
               </TableHead>
               <TableBody>
                 {visibleProducts.map((product, index) => (
-                  <TableRow 
+                  <TableRow
                     key={product._id}
                     sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <LikeButton 
+                          <LikeButton
                             brandId={product._id}
                             brandName={product.brand_name}
                             initialLikeCount={product.likeStats?.totalLikes || 0}
                           />
                           {product.website && (
-                            <Link
-                              href={product.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
+                            <Link href={product.website} target="_blank" rel="noopener noreferrer">
                               <IconButton size="small">
                                 <OpenInNewIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
                               </IconButton>
                             </Link>
                           )}
                         </Box>
-                        <Typography 
-                          sx={{ 
+                        <Typography
+                          sx={{
                             fontWeight: 500,
                             fontSize: '0.875rem',
                             color: 'text.primary',
                             cursor: 'pointer',
                             '&:hover': {
-                              textDecoration: 'underline'
-                            }
+                              textDecoration: 'underline',
+                            },
                           }}
                           onClick={() => {
                             setSelectedProduct(product);
@@ -610,12 +620,12 @@ export default function CanadianProductSearch() {
                               setSelectedProduct(product);
                               setNotesDialogOpen(true);
                             }}
-                            sx={{ 
+                            sx={{
                               padding: '4px',
-                              '& .MuiSvgIcon-root': { 
+                              '& .MuiSvgIcon-root': {
                                 fontSize: '1.1rem',
-                                color: 'primary.main'
-                              }
+                                color: 'primary.main',
+                              },
                             }}
                           >
                             <InfoOutlinedIcon />
@@ -623,42 +633,46 @@ export default function CanadianProductSearch() {
                           <IconButton
                             size="small"
                             onClick={() => readNotes(product)}
-                            sx={{ 
+                            sx={{
                               padding: '4px',
-                              '& .MuiSvgIcon-root': { 
+                              '& .MuiSvgIcon-root': {
                                 fontSize: '1.1rem',
-                                color: theme => readingProductId === product._id ? theme.palette.secondary.main : theme.palette.primary.main,
-                                animation: readingProductId === product._id ? 'pulse 1s infinite' : 'none'
+                                color: theme =>
+                                  readingProductId === product._id
+                                    ? theme.palette.secondary.main
+                                    : theme.palette.primary.main,
+                                animation:
+                                  readingProductId === product._id ? 'pulse 1s infinite' : 'none',
                               },
                               '@keyframes pulse': {
                                 '0%': {
                                   transform: 'scale(1)',
-                                  opacity: 1
+                                  opacity: 1,
                                 },
                                 '50%': {
                                   transform: 'scale(1.1)',
-                                  opacity: 0.7
+                                  opacity: 0.7,
                                 },
                                 '100%': {
                                   transform: 'scale(1)',
-                                  opacity: 1
-                                }
-                              }
+                                  opacity: 1,
+                                },
+                              },
                             }}
                           >
                             <VolumeUpIcon />
                           </IconButton>
                         </Box>
-                        <Typography 
-                          sx={{ 
+                        <Typography
+                          sx={{
                             fontSize: '0.875rem',
                             color: 'text.secondary',
                             display: 'inline-flex',
                             alignItems: 'center',
                             cursor: 'pointer',
                             '&:hover': {
-                              textDecoration: 'underline'
-                            }
+                              textDecoration: 'underline',
+                            },
                           }}
                           onClick={() => {
                             setSelectedProduct(product);
@@ -670,8 +684,8 @@ export default function CanadianProductSearch() {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography 
-                        sx={{ 
+                      <Typography
+                        sx={{
                           fontSize: '0.875rem',
                           color: 'text.secondary',
                           maxWidth: '200px',
@@ -679,8 +693,8 @@ export default function CanadianProductSearch() {
                           wordBreak: 'normal',
                           cursor: 'pointer',
                           '&:hover': {
-                            textDecoration: 'underline'
-                          }
+                            textDecoration: 'underline',
+                          },
                         }}
                         onClick={() => {
                           setSelectedProduct(product);
@@ -692,30 +706,30 @@ export default function CanadianProductSearch() {
                     </TableCell>
                     <TableCell>
                       {product.production_verified ? (
-                        <CheckIcon 
-                          sx={{ 
+                        <CheckIcon
+                          sx={{
                             color: '#4CAF50',
-                            fontSize: '1rem'
-                          }} 
+                            fontSize: '1rem',
+                          }}
                         />
                       ) : (
-                        <CircleIcon 
-                          sx={{ 
+                        <CircleIcon
+                          sx={{
                             color: '#FF9800',
-                            fontSize: '0.8rem'
+                            fontSize: '0.8rem',
                           }}
                         />
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography 
-                        variant="body2" 
+                      <Typography
+                        variant="body2"
                         color="text.secondary"
                         sx={{
                           cursor: 'pointer',
                           '&:hover': {
-                            textDecoration: 'underline'
-                          }
+                            textDecoration: 'underline',
+                          },
                         }}
                         onClick={() => {
                           setSelectedProduct(product);
@@ -751,32 +765,32 @@ export default function CanadianProductSearch() {
                   pl: 2,
                   pr: 2,
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
                 },
                 '& .MuiTablePagination-select': {
                   color: 'white',
                   '&:focus': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                  }
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
                 },
                 '& .MuiTablePagination-selectIcon': {
-                  color: 'white'
+                  color: 'white',
                 },
                 '& .MuiTablePagination-displayedRows': {
-                  margin: 0
+                  margin: 0,
                 },
                 '& .MuiTablePagination-actions': {
                   marginLeft: 2,
                   '& .MuiIconButton-root': {
                     color: 'white',
                     '&:hover': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     },
                     '&.Mui-disabled': {
-                      color: 'rgba(255, 255, 255, 0.3)'
-                    }
-                  }
-                }
+                      color: 'rgba(255, 255, 255, 0.3)',
+                    },
+                  },
+                },
               }}
             />
           </TableContainer>
@@ -793,36 +807,46 @@ export default function CanadianProductSearch() {
           sx: {
             borderRadius: '12px',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)'
-          }
+            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
+          },
         }}
       >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          pb: 0.5,
-          borderBottom: '1px solid',
-          borderColor: 'divider'
-        }}>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 0.5,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h5" component="div" sx={{ 
-              color: 'primary.main',
-              fontWeight: 500,
-              fontSize: '1rem'
-            }}>
+            <Typography
+              variant="h5"
+              component="div"
+              sx={{
+                color: 'primary.main',
+                fontWeight: 500,
+                fontSize: '1rem',
+              }}
+            >
               {selectedProduct?.brand_name} - Notes
             </Typography>
             <IconButton
               size="small"
               onClick={() => selectedProduct && readNotes(selectedProduct)}
-              sx={{ 
+              sx={{
                 padding: '4px',
-                '& .MuiSvgIcon-root': { 
+                '& .MuiSvgIcon-root': {
                   fontSize: '1.1rem',
-                  color: theme => readingProductId === selectedProduct?._id ? theme.palette.secondary.main : theme.palette.primary.main,
-                  animation: readingProductId === selectedProduct?._id ? 'pulse 1s infinite' : 'none'
-                }
+                  color: theme =>
+                    readingProductId === selectedProduct?._id
+                      ? theme.palette.secondary.main
+                      : theme.palette.primary.main,
+                  animation:
+                    readingProductId === selectedProduct?._id ? 'pulse 1s infinite' : 'none',
+                },
               }}
             >
               <VolumeUpIcon />
@@ -832,23 +856,25 @@ export default function CanadianProductSearch() {
             aria-label="close"
             onClick={() => setNotesDialogOpen(false)}
             sx={{
-              color: (theme) => theme.palette.grey[500],
+              color: theme => theme.palette.grey[500],
               '&:hover': {
-                color: (theme) => theme.palette.grey[700],
-                backgroundColor: (theme) => theme.palette.grey[100]
-              }
+                color: theme => theme.palette.grey[700],
+                backgroundColor: theme => theme.palette.grey[100],
+              },
             }}
           >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ mt: 1 }}>
-          <DialogContentText sx={{ 
-            whiteSpace: 'pre-line',
-            color: 'text.primary',
-            fontSize: '0.95rem',
-            lineHeight: 1.6
-          }}>
+          <DialogContentText
+            sx={{
+              whiteSpace: 'pre-line',
+              color: 'text.primary',
+              fontSize: '0.95rem',
+              lineHeight: 1.6,
+            }}
+          >
             {selectedProduct?.notes || 'No notes available'}
           </DialogContentText>
         </DialogContent>
