@@ -546,182 +546,101 @@ export default function CanadianProductSearch() {
         pb: 7, // padding for footer
       }}
     >
-      {/* Header Section */}
-      <Box sx={{ mt: 1, px: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'center',
-            mb: 1,
-          }}
-        >
-          {/* Product of Canada */}
-          <Paper
-            elevation={3}
-            sx={{
-              bgcolor: 'success.light',
-              color: 'success.dark',
-              p: 0.5,
-              borderLeft: '5px solid',
-              borderColor: 'success.main',
-              borderRadius: 2,
-              minHeight: 80, // Ensure both boxes have the same height
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
-              <img src="/Product_of_Canada.png" alt="Canada Flag" style={{ width: '80px', height: 'auto' }} />
-            </Box>
-            <Box sx={{ p: 1 }}>
-              <Typography variant="h6" fontWeight="bold">
-                Product of Canada
-              </Typography>
-              <Typography variant="body1">At least 98% of the product comes from Canada.</Typography>
-            </Box>
-          </Paper>
+      <Typography variant="h6" component="h6" color="primary" align="center" sx={{ mt: 1 }}>
+        Canadian Products Search
+      </Typography>
 
-          <Box
+      {/* Search Bar */}
+      <Paper
+        component="form"
+        sx={{
+          p: 0.5,
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 1,
+          mb: 1,
+          mt: 1,
+          border: '2px solid #1976D2',
+          borderRadius: '10px',
+          backgroundColor: '#fff',
+        }}
+        onSubmit={e => e.preventDefault()}
+      >
+        {/* Brand Search */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
+          <StoreIcon sx={{ color: 'primary.main' }} />
+          <InputBase
             sx={{
-              ml: 3,
-              mr: 3,
-              display: 'flex',
-              alignItems: 'center',
+              ml: 1,
+              flex: 1,
+              color: 'primary.main',
+              border: '1px solid #1976D2',
+              borderRadius: '4px',
+              pl: 0.5,
             }}
-          >
-            <img src="/2.png" alt="Canada Flag" style={{ width: '100px', height: 'auto' }} />
-          </Box>
-
-          {/* Made in Canada */}
-          <Paper
-            elevation={3}
-            sx={{
-              bgcolor: 'primary.light',
-              color: 'primary.dark',
-              p: 0.5,
-              borderLeft: '5px solid',
-              borderColor: 'primary.main',
-              borderRadius: 2,
-              minHeight: 80, // Ensure both boxes have the same height
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-          
-            <Box sx={{ p: 1 }}>
-              <Typography variant="h6" fontWeight="bold">
-                Made in Canada
-              </Typography>
-              <Typography variant="body1">At least 51% of the product comes from Canada.</Typography>
-            </Box>
-
-            <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
-              <img src="/Made_in_Canada.png" alt="Canada Flag" style={{ width: '80px', height: 'auto' }} />
-            </Box>
-          </Paper>
+            placeholder="Search brands..."
+            value={searchQuery}
+            onChange={handleSearch}
+            endAdornment={loading && <CircularProgress size={20} sx={{ mr: 1 }} />}
+          />
         </Box>
 
-        <Typography variant="h6" component="h6" color="primary" align="center" gutterBottom>
-          Canadian Products Search
-        </Typography>
+        {/* Product Search */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
+          <Inventory2Icon sx={{ color: 'primary.main' }} />
+          <InputBase
+            sx={{
+              ml: 1,
+              flex: 1,
+              color: 'primary.main',
+              border: '1px solid #1976D2',
+              borderRadius: '4px',
+              pl: 0.5,
+            }}
+            placeholder="Filter by product..."
+            value={productFilter}
+            onChange={e => setProductFilter(e.target.value)}
+          />
+        </Box>
 
-        {/* Search Bar */}
-        <Paper
-          component="form"
-          sx={{
-            p: 0.5,
-            display: 'flex',
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 1,
-            mb: 1,
-            mt: 1,
-            border: '2px solid #1976D2',
-            borderRadius: '10px',
-            backgroundColor: '#fff',
-          }}
-          onSubmit={e => e.preventDefault()}
-        >
-          {/* Brand Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
-            <StoreIcon sx={{ color: 'primary.main' }} />
-            <InputBase
-              sx={{
-                ml: 1,
-                flex: 1,
-                color: 'primary.main',
-                border: '1px solid #1976D2',
-                borderRadius: '4px',
-                pl: 0.5,
-              }}
-              placeholder="Search brands..."
-              value={searchQuery}
-              onChange={handleSearch}
-              endAdornment={loading && <CircularProgress size={20} sx={{ mr: 1 }} />}
-            />
-          </Box>
+        {/* Category Search */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
+          <CategoryIcon sx={{ color: 'primary.main' }} />
+          <InputBase
+            sx={{
+              ml: 1,
+              flex: 1,
+              color: 'primary.main',
+              border: '1px solid #1976D2',
+              borderRadius: '4px',
+              pl: 0.5,
+            }}
+            placeholder="Filter by category..."
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+          />
+        </Box>
 
-          {/* Product Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
-            <Inventory2Icon sx={{ color: 'primary.main' }} />
-            <InputBase
-              sx={{
-                ml: 1,
-                flex: 1,
-                color: 'primary.main',
-                border: '1px solid #1976D2',
-                borderRadius: '4px',
-                pl: 0.5,
-              }}
-              placeholder="Filter by product..."
-              value={productFilter}
-              onChange={e => setProductFilter(e.target.value)}
-            />
-          </Box>
-
-          {/* Category Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
-            <CategoryIcon sx={{ color: 'primary.main' }} />
-            <InputBase
-              sx={{
-                ml: 1,
-                flex: 1,
-                color: 'primary.main',
-                border: '1px solid #1976D2',
-                borderRadius: '4px',
-                pl: 0.5,
-              }}
-              placeholder="Filter by category..."
-              value={categoryFilter}
-              onChange={e => setCategoryFilter(e.target.value)}
-            />
-          </Box>
-
-          {/* Location Search */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
-            <LocationOnIcon sx={{ color: 'primary.main' }} />
-            <InputBase
-              sx={{
-                ml: 1,
-                flex: 1,
-                color: 'primary.main',
-                border: '1px solid #1976D2',
-                borderRadius: '4px',
-                pl: 0.5,
-              }}
-              placeholder="Filter by location..."
-              value={locationFilter}
-              onChange={e => setLocationFilter(e.target.value)}
-            />
-          </Box>
-        </Paper>
-      </Box>
+        {/* Location Search */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '150px' }}>
+          <LocationOnIcon sx={{ color: 'primary.main' }} />
+          <InputBase
+            sx={{
+              ml: 1,
+              flex: 1,
+              color: 'primary.main',
+              border: '1px solid #1976D2',
+              borderRadius: '4px',
+              pl: 0.5,
+            }}
+            placeholder="Filter by location..."
+            value={locationFilter}
+            onChange={e => setLocationFilter(e.target.value)}
+          />
+        </Box>
+      </Paper>
 
       {/* Results Section */}
       <Box

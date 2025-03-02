@@ -116,18 +116,24 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           minHeight: { xs: '48px' },
           overflow: 'hidden'
         }}>
-          <Box>
+          <Box sx={{ mr: "40px" }}>
           {/* Logo */}
-          <img 
-            src="/maple-leaf.png" 
-            alt="Maple Leaf"
-            style={{ 
-              height: '30px',
-              marginRight: '40px',
-              alignItems: 'center',
-              marginTop: '5px'
-            }} 
-          />
+
+          <Tooltip title="About Canadian Products">
+            <IconButton
+              onClick={() => navigate('/about-canadian-products')}
+              sx={{ p: 0 }}
+            >
+              <img 
+                src="/maple-leaf.png" 
+                alt="Maple Leaf"
+                style={{ 
+                  height: '30px',
+                  alignItems: 'center',
+                }} 
+              />
+            </IconButton>
+          </Tooltip>
           </Box>
 
           <Box 

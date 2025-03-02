@@ -25,6 +25,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import Terms from './components/Terms';
 import Groceries from './components/grocery/Groceries';
 import GroceryPreferences from './components/grocery/GroceryPreferences';
+import AboutCanadianProducts from './components/AboutCanadianProducts';
 
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
@@ -61,6 +62,7 @@ function App() {
                           <Route path="/search" element={<Search />} />
                           <Route path="/canadian-products" element={<CanadianProductSearch />} />
                           <Route path="/about" element={<AboutUs />} />
+                          <Route path="/about-canadian-products" element={<AboutCanadianProducts />} />
                           <Route path="/privacy" element={<PrivacyPolicy />} />
                           <Route path="/terms" element={<Terms />} />
                           <Route path="/groceries" element={
