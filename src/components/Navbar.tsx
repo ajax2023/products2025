@@ -29,6 +29,8 @@ import HomeIcon from '@mui/icons-material/Home';
 // import LocalMallIcon from '@mui/icons-material/LocalMall';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import GetAppIcon from '@mui/icons-material/GetApp';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 
 import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
@@ -121,7 +123,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             alt="Maple Leaf"
             style={{ 
               height: '30px',
-              marginRight: '32px',
+              marginRight: '40px',
               alignItems: 'center',
               marginTop: '5px'
             }} 
@@ -162,9 +164,10 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             <Link to="/canadian-products" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
                 color="inherit"
+                onClick={() => onTabChange && onTabChange('list')}
                 sx={{
                   '& .MuiSvgIcon-root': {
-                    color: isActive('/canadian-products') ? '#FF0000' : 'inherit'
+                    color: isActive('/canadian-products') || activeTab === 'list' ? '#FF0000' : 'inherit'
                   }
                 }}
               >
@@ -174,13 +177,48 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               </IconButton>
             </Link>
 
+            {/* Groceries */}
+            <Link to="/groceries" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton 
+                color="inherit"
+                onClick={() => onTabChange && onTabChange('groceries')}
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/groceries') || activeTab === 'groceries' ? '#FF0000' : 'inherit'
+                  }
+                }}
+              >
+                <Tooltip title="Grocery Lists">
+                  <ListAltIcon />
+                </Tooltip>
+              </IconButton>
+            </Link>
+
+            {/* Grocery Preferences */}
+            <Link to="/grocery-preferences" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <IconButton 
+                color="inherit"
+                onClick={() => onTabChange && onTabChange('grocery-preferences')}
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/grocery-preferences') || activeTab === 'grocery-preferences' ? '#FF0000' : 'inherit'
+                  }
+                }}
+              >
+                <Tooltip title="Grocery Preferences">
+                  <BookmarkIcon />
+                </Tooltip>
+              </IconButton>
+            </Link>
+
             {/* Product Management - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/products" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit"
+                 onClick={() => onTabChange && onTabChange('admin/products')}
                  sx={{
                   '& .MuiSvgIcon-root': {
-                    color: isActive('/admin/products') ? '#00FF00' : 'inherit'
+                    color: isActive('/admin/products') || activeTab === 'admin/products' ? '#00FF00' : 'inherit'
                   },
 
                 }}>
@@ -195,9 +233,10 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             {isAdmin && (
               <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit"
+                onClick={() => onTabChange && onTabChange('admin/users')}
                 sx={{
                   '& .MuiSvgIcon-root': {
-                    color: isActive('/admin/users') ? '#00FF00' : 'inherit'
+                    color: isActive('/admin/users') || activeTab === 'admin/users' ? '#00FF00' : 'inherit'
                   },
 
                 }}
@@ -214,9 +253,10 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
                 color="inherit"
+                onClick={() => onTabChange && onTabChange('settings')}
                 sx={{
                   '& .MuiSvgIcon-root': {
-                    color: isActive('/settings') ? '#FF0000' : 'inherit'
+                    color: isActive('/settings') || activeTab === 'settings' ? '#FF0000' : 'inherit'
                   },
                   marginLeft: '2px',
                 }}

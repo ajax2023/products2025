@@ -29,9 +29,15 @@ export function ProtectedRoute({
     return <>{children}</>;
   }
 
-  // Check role-based access
-  if (!claims || claims.role !== requiredRole) {
-    return <Navigate to="/" replace />;
+  // Check role-based access only if requiredRole is specified
+  if (requiredRole && requiredRole !== 'viewer') {
+    // If no claims or user doesn't have the required role
+    if (!claims || (
+      requiredRole === 'admin' && claims.role !== 'admin' && claims.role !== 'super_admin') || 
+      (requiredRole === 'super_admin' && claims.role !== 'super_admin')
+    ) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;

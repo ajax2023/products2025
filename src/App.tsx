@@ -23,6 +23,8 @@ import { PromotionalBanner } from './components/PromotionalBanner';
 import AboutUs from './components/AboutUs';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import Terms from './components/Terms';
+import Groceries from './components/grocery/Groceries';
+import GroceryPreferences from './components/grocery/GroceryPreferences';
 
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
@@ -61,6 +63,16 @@ function App() {
                           <Route path="/about" element={<AboutUs />} />
                           <Route path="/privacy" element={<PrivacyPolicy />} />
                           <Route path="/terms" element={<Terms />} />
+                          <Route path="/groceries" element={
+                            <ProtectedRoute fallback="/login">
+                              <Groceries />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="/grocery-preferences" element={
+                            <ProtectedRoute fallback="/login">
+                              <GroceryPreferences />
+                            </ProtectedRoute>
+                          } />
                           <Route
                             path="/admin/products"
                             element={

@@ -26,6 +26,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
+  DialogActions,
+  Tooltip,
+  Alert,
+  Snackbar,
+  CheckCircleIcon,
+  ErrorIcon,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -40,6 +46,8 @@ import CategoryIcon from '@mui/icons-material/Category';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
+import AddIcon from '@mui/icons-material/Add';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 import { useAuth } from '../auth/useAuth';
@@ -49,6 +57,8 @@ import { searchCanadianProducts, forceSync } from '../utils/canadianProducts';
 import { CanadianProduct } from '../types/product';
 import { auth, db } from '../firebaseConfig';
 import { collection, query, getDocs, where, doc, getDoc, limit } from 'firebase/firestore';
+import { groceryDb, GroceryPreference, GroceryItem } from '../config/groceryDb';
+import { ProductSelectionDialog } from './dialogs/ProductSelectionDialog';
 
 export default function CanadianProductSearch() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +79,18 @@ export default function CanadianProductSearch() {
   const [selectedProduct, setSelectedProduct] = useState<CanadianProduct | null>(null);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [readingProductId, setReadingProductId] = useState<string | null>(null);
+  const [selectedProductForGrocery, setSelectedProductForGrocery] = useState<CanadianProduct | null>(null);
+  const [groceryPreferences, setGroceryPreferences] = useState<GroceryPreference[]>([]);
+  const [groceryNotification, setGroceryNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({ open: false, message: '', severity: 'success' });
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [selectedPreference, setSelectedPreference] = useState<GroceryPreference | null>(null);
+  const [productSelectionDialogOpen, setProductSelectionDialogOpen] = useState(false);
+  const [selectedProductsForPreference, setSelectedProductsForPreference] = useState<string[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   const { user } = useAuth();
 
@@ -159,6 +181,35 @@ export default function CanadianProductSearch() {
       fetchStats();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadGroceryPreferences();
+    }
+  }, [user]);
+
+  const loadGroceryPreferences = async () => {
+    if (!user) return;
+    
+    try {
+      const preferences = await groceryDb.groceryPreferences
+        .where('userId')
+        .equals(user.uid)
+        .toArray();
+      
+      setGroceryPreferences(preferences);
+      
+      // If there are preferences, set the selected preference
+      if (preferences.length > 0) {
+        setSelectedPreference(preferences[0]);
+      }
+      
+      return preferences;
+    } catch (err) {
+      console.error('Error loading grocery preferences:', err);
+      return [];
+    }
+  };
 
   // Load initial data
   useEffect(() => {
@@ -317,6 +368,170 @@ export default function CanadianProductSearch() {
     }
   }, []);
 
+  const handleAddToGroceryPreferences = (event: React.MouseEvent<HTMLElement>, product: CanadianProduct) => {
+    setSelectedProductForGrocery(product);
+    // Open product selection dialog first
+    setProductSelectionDialogOpen(true);
+  };
+
+  const handleProductsSelected = (selectedProducts: string[]) => {
+    setSelectedProductsForPreference(selectedProducts);
+    setProductSelectionDialogOpen(false);
+    
+    // Reload preferences to ensure we have the latest data before showing categories
+    loadGroceryPreferences().then(() => {
+      // After products are selected and preferences are refreshed, show categories
+      if (groceryPreferences.length > 0) {
+        setSelectedPreference(groceryPreferences[0]);
+        setCategoryDialogOpen(true);
+      } else {
+        // If no preferences exist, create one
+        handleCreateNewPreference();
+      }
+    });
+  };
+
+  const handleAddToCategory = async (categoryIndex: number) => {
+    if (!selectedProductForGrocery || !selectedPreference || !user || selectedProductsForPreference.length === 0) {
+      setCategoryDialogOpen(false);
+      return;
+    }
+
+    try {
+      // Get the current preference
+      const preference = await groceryDb.groceryPreferences.get(selectedPreference.id as number);
+      
+      if (!preference) {
+        throw new Error('Preference not found');
+      }
+
+      const updatedCategories = [...preference.categories || []];
+      const updatedItems = [...(preference.items || [])];
+      
+      // Add each selected product to the category and items
+      for (const productName of selectedProductsForPreference) {
+        // Create a new grocery item from the selected product
+        const newItem: GroceryItem = {
+          id: crypto.randomUUID(),
+          name: `${productName} by ${selectedProductForGrocery.brand_name}`,
+          category: selectedProductForGrocery.categories[0] || 'Other',
+          canadianProductId: selectedProductForGrocery._id,
+        };
+        
+        // Add the item to the specified category
+        if (categoryIndex >= 0 && categoryIndex < updatedCategories.length) {
+          updatedCategories[categoryIndex].items.push(newItem.name);
+        }
+        
+        // Also add to the items array for reference
+        updatedItems.push(newItem);
+      }
+      
+      // Update the preference
+      await groceryDb.groceryPreferences.update(preference.id!, {
+        ...preference,
+        items: updatedItems,
+        categories: updatedCategories,
+        canadianProducts: [...(preference.canadianProducts || []), selectedProductForGrocery._id]
+      });
+
+      // Show success notification
+      setGroceryNotification({
+        open: true,
+        message: `${selectedProductsForPreference.length} item(s) added to ${updatedCategories[categoryIndex].title} category`,
+        severity: 'success'
+      });
+
+      // Reload preferences
+      await loadGroceryPreferences();
+    } catch (err) {
+      console.error('Error adding to grocery category:', err);
+      setGroceryNotification({
+        open: true,
+        message: 'Failed to add products to category',
+        severity: 'error'
+      });
+    }
+
+    setCategoryDialogOpen(false);
+    setNewCategoryName('');
+  };
+
+  const handleCreateNewCategory = async () => {
+    if (!selectedProductForGrocery || !selectedPreference || !user || selectedProductsForPreference.length === 0 || !newCategoryName.trim()) {
+      return;
+    }
+
+    try {
+      // Get the current preference
+      const preference = await groceryDb.groceryPreferences.get(selectedPreference.id as number);
+      
+      if (!preference) {
+        throw new Error('Preference not found');
+      }
+
+      const updatedCategories = [...preference.categories || []];
+      const updatedItems = [...(preference.items || [])];
+      
+      // Create a new category
+      const newCategoryIndex = updatedCategories.length;
+      updatedCategories.push({
+        title: newCategoryName.trim(),
+        items: []
+      });
+      
+      // Add each selected product to the new category and items
+      for (const productName of selectedProductsForPreference) {
+        // Create a new grocery item from the selected product
+        const newItem: GroceryItem = {
+          id: crypto.randomUUID(),
+          name: `${productName} by ${selectedProductForGrocery.brand_name}`,
+          category: newCategoryName.trim(),
+          canadianProductId: selectedProductForGrocery._id,
+        };
+        
+        // Add the item to the new category
+        updatedCategories[newCategoryIndex].items.push(newItem.name);
+        
+        // Also add to the items array for reference
+        updatedItems.push(newItem);
+      }
+      
+      // Update the preference
+      await groceryDb.groceryPreferences.update(preference.id!, {
+        ...preference,
+        items: updatedItems,
+        categories: updatedCategories,
+        canadianProducts: [...(preference.canadianProducts || []), selectedProductForGrocery._id]
+      });
+
+      // Show success notification
+      setGroceryNotification({
+        open: true,
+        message: `${selectedProductsForPreference.length} item(s) added to new "${newCategoryName}" category`,
+        severity: 'success'
+      });
+
+      // Reload preferences
+      await loadGroceryPreferences();
+      
+      // Reset state
+      setNewCategoryName('');
+      setCategoryDialogOpen(false);
+    } catch (err) {
+      console.error('Error creating new category:', err);
+      setGroceryNotification({
+        open: true,
+        message: 'Failed to create new category',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleCloseGroceryNotification = () => {
+    setGroceryNotification({ ...groceryNotification, open: false });
+  };
+
   return (
     <Box
       sx={{
@@ -372,8 +587,8 @@ export default function CanadianProductSearch() {
 
           <Box
             sx={{
-              ml: 1,
-              mr: 1,
+              ml: 3,
+              mr: 3,
               display: 'flex',
               alignItems: 'center',
             }}
@@ -397,14 +612,16 @@ export default function CanadianProductSearch() {
               alignItems: 'center',
             }}
           >
-            <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
-              <img src="/Made_in_Canada.png" alt="Canada Flag" style={{ width: '80px', height: 'auto' }} />
-            </Box>
+          
             <Box sx={{ p: 1 }}>
               <Typography variant="h6" fontWeight="bold">
                 Made in Canada
               </Typography>
               <Typography variant="body1">At least 51% of the product comes from Canada.</Typography>
+            </Box>
+
+            <Box sx={{ p: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
+              <img src="/Made_in_Canada.png" alt="Canada Flag" style={{ width: '80px', height: 'auto' }} />
             </Box>
           </Paper>
         </Box>
@@ -662,6 +879,23 @@ export default function CanadianProductSearch() {
                           >
                             <VolumeUpIcon />
                           </IconButton>
+                          {user && (
+                            <Tooltip title="Add to Grocery">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleAddToGroceryPreferences(e, product)}
+                                sx={{
+                                  padding: '4px',
+                                  '& .MuiSvgIcon-root': {
+                                    fontSize: '1.1rem',
+                                    color: 'primary.main',
+                                  },
+                                }}
+                              >
+                                <AddShoppingCartIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Box>
                         <Typography
                           sx={{
@@ -797,6 +1031,187 @@ export default function CanadianProductSearch() {
         )}
       </Box>
 
+      {/* Product Selection Dialog */}
+      {selectedProductForGrocery && (
+        <ProductSelectionDialog
+          open={productSelectionDialogOpen}
+          onClose={() => setProductSelectionDialogOpen(false)}
+          brandName={selectedProductForGrocery.brand_name}
+          products={selectedProductForGrocery.products}
+          onProductsSelected={handleProductsSelected}
+        />
+      )}
+
+      {/* Category Selection Dialog */}
+      <Dialog 
+        open={categoryDialogOpen} 
+        onClose={() => setCategoryDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Select Category</DialogTitle>
+        <DialogContent>
+          {/* Show selected products */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" fontWeight="medium">
+              Selected Products:
+            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 0.5, 
+              mt: 1,
+              p: 1,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              maxHeight: '100px',
+              overflow: 'auto'
+            }}>
+              {selectedProductsForPreference.map((product, index) => (
+                <Chip 
+                  key={index} 
+                  label={product} 
+                  size="small" 
+                  color="primary" 
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Typography variant="subtitle1" fontWeight="medium">
+            Select a category:
+          </Typography>
+          
+          {/* Existing preference categories */}
+          <Box sx={{ mt: 1, mb: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Preference Categories:
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {selectedPreference?.categories?.map((category, index) => (
+                <Button
+                  key={index}
+                  variant="outlined"
+                  size="small"
+                  sx={{ m: 0.5 }}
+                  onClick={() => handleAddToCategory(index)}
+                >
+                  {category.title}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+          
+          {/* Product's own categories */}
+          {selectedProductForGrocery?.categories && selectedProductForGrocery.categories.length > 0 && (
+            <Box sx={{ mt: 1, mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Product Categories:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selectedProductForGrocery.categories.map((category, index) => {
+                  // Check if this category already exists in preferences
+                  const categoryExists = selectedPreference?.categories?.some(
+                    prefCat => prefCat.title.toLowerCase() === category.toLowerCase()
+                  );
+                  
+                  if (categoryExists) {
+                    return null; // Skip if category already exists
+                  }
+                  
+                  return (
+                    <Button
+                      key={index}
+                      variant="contained"
+                      color="secondary"
+                      size="small"
+                      sx={{ m: 0.5 }}
+                      onClick={async () => {
+                        // Create this category if it doesn't exist
+                        if (!selectedPreference) return;
+                        
+                        try {
+                          const preference = await groceryDb.groceryPreferences.get(selectedPreference.id as number);
+                          if (!preference) throw new Error('Preference not found');
+                          
+                          const updatedCategories = [...preference.categories || []];
+                          const newCategoryIndex = updatedCategories.length;
+                          
+                          // Add the new category
+                          updatedCategories.push({
+                            title: category,
+                            items: []
+                          });
+                          
+                          // Update preference with new category
+                          await groceryDb.groceryPreferences.update(preference.id!, {
+                            ...preference,
+                            categories: updatedCategories
+                          });
+                          
+                          // Reload preferences
+                          await loadGroceryPreferences();
+                          
+                          // Now add products to this new category
+                          handleAddToCategory(newCategoryIndex);
+                        } catch (err) {
+                          console.error('Error creating category from product:', err);
+                          setGroceryNotification({
+                            open: true,
+                            message: 'Failed to create category',
+                            severity: 'error'
+                          });
+                        }
+                      }}
+                    >
+                      {category}
+                    </Button>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
+          
+          {/* Create new category */}
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Create New Category:
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Enter new category name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                variant="outlined"
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={!newCategoryName.trim()}
+                onClick={handleCreateNewCategory}
+              >
+                Create
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setCategoryDialogOpen(false);
+            setNewCategoryName('');
+          }}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Notes Dialog */}
       <Dialog
         open={notesDialogOpen}
@@ -866,6 +1281,7 @@ export default function CanadianProductSearch() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
+
         <DialogContent sx={{ mt: 1 }}>
           <DialogContentText
             sx={{
@@ -879,6 +1295,28 @@ export default function CanadianProductSearch() {
           </DialogContentText>
         </DialogContent>
       </Dialog>
+
+
+   <Snackbar
+  open={groceryNotification.open}
+  autoHideDuration={6000}
+  onClose={handleCloseGroceryNotification}
+  anchorOrigin={{ vertical: 'top', horizontal: 'center' }} // Keeps it at the top
+  sx={{ 
+    position: 'absolute', // Ensures custom positioning
+    marginTop: '20px', // Moves it down from the top
+    zIndex: 1800  // Ensures it's above other elements
+  }}
+>
+  <Alert 
+    onClose={handleCloseGroceryNotification} 
+    severity={groceryNotification.severity}
+    sx={{ width: '100%' }}
+  >
+    {groceryNotification.message}
+  </Alert>
+</Snackbar>
+
     </Box>
   );
 }
