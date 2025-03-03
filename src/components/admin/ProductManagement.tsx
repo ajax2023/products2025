@@ -1062,10 +1062,10 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Edit Product</DialogTitle>
+        <DialogTitle sx={{bgcolor: 'primary.main', color: 'white', mb: 0, p: 0}}>Edit Product</DialogTitle>
         <DialogContent>
-          <Stack spacing={2}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+          <Stack spacing={1}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 label="Brand Name"
                 value={editedProduct.brand_name || ''}
@@ -1118,7 +1118,24 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 required
               />
             </Box>
-            <FormControl fullWidth>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editedProduct.isPubliclyVisible || false}
+                  onChange={(e) => setEditedProduct({ ...editedProduct, isPubliclyVisible: e.target.checked })}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>Publicly Visible</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    When enabled, this product will be visible to non-logged-in users
+                  </Typography>
+                </Box>
+              }
+            />
+                       <FormControl fullWidth>
               <InputLabel id="master-category-label">Master Category</InputLabel>
               <Select
                 labelId="master-category-label"
@@ -1136,22 +1153,8 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
               </Select>
               <FormHelperText>Select a master category to help organize products</FormHelperText>
             </FormControl>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={editedProduct.isPubliclyVisible || false}
-                  onChange={(e) => setEditedProduct({ ...editedProduct, isPubliclyVisible: e.target.checked })}
-                />
-              }
-              label={
-                <Box>
-                  <Typography>Publicly Visible</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    When enabled, this product will be visible to non-logged-in users
-                  </Typography>
-                </Box>
-              }
-            />
+            </Box>
+
             <TextField
               label="Notes"
               value={editedProduct.notes || ''}
@@ -1408,24 +1411,8 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 required
               />
             </Box>
-            <FormControl fullWidth>
-              <InputLabel id="master-category-label">Master Category</InputLabel>
-              <Select
-                labelId="master-category-label"
-                id="master-category"
-                value={editedProduct.masterCategory || ''}
-                label="Master Category"
-                onChange={(e) => setEditedProduct({ ...editedProduct, masterCategory: e.target.value as MasterCategory })}
-              >
-                <MenuItem value=""><em>None</em></MenuItem>
-                {MASTER_CATEGORIES.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
-                  </MenuItem>
-                ))}
-              </Select>
-              <FormHelperText>Select a master category to help organize products</FormHelperText>
-            </FormControl>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <FormControlLabel
               control={
                 <Switch
@@ -1442,6 +1429,25 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 </Box>
               }
             />
+              <FormControl fullWidth>
+              <InputLabel id="master-category-label">Master Category</InputLabel>
+              <Select
+                labelId="master-category-label"
+                id="master-category"
+                value={editedProduct.masterCategory || ''}
+                label="Master Category"
+                onChange={(e) => setEditedProduct({ ...editedProduct, masterCategory: e.target.value as MasterCategory })}
+              >
+                <MenuItem value=""><em>None</em></MenuItem>
+                {MASTER_CATEGORIES.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>master category</FormHelperText>
+            </FormControl>
+            </Box>
             <TextField
               label="Notes"
               value={editedProduct.notes || ''}
