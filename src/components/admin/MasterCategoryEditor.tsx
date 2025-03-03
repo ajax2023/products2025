@@ -9,12 +9,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Button,
-  CircularProgress
+  CircularProgress,
+  Chip,
+  Stack
 } from '@mui/material';
 import { CanadianProduct, MASTER_CATEGORIES, MasterCategory } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct } from '../../utils/canadianProducts';
@@ -96,7 +94,7 @@ const MasterCategoryEditor: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Product Info</TableCell>
-                <TableCell width="300px">Master Category</TableCell>
+                <TableCell width="60%">Master Category</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -115,27 +113,37 @@ const MasterCategoryEditor: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <FormControl fullWidth>
-                      <InputLabel>Master Category</InputLabel>
-                      <Select
-                        value={product.masterCategory || ''}
-                        label="Master Category"
-                        onChange={(e) => handleMasterCategoryChange(product, e.target.value as MasterCategory | '')}
-                        disabled={saving.has(product._id)}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {MASTER_CATEGORIES.map((category) => (
-                          <MenuItem key={category} value={category}>
-                            {category}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {saving.has(product._id) && (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-                          <CircularProgress size={20} />
-                        </Box>
-                      )}
-                    </FormControl>
+                    {saving.has(product._id) ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                        <CircularProgress size={20} />
+                      </Box>
+                    ) : (
+                      <>
+                        {product.masterCategory && (
+                          <Box mb={2}>
+                            <Chip 
+                              label={`Current: ${product.masterCategory}`} 
+                              color="primary" 
+                              onDelete={() => handleMasterCategoryChange(product, '')}
+                            />
+                          </Box>
+                        )}
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {MASTER_CATEGORIES.map((category) => (
+                            <Button
+                              key={category}
+                              variant="outlined"
+                              size="small"
+                              disabled={saving.has(product._id) || product.masterCategory === category}
+                              onClick={() => handleMasterCategoryChange(product, category)}
+                              sx={{ mb: 1, mr: 1 }}
+                            >
+                              {category}
+                            </Button>
+                          ))}
+                        </Stack>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
