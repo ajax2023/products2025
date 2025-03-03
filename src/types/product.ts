@@ -2,19 +2,19 @@ import { Location } from './common';
 import { ProductLikeStats, BrandLikeStats } from './likes';
 
 export const PRODUCT_CATEGORIES = [
-  'Medical Supplies',
-  'Food & Beverage',
-  'Household Supplies',
-  'Electronics',
+  'Automotive',
+  'Books & Media',
   'Clothing',
-  'Home & Garden',
+  'Electronics',
+  'Food & Beverage',
   'Health & Beauty',
+  'Home & Garden',
+  'Household Supplies',
+  'Office Supplies',
+  'Pet Supplies',
+  'Medical Supplies',
   'Sports & Outdoors',
   'Toys & Games',
-  'Books & Media',
-  'Automotive',
-  'Pet Supplies',
-  'Office Supplies',
   'Miscellaneous'
 ] as const;
 
