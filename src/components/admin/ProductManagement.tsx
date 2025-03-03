@@ -28,6 +28,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  FormHelperText,
   Stack,
   Link,
   Tooltip,
@@ -48,7 +49,7 @@ import StoreIcon from '@mui/icons-material/Store';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CategoryIcon from '@mui/icons-material/Category';
-import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory } from '../../types/product';
+import { CanadianProduct, PRODUCT_CATEGORIES, ProductCategory, MASTER_CATEGORIES, MasterCategory } from '../../types/product';
 import { searchCanadianProducts, updateCanadianProduct, deleteCanadianProduct, updateVerificationStatus, addCanadianProduct } from '../../utils/canadianProducts';
 import { useAuth } from '../../auth';
 import CanadianProductUpload from './CanadianProductUpload'; // Import the CanadianProductUpload component
@@ -81,21 +82,25 @@ const SearchBar = React.memo(({
   searchQuery,
   productFilter,
   categoryFilter,
+  masterCategoryFilter,
   locationFilter,
   loading,
   onSearchChange,
   onProductChange,
   onCategoryChange,
+  onMasterCategoryChange,
   onLocationChange
 }: {
   searchQuery: string;
   productFilter: string;
   categoryFilter: string;
+  masterCategoryFilter: string;
   locationFilter: string;
   loading: boolean;
   onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onProductChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onCategoryChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onMasterCategoryChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onLocationChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) => (
   <Paper
@@ -163,6 +168,20 @@ const SearchBar = React.memo(({
 
     <Divider orientation="vertical" flexItem />
 
+    {/* Master Category Search */}
+    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+      <CategoryIcon sx={{ color: 'action.active' }} />
+      <TextField
+        size="small"
+        sx={{ ml: 1, flex: 1 }}
+        placeholder="Filter by master category..."
+        value={masterCategoryFilter}
+        onChange={onMasterCategoryChange}
+      />
+    </Box>
+
+    <Divider orientation="vertical" flexItem />
+
     {/* Location Search */}
     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
       <LocationOnIcon sx={{ color: 'action.active' }} />
@@ -198,10 +217,9 @@ const ProductManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [productFilter, setProductFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [masterCategoryFilter, setMasterCategoryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
-  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
   const loadProducts = useCallback(async () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
@@ -221,35 +239,6 @@ const ProductManagement: React.FC = () => {
     loadProducts();
   }, [loadProducts]);
 
-  useEffect(() => {
-    // Extract all categories from all products, handling comma-separated values
-    const categories = products.reduce((acc, product) => {
-      // Handle each category which might itself be comma-separated
-      const allCategories = product.categories.flatMap(category => {
-        // If the category contains commas, split it
-        if (typeof category === 'string' && category.includes(',')) {
-          return category.split(',').map(c => c.trim());
-        }
-        return category;
-      });
-      return [...acc, ...allCategories];
-    }, [] as string[]);
-    
-    // Remove duplicates and sort alphabetically
-    const unique = [...new Set(categories)].filter(Boolean).sort();
-    setUniqueCategories(unique);
-
-    // Count products per category
-    const counts: Record<string, number> = {};
-    products.forEach(product => {
-      product.categories.forEach(category => {
-        if (!counts[category]) counts[category] = 0;
-        counts[category]++;
-      });
-    });
-    setCategoryCounts(counts);
-  }, [products]);
-
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       // Search query filter (brand name)
@@ -264,26 +253,22 @@ const ProductManagement: React.FC = () => {
 
       // Category filter
       const matchesCategory = !categoryFilter ||
-        product.categories.some(c => {
-          // First, handle the case where the category in the product might be comma-separated
-          const productCategories = typeof c === 'string' && c.includes(',') 
-            ? c.split(',').map(pc => pc.trim().toLowerCase())
-            : [c.toLowerCase()];
-          
-          // Simple match for single category filter
-          return productCategories.some(prodCat => 
-            prodCat.includes(categoryFilter.toLowerCase())
-          );
-        });
+        product.categories.some(c => 
+          c.toLowerCase().includes(categoryFilter.toLowerCase())
+        );
+
+      // Master Category filter
+      const matchesMasterCategory = !masterCategoryFilter ||
+        (product.masterCategory && product.masterCategory.toLowerCase().includes(masterCategoryFilter.toLowerCase()));
 
       // Location filter
       const matchesLocation = !locationFilter ||
         (product.city?.toLowerCase().includes(locationFilter.toLowerCase()) ||
          product.province?.toLowerCase().includes(locationFilter.toLowerCase()));
 
-      return matchesSearch && matchesProduct && matchesCategory && matchesLocation;
+      return matchesSearch && matchesProduct && matchesCategory && matchesMasterCategory && matchesLocation;
     });
-  }, [products, searchQuery, productFilter, categoryFilter, locationFilter]);
+  }, [products, searchQuery, productFilter, categoryFilter, masterCategoryFilter, locationFilter]);
 
   const sortedProducts = useMemo(() => {
     const comparator = (a: CanadianProduct, b: CanadianProduct) => {
@@ -412,6 +397,7 @@ const ProductManagement: React.FC = () => {
         province: product.province,
         country: product.country,
         categories: product.categories,
+        masterCategory: product.masterCategory,
         products: product.products,
         production_verified: product.production_verified,
         cdn_prod_tags: product.cdn_prod_tags || []
@@ -553,6 +539,7 @@ const ProductManagement: React.FC = () => {
         site_verified: false,
         products: newProductData.products || [],
         categories: newProductData.categories || [],
+        masterCategory: newProductData.masterCategory,
         cdn_prod_tags: [],
         added_by: user?.uid || '',
         added_by_email: user?.email || '',
@@ -656,84 +643,18 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
         searchQuery={searchQuery}
         productFilter={productFilter}
         categoryFilter={categoryFilter}
+        masterCategoryFilter={masterCategoryFilter}
         locationFilter={locationFilter}
         loading={loading}
         onSearchChange={(e) => setSearchQuery(e.target.value)}
         onProductChange={(e) => setProductFilter(e.target.value)}
         onCategoryChange={(e) => setCategoryFilter(e.target.value)}
+        onMasterCategoryChange={(e) => setMasterCategoryFilter(e.target.value)}
         onLocationChange={(e) => setLocationFilter(e.target.value)}
       />
 
-      {/* Category Quick Select Buttons */}
-      <Paper sx={{ p: 1.5, mb: 2 }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          mb: 1 
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <CategoryIcon sx={{ color: 'primary.main', mr: 1 }} />
-            <Typography variant="subtitle1" color="primary.main">
-              Quick Filter by Category
-            </Typography>
-          </Box>
-          {categoryFilter && (
-            <Button 
-              size="small"
-              variant="outlined"
-              color="primary"
-              startIcon={<CategoryIcon />}
-              onClick={() => setCategoryFilter('')}
-            >
-              Clear Category
-            </Button>
-          )}
-        </Box>
-        
-        <Box sx={{ 
-          display: 'flex', 
-          flexWrap: 'wrap', 
-          gap: 0.8,
-          maxHeight: '120px',
-          overflowY: 'auto',
-          p: 0.5
-        }}>
-          {uniqueCategories.length > 0 ? (
-            uniqueCategories.map((category) => {
-              const isSelected = categoryFilter === category;
-              const count = categoryCounts[category] || 0;
-              
-              return (
-                <Chip
-                  key={category}
-                  label={`${category} (${count})`}
-                  size="small"
-                  onClick={() => {
-                    // Simple toggle for single category selection
-                    setCategoryFilter(isSelected ? '' : category);
-                  }}
-                  color={isSelected ? "primary" : "default"}
-                  variant={isSelected ? "filled" : "outlined"}
-                  sx={{ 
-                    cursor: 'pointer',
-                    '&:hover': {
-                      bgcolor: isSelected ? 'primary.main' : 'action.hover',
-                    }
-                  }}
-                />
-              );
-            })
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-              No categories found in the current products
-            </Typography>
-          )}
-        </Box>
-      </Paper>
-
       <Box sx={{ width: '100%', mt: 2 }}>
-        <Paper sx={{ width: '100%', mb: 2 }}>
+        <Paper sx={{ width: '100%', mb: 4 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -822,6 +743,23 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                     }}
                   >
                     Categories {orderBy === 'categories' && (order === 'desc' ? '▼' : '▲')}
+                  </TableCell>
+                  <TableCell 
+                    padding="none" 
+                    onClick={() => handleRequestSort('masterCategory')}
+                    sx={{ 
+                      pl: 1, 
+                      bgcolor: 'primary.main',
+                      color: 'common.white', 
+                      fontWeight: 'medium',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    Master Category {orderBy === 'masterCategory' && (order === 'desc' ? '▼' : '▲')}
                   </TableCell>
                   <TableCell 
                     padding="none" 
@@ -943,6 +881,9 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
                         {product.categories?.join(', ')}
+                      </TableCell>
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        {product.masterCategory}
                       </TableCell>
                       <TableCell padding="none" sx={{ pl: 1 }}>
                         <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
@@ -1078,7 +1019,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                       }}
                       onClick={() => handleEdit(product)}
                     >
-                      <TableCell colSpan={8} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
+                      <TableCell colSpan={9} padding="none" sx={{ pl: 1, bgcolor: 'grey.300' }}>
                         <Typography variant="body2" color="black">
                           {product.notes || 'No notes'}
                         </Typography>
@@ -1177,6 +1118,24 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 required
               />
             </Box>
+            <FormControl fullWidth>
+              <InputLabel id="master-category-label">Master Category</InputLabel>
+              <Select
+                labelId="master-category-label"
+                id="master-category"
+                value={editedProduct.masterCategory || ''}
+                label="Master Category"
+                onChange={(e) => setEditedProduct({ ...editedProduct, masterCategory: e.target.value as MasterCategory })}
+              >
+                <MenuItem value=""><em>None</em></MenuItem>
+                {MASTER_CATEGORIES.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>Select a master category to help organize products</FormHelperText>
+            </FormControl>
             <FormControlLabel
               control={
                 <Switch
@@ -1449,6 +1408,24 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 required
               />
             </Box>
+            <FormControl fullWidth>
+              <InputLabel id="master-category-label">Master Category</InputLabel>
+              <Select
+                labelId="master-category-label"
+                id="master-category"
+                value={editedProduct.masterCategory || ''}
+                label="Master Category"
+                onChange={(e) => setEditedProduct({ ...editedProduct, masterCategory: e.target.value as MasterCategory })}
+              >
+                <MenuItem value=""><em>None</em></MenuItem>
+                {MASTER_CATEGORIES.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>Select a master category to help organize products</FormHelperText>
+            </FormControl>
             <FormControlLabel
               control={
                 <Switch

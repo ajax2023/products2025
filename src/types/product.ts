@@ -17,7 +17,23 @@ export const PRODUCT_CATEGORIES = [
   'Miscellaneous'
 ] as const;
 
+export const MASTER_CATEGORIES = [
+  'Food & Beverage',
+  'Health & Beauty',
+  'Home & Garden',
+  'Clothing & Accessories',
+  'Electronics & Technology',
+  'Alcoholic Beverages',
+  'Sports & Outdoors',
+  'Toys & Entertainment',
+  'Automotive & Industrial',
+  'Pet Supplies',
+  'Office & School',
+  'Miscellaneous'
+] as const;
+
 export type ProductCategory = typeof PRODUCT_CATEGORIES[number];
+export type MasterCategory = typeof MASTER_CATEGORIES[number];
 
 export interface CanadianProduct {
   _id: string;
@@ -33,6 +49,7 @@ export interface CanadianProduct {
   notes?: string;
   products: string[];
   categories: ProductCategory[];
+  masterCategory?: MasterCategory;
   cdn_prod_tags: string[];
   added_by: string;
   added_by_email: string;
@@ -127,6 +144,7 @@ export function createCanadianProduct(data: Partial<CanadianProduct>): CanadianP
     site_verified: false,
     products: [],
     categories: [],
+    masterCategory: undefined,
     cdn_prod_tags: [],
     added_by: '',
     added_by_email: '',

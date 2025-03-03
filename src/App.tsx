@@ -17,6 +17,7 @@ import CanadianProductSearch from './components/CanadianProductSearch';
 import { AuthProvider, RequireAuth, RequireAdmin, useAuth, ProtectedRoute } from './auth';
 import { NotificationProvider } from './components/common/NotificationSnackbar';
 import ProductManagement from './components/admin/ProductManagement';
+import MasterCategoryEditor from './components/admin/MasterCategoryEditor';
 import { Footer } from './components/Footer';
 import { Box } from '@mui/material';
 import { PromotionalBanner } from './components/PromotionalBanner';
@@ -83,6 +84,17 @@ function App() {
                                 fallback="/login"
                               >
                                 <ProductManagement />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/admin/master-categories"
+                            element={
+                              <ProtectedRoute
+                                requiredRole="admin"
+                                fallback="/login"
+                              >
+                                <MasterCategoryEditor />
                               </ProtectedRoute>
                             }
                           />
