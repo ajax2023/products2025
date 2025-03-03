@@ -19,17 +19,18 @@ export const PRODUCT_CATEGORIES = [
 ] as const;
 
 export const MASTER_CATEGORIES = [
+  'Alcoholic Beverages',
+  'Automotive & Industrial',
+  'Clothing & Accessories',
+  'Electronics & Technology',
   'Food & Beverage',
   'Health & Beauty',
   'Home & Garden',
-  'Clothing & Accessories',
-  'Electronics & Technology',
-  'Alcoholic Beverages',
+  'Household Supplies',
+  'Office & School',
+  'Pet Supplies',
   'Sports & Outdoors',
   'Toys & Entertainment',
-  'Automotive & Industrial',
-  'Pet Supplies',
-  'Office & School',
   'Miscellaneous'
 ] as const;
 
