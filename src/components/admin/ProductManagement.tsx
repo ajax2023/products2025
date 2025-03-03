@@ -200,6 +200,8 @@ const ProductManagement: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
   const loadProducts = useCallback(async () => {
     if (!user || !claims || (claims.role !== 'admin' && claims.role !== 'super_admin')) return;
@@ -219,6 +221,35 @@ const ProductManagement: React.FC = () => {
     loadProducts();
   }, [loadProducts]);
 
+  useEffect(() => {
+    // Extract all categories from all products, handling comma-separated values
+    const categories = products.reduce((acc, product) => {
+      // Handle each category which might itself be comma-separated
+      const allCategories = product.categories.flatMap(category => {
+        // If the category contains commas, split it
+        if (typeof category === 'string' && category.includes(',')) {
+          return category.split(',').map(c => c.trim());
+        }
+        return category;
+      });
+      return [...acc, ...allCategories];
+    }, [] as string[]);
+    
+    // Remove duplicates and sort alphabetically
+    const unique = [...new Set(categories)].filter(Boolean).sort();
+    setUniqueCategories(unique);
+
+    // Count products per category
+    const counts: Record<string, number> = {};
+    products.forEach(product => {
+      product.categories.forEach(category => {
+        if (!counts[category]) counts[category] = 0;
+        counts[category]++;
+      });
+    });
+    setCategoryCounts(counts);
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       // Search query filter (brand name)
@@ -233,9 +264,17 @@ const ProductManagement: React.FC = () => {
 
       // Category filter
       const matchesCategory = !categoryFilter ||
-        product.categories.some(c =>
-          c.toLowerCase().includes(categoryFilter.toLowerCase())
-        );
+        product.categories.some(c => {
+          // First, handle the case where the category in the product might be comma-separated
+          const productCategories = typeof c === 'string' && c.includes(',') 
+            ? c.split(',').map(pc => pc.trim().toLowerCase())
+            : [c.toLowerCase()];
+          
+          // Simple match for single category filter
+          return productCategories.some(prodCat => 
+            prodCat.includes(categoryFilter.toLowerCase())
+          );
+        });
 
       // Location filter
       const matchesLocation = !locationFilter ||
@@ -624,6 +663,74 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
         onCategoryChange={(e) => setCategoryFilter(e.target.value)}
         onLocationChange={(e) => setLocationFilter(e.target.value)}
       />
+
+      {/* Category Quick Select Buttons */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          mb: 1 
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <CategoryIcon sx={{ color: 'primary.main', mr: 1 }} />
+            <Typography variant="subtitle1" color="primary.main">
+              Quick Filter by Category
+            </Typography>
+          </Box>
+          {categoryFilter && (
+            <Button 
+              size="small"
+              variant="outlined"
+              color="primary"
+              startIcon={<CategoryIcon />}
+              onClick={() => setCategoryFilter('')}
+            >
+              Clear Category
+            </Button>
+          )}
+        </Box>
+        
+        <Box sx={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: 0.8,
+          maxHeight: '120px',
+          overflowY: 'auto',
+          p: 0.5
+        }}>
+          {uniqueCategories.length > 0 ? (
+            uniqueCategories.map((category) => {
+              const isSelected = categoryFilter === category;
+              const count = categoryCounts[category] || 0;
+              
+              return (
+                <Chip
+                  key={category}
+                  label={`${category} (${count})`}
+                  size="small"
+                  onClick={() => {
+                    // Simple toggle for single category selection
+                    setCategoryFilter(isSelected ? '' : category);
+                  }}
+                  color={isSelected ? "primary" : "default"}
+                  variant={isSelected ? "filled" : "outlined"}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: isSelected ? 'primary.main' : 'action.hover',
+                    }
+                  }}
+                />
+              );
+            })
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+              No categories found in the current products
+            </Typography>
+          )}
+        </Box>
+      </Paper>
 
       <Box sx={{ width: '100%', mt: 2 }}>
         <Paper sx={{ width: '100%', mb: 2 }}>

@@ -31,7 +31,7 @@ export default function AboutCanadianProducts() {
       </Box>
       
       <Typography variant="h6" align="center" gutterBottom>
-        This application is proudly made in Canada
+      This application is proudly made in Canada—created by Canadians, for Canadians, and for those who support Canada!
       </Typography>
       
       <Typography variant="body1" align="center" sx={{ mb: 4 }}>
