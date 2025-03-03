@@ -220,51 +220,54 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             {/* Product Management - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/products" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <ListItemButton
-                  onClick={() => onTabChange && onTabChange('admin/products')}
-                  sx={{
+                <IconButton color="inherit"
+                 onClick={() => onTabChange && onTabChange('admin/products')}
+                 sx={{
+                  '& .MuiSvgIcon-root': {
                     color: isActive('/admin/products') || activeTab === 'admin/products' ? '#00FF00' : 'inherit'
-                  }}
-                >
-                  <ListItemIcon>
-                    <InventoryIcon color={isActive('/admin/products') || activeTab === 'admin/products' ? 'primary' : 'inherit'} />
-                  </ListItemIcon>
-                  {/* <ListItemText primary="Product Management" /> */}
-                </ListItemButton>
+                  },
+
+                }}>
+                  <Tooltip title="Product Management">
+                    <InventoryIcon />
+                  </Tooltip>
+                </IconButton>
               </Link>
             )}
 
             {/* Master Category Editor - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/master-categories" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <ListItemButton
-                  onClick={() => onTabChange && onTabChange('admin/master-categories')}
-                  sx={{
+                <IconButton color="inherit"
+                onClick={() => onTabChange && onTabChange('admin/master-categories')}
+                sx={{
+                  '& .MuiSvgIcon-root': {
                     color: isActive('/admin/master-categories') || activeTab === 'admin/master-categories' ? '#00FF00' : 'inherit'
-                  }}
-                >
-                  <ListItemIcon>
-                    <ListAltIcon color={isActive('/admin/master-categories') || activeTab === 'admin/master-categories' ? 'primary' : 'inherit'} />
-                  </ListItemIcon>
-                  <ListItemText primary="Master Category Editor" />
-                </ListItemButton>
+                  },
+                }}>
+                  <Tooltip title="Master Category Editor">
+                    <ListAltIcon />
+                  </Tooltip>
+                </IconButton>
               </Link>
             )}
 
             {/* User Management - Only show if admin */}
             {isAdmin && (
               <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <ListItemButton
-                  onClick={() => onTabChange && onTabChange('admin/users')}
-                  sx={{
+                <IconButton color="inherit"
+                onClick={() => onTabChange && onTabChange('admin/users')}
+                sx={{
+                  '& .MuiSvgIcon-root': {
                     color: isActive('/admin/users') || activeTab === 'admin/users' ? '#00FF00' : 'inherit'
-                  }}
+                  },
+
+                }}
                 >
-                  <ListItemIcon>
-                    <PeopleIcon color={isActive('/admin/users') || activeTab === 'admin/users' ? 'primary' : 'inherit'} />
-                  </ListItemIcon>
-                  {/* <ListItemText primary="User Management" /> */}
-                </ListItemButton>
+                  <Tooltip title="User Management">
+                    <PeopleIcon />
+                  </Tooltip>
+                </IconButton>
               </Link>
             )}
           </Box>

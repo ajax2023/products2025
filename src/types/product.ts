@@ -4,6 +4,7 @@ import { ProductLikeStats, BrandLikeStats } from './likes';
 export const PRODUCT_CATEGORIES = [
   'Medical Supplies',
   'Food & Beverage',
+  'Household Supplies',
   'Electronics',
   'Clothing',
   'Home & Garden',
