@@ -915,6 +915,13 @@ export default function CanadianProductSearch() {
                       </TableCell>
                       
                     </TableRow>
+                    
+                    {/* Black spacer between records */}
+                    {index < visibleProducts.length - 1 && (
+                      <TableRow sx={{ height: '2px', bgcolor: 'black' }}>
+                        <TableCell colSpan={4} sx={{ padding: 0 }} />
+                      </TableRow>
+                    )}
                   </React.Fragment>
                   );
                 })}
