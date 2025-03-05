@@ -315,9 +315,13 @@ export default function GroceryPreferences() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" sx={{         height: 'calc(100vh - 100px)',
+      position: 'fixed',        top: 60, }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Grocery Preferences</Typography>
+        <Typography variant="h5" sx={{ color: 'primary.main', mt: 0, mb: 2 }}>
+        Grocery Preferences
+      </Typography>
+
         <Button
           variant="contained"
           color="primary"

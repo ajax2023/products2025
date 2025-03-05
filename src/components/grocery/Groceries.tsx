@@ -195,15 +195,16 @@ export default function Groceries() {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 0, mb: 4 }}>
-      <Typography variant="h5" sx={{ color: 'primary.main' }} gutterBottom>
+    <Container maxWidth="lg" sx={{     height: 'calc(100vh - 100px)',
+      position: 'fixed',   top: 60, }}>
+      <Typography variant="h5" sx={{ color: 'primary.main', mt: 0, mb: 2 }}>
         Grocery Lists
       </Typography>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }} elevation={10}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="h6">My Lists</Typography>
               <Button
                 variant="contained"
@@ -248,13 +249,13 @@ export default function Groceries() {
                 <CircularProgress size={24} />
               </Box>
             ) : filteredLists.length === 0 ? (
-              <Box sx={{ p: 2, textAlign: 'center' }}>
+              <Box sx={{ p: 1, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   No grocery lists found
                 </Typography>
               </Box>
             ) : (
-              <List sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
+              <List sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
                 {filteredLists.map((list) => (
                   <React.Fragment key={list.id}>
                     <ListItemButton
@@ -330,7 +331,7 @@ export default function Groceries() {
                   </Box>
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   Created on {new Date(selectedList.date).toLocaleDateString()}
                 </Typography>
 
@@ -343,14 +344,22 @@ export default function Groceries() {
                         sx={{ flexGrow: 1 }}
                       >
                         {selectedList.items.length === 0 ? (
-                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                          <Box sx={{ p: 1, textAlign: 'center' }}>
                             <Typography variant="body2" color="text.secondary">
                               No items in this list. Click Edit to add items.
                             </Typography>
                           </Box>
                         ) : (
                           selectedList.items
-                            .sort((a, b) => (a.order || 0) - (b.order || 0))
+                            // Sort checked items to the bottom
+                            .sort((a, b) => {
+                              // First sort by checked status
+                              if (a.checked !== b.checked) {
+                                return a.checked ? 1 : -1; // Checked items go to the bottom
+                              }
+                              // Then sort by order for items with the same checked status
+                              return (a.order || 0) - (b.order || 0);
+                            })
                             .map((item, index) => (
                               <Draggable key={item.id} draggableId={item.id} index={index}>
                                 {(provided) => (
@@ -361,6 +370,7 @@ export default function Groceries() {
                                     sx={{
                                       textDecoration: item.checked ? 'line-through' : 'none',
                                       opacity: item.checked ? 0.6 : 1,
+                                      py: 0.5, // Reduce vertical padding
                                     }}
                                   >
                                     <ListItemIcon>
@@ -378,7 +388,7 @@ export default function Groceries() {
                                             <Chip
                                               label={item.category}
                                               size="small"
-                                              sx={{ mr: 1, mb: 0.5 }}
+                                              sx={{ mr: 1, mb: 0.25 }}
                                             />
                                           )}
                                           {item.typicalPrice && `$${item.typicalPrice.toFixed(2)}`}
@@ -406,13 +416,13 @@ export default function Groceries() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: '100%',
-                  p: 3,
+                  p: 1,
                 }}
               >
                 <Typography variant="h6" gutterBottom>
                   No List Selected
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
                   Select a list from the sidebar or create a new one
                 </Typography>
                 <Button
