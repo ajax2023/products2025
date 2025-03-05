@@ -126,8 +126,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             component="div"
             sx={{
               display: 'flex',
-              overflow: 'auto',
-              flexGrow: 1, // Allow this box to grow
+              overflowX: 'auto', // Just focus on horizontal scrolling
+              flexGrow: 1,
               gap: 0.5,
               mx: -2,
               px: 2,
@@ -139,12 +139,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               whiteSpace: 'nowrap',
               '& > *': {
                 flex: 'none'
-              },
-              WebkitOverflowScrolling: 'touch', // Enable momentum scrolling on iOS
-              overflowX: 'scroll', // Ensure horizontal scrolling is enabled
-              WebkitUserSelect: 'none', // Prevent text selection during swipe
-              userSelect: 'none',
-              touchAction: 'pan-x', // Allow horizontal touch actions
+              }
             }}
           >
             {/* Canadian Products */}
