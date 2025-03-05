@@ -59,7 +59,7 @@ export function PromotionalBanner() {
   if (user) return null;
 
   // Hard-code the values that match what's shown in the UI
-  const publicProducts = 179;
+  const publicProducts = 350;
   const moreProducts = 100;
   
   const message = `🍁 Support Canadian Made! Access ${publicProducts} Canadian Products. Register (It's free - no strings attached) to unlock thousands more and get early access to new features!`;

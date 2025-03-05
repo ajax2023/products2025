@@ -141,10 +141,16 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             sx={{
               display: 'flex',
               overflow: 'auto',
-              flexGrow: 0, // Prevent this box from growing
+              flexGrow: 1, // Allow this box to grow
               gap: 0.5,
               mx: -2,
               px: 2,
+              '&::-webkit-scrollbar': {
+                display: 'none'
+              },
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              whiteSpace: 'nowrap',
               '& > *': {
                 flex: 'none'
               }
