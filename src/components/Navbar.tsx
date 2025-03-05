@@ -34,7 +34,6 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const scrollContainer = React.useRef<HTMLDivElement | null>(null);
 
   const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
 
@@ -73,17 +72,6 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
       window.removeEventListener('appinstalled', () => setIsInstallable(false));
     };
   }, []);
-
-  // Enable scrolling with mouse wheel
-  const handleWheelScroll = (e: React.WheelEvent) => {
-    if (scrollContainer.current) {
-      e.preventDefault();
-      scrollContainer.current.scrollBy({
-        left: e.deltaY * 1.5, // Adjust speed if needed
-        behavior: 'smooth',
-      });
-    }
-  };
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -136,15 +124,17 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
 
           <Box 
             component="div"
-            ref={scrollContainer}
-            onWheel={handleWheelScroll}
             sx={{
               display: 'flex',
               overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              scrollBehavior: 'smooth',
               flexGrow: 1,
-              gap: 0.5,
+              gap: 1.5,
               mx: -2,
               px: 2,
+              pb: 0.5,
+              pt: 0.5,
               '&::-webkit-scrollbar': {
                 display: 'none'
               },
@@ -152,7 +142,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               msOverflowStyle: 'none',
               whiteSpace: 'nowrap',
               '& > *': {
-                flex: 'none'
+                flex: '0 0 auto',
+                mx: 0.25
               }
             }}
           >
