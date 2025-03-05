@@ -196,7 +196,7 @@ export default function Groceries() {
 
   return (
     <Container maxWidth="lg" sx={{     height: 'calc(100vh - 100px)',
-      position: 'fixed',   top: 60, }}>
+      position: 'fixed',   top: 60,  overflowY: 'auto'}}>
       <Typography variant="h5" sx={{ color: 'primary.main', mt: 0, mb: 2 }}>
         Grocery Lists
       </Typography>

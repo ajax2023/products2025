@@ -113,7 +113,7 @@ export default function GroceryPreferences() {
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategory.trim() || !preferences) return;
     
     const updatedCategories = [
@@ -121,12 +121,35 @@ export default function GroceryPreferences() {
       { title: newCategory, items: [] }
     ];
     
-    setPreferences({
+    const updatedPreferences = {
       ...preferences,
       categories: updatedCategories
-    });
+    };
     
+    // Update state
+    setPreferences(updatedPreferences);
     setNewCategory('');
+    
+    try {
+      // Save to database
+      await groceryDb.groceryPreferences.update(preferences.id!, updatedPreferences);
+      
+      setNotification({
+        open: true,
+        message: 'Category added successfully',
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error adding category:', err);
+      setNotification({
+        open: true,
+        message: 'Failed to save category',
+        severity: 'error'
+      });
+      
+      // Revert state if save fails
+      loadPreferences();
+    }
   };
 
   const handleDeleteCategory = async (index: number) => {
@@ -203,7 +226,7 @@ export default function GroceryPreferences() {
     setEditingCategory(null);
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!newItem.trim() || selectedCategory === null || !preferences?.categories) return;
     
     const updatedCategories = [...preferences.categories];
@@ -212,12 +235,35 @@ export default function GroceryPreferences() {
       items: [...updatedCategories[selectedCategory].items, newItem]
     };
     
-    setPreferences({
+    const updatedPreferences = {
       ...preferences,
       categories: updatedCategories
-    });
+    };
     
+    // Update state
+    setPreferences(updatedPreferences);
     setNewItem('');
+    
+    try {
+      // Save to database
+      await groceryDb.groceryPreferences.update(preferences.id!, updatedPreferences);
+      
+      setNotification({
+        open: true,
+        message: 'Item added successfully',
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error adding item:', err);
+      setNotification({
+        open: true,
+        message: 'Failed to save item',
+        severity: 'error'
+      });
+      
+      // Revert state if save fails
+      loadPreferences();
+    }
   };
 
   const handleDeleteItem = async (categoryIndex: number, itemIndex: number) => {
@@ -316,7 +362,7 @@ export default function GroceryPreferences() {
 
   return (
     <Container maxWidth="lg" sx={{         height: 'calc(100vh - 100px)',
-      position: 'fixed',        top: 60, }}>
+      position: 'fixed',        top: 60, overflowY: 'auto'}}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" sx={{ color: 'primary.main', mt: 0, mb: 2 }}>
         Grocery Preferences
