@@ -37,8 +37,6 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const scrollContainer = React.useRef<HTMLDivElement | null>(null);
 
   const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
-  const [touchStartX, setTouchStartX] = React.useState(0);
-  const [isTouching, setIsTouching] = React.useState(false);
 
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -85,32 +83,6 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
         behavior: 'smooth',
       });
     }
-  };
-
-  // Touch event handlers for mobile scrolling
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-    setIsTouching(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isTouching || !scrollContainer.current) return;
-    
-    const touchCurrentX = e.touches[0].clientX;
-    const diff = touchStartX - touchCurrentX;
-    
-    // Scroll the container based on touch movement
-    scrollContainer.current.scrollBy({
-      left: diff * 1.2, // Increased sensitivity for more responsive feel
-      behavior: 'auto', // Using 'auto' for more responsive feel
-    });
-    
-    // Update the touch start position for continuous scrolling
-    setTouchStartX(touchCurrentX);
-  };
-
-  const handleTouchEnd = () => {
-    setIsTouching(false);
   };
 
   const handleInstallClick = async () => {
@@ -166,12 +138,9 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             component="div"
             ref={scrollContainer}
             onWheel={handleWheelScroll}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
             sx={{
               display: 'flex',
-              overflowX: 'auto', // Just focus on horizontal scrolling
+              overflowX: 'auto',
               flexGrow: 1,
               gap: 0.5,
               mx: -2,
@@ -184,21 +153,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               whiteSpace: 'nowrap',
               '& > *': {
                 flex: 'none'
-              },
-              WebkitOverflowScrolling: 'touch', // iOS momentum scrolling
-              touchAction: 'pan-x', // Explicitly allow horizontal panning
-              userSelect: 'none', // Prevent text selection during touch
-              position: 'relative',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: '30px',
-                background: 'linear-gradient(to right, transparent, rgba(0,0,0,0.1))',
-                pointerEvents: 'none', // Ensure it doesn't interfere with clicks
-              },
+              }
             }}
           >
             {/* Canadian Products */}
