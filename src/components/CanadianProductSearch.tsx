@@ -698,7 +698,7 @@ export default function CanadianProductSearch() {
                   <TableCell colSpan={4} sx={{ fontWeight: 'bold', color: 'white', py: 0.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Inventory2Icon sx={{ color: 'white', fontSize: '1.2rem' }} />
-                      <span>Products ({countTotalProducts(filteredProducts)})</span>
+                      <span>({countTotalProducts(filteredProducts)}) Products</span>
                     </Box>
                   </TableCell>
                 </TableRow>

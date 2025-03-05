@@ -8,7 +8,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      enabled: process.env.VITE_ENABLE_PWA === 'true',
+      // Enable PWA unconditionally instead of using environment variable
+      enabled: true,
       manifest: {
         name: "Products 2025",
         short_name: "Products",
@@ -31,7 +32,8 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: process.env.VITE_ENABLE_PWA === 'true'
+        // Enable in development mode
+        enabled: true
       }
     })
   ],
