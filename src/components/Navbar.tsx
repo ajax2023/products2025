@@ -37,6 +37,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const scrollContainer = React.useRef<HTMLDivElement | null>(null);
 
   const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
+  const [touchStartX, setTouchStartX] = React.useState(0);
+  const [isTouching, setIsTouching] = React.useState(false);
 
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -74,16 +76,42 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
     };
   }, []);
 
-// Enable scrolling with mouse wheel
-const handleWheelScroll = (e: React.WheelEvent) => {
-  if (scrollContainer.current) {
-    e.preventDefault();
+  // Enable scrolling with mouse wheel
+  const handleWheelScroll = (e: React.WheelEvent) => {
+    if (scrollContainer.current) {
+      e.preventDefault();
+      scrollContainer.current.scrollBy({
+        left: e.deltaY * 1.5, // Adjust speed if needed
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  // Touch event handlers for mobile scrolling
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+    setIsTouching(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isTouching || !scrollContainer.current) return;
+    
+    const touchCurrentX = e.touches[0].clientX;
+    const diff = touchStartX - touchCurrentX;
+    
+    // Scroll the container based on touch movement
     scrollContainer.current.scrollBy({
-      left: e.deltaY * 1.5, // Adjust speed if needed
-      behavior: 'smooth',
+      left: diff * 1.2, // Increased sensitivity for more responsive feel
+      behavior: 'auto', // Using 'auto' for more responsive feel
     });
-  }
-};
+    
+    // Update the touch start position for continuous scrolling
+    setTouchStartX(touchCurrentX);
+  };
+
+  const handleTouchEnd = () => {
+    setIsTouching(false);
+  };
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -114,7 +142,7 @@ const handleWheelScroll = (e: React.WheelEvent) => {
           minHeight: { xs: '48px' },
           overflow: 'hidden'
         }}>
-          <Box sx={{ mr: "30px" }}>
+          <Box sx={{ mr: "20px" }}>
           {/* Logo */}
 
           <Tooltip title="About Canadian Products">
@@ -126,7 +154,7 @@ const handleWheelScroll = (e: React.WheelEvent) => {
                 src="/maple-leaf.png" 
                 alt="Maple Leaf"
                 style={{ 
-                  height: '30px',
+                  height: '28px',
                   alignItems: 'center',
                 }} 
               />
@@ -138,6 +166,9 @@ const handleWheelScroll = (e: React.WheelEvent) => {
             component="div"
             ref={scrollContainer}
             onWheel={handleWheelScroll}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             sx={{
               display: 'flex',
               overflowX: 'auto', // Just focus on horizontal scrolling
@@ -153,7 +184,21 @@ const handleWheelScroll = (e: React.WheelEvent) => {
               whiteSpace: 'nowrap',
               '& > *': {
                 flex: 'none'
-              }
+              },
+              WebkitOverflowScrolling: 'touch', // iOS momentum scrolling
+              touchAction: 'pan-x', // Explicitly allow horizontal panning
+              userSelect: 'none', // Prevent text selection during touch
+              position: 'relative',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: '30px',
+                background: 'linear-gradient(to right, transparent, rgba(0,0,0,0.1))',
+                pointerEvents: 'none', // Ensure it doesn't interfere with clicks
+              },
             }}
           >
             {/* Canadian Products */}
@@ -292,7 +337,7 @@ const handleWheelScroll = (e: React.WheelEvent) => {
                     '&:hover': {
                       backgroundColor: alpha(theme.palette.common.white, 0.1),
                     },
-                    marginLeft: '22px',
+                    marginLeft: '15px',
                   }}
                 >
                   <GetAppIcon sx={{ color: 'white' }} />
