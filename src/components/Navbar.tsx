@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -8,25 +8,12 @@ import {
   useTheme,
   alpha,
   Tooltip,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
 } from '@mui/material';
 
 // Import all required icons
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-// import ReceiptIcon from '@mui/icons-material/Receipt';
-// import BusinessIcon from '@mui/icons-material/Business';
-// import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PeopleIcon from '@mui/icons-material/People';
-// import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-// import SportsTrophyIcon from '@mui/icons-material/SportsTrophy';
-import HomeIcon from '@mui/icons-material/Home';
-// import SearchIcon from '@mui/icons-material/Search';
-// import LocalMallIcon from '@mui/icons-material/LocalMall';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import GetAppIcon from '@mui/icons-material/GetApp';
 import ListAltIcon from '@mui/icons-material/ListAlt';
@@ -42,18 +29,15 @@ interface NavbarProps {
 
 export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const { claims } = useAuth();
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [isInstallable, setIsInstallable] = React.useState(false);
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const navRef = useRef<HTMLDivElement>(null);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
 
-  useEffect(() => {
+  React.useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       console.log('Before install prompt fired');
       // Prevent Chrome 67 and earlier from automatically showing the prompt
@@ -108,43 +92,12 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Minimum distance required for swipe detection (in pixels)
-  const minSwipeDistance = 50;
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null); // Reset touchEnd
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-    
-    if (navRef.current) {
-      if (isLeftSwipe) {
-        // Swipe left - scroll right
-        navRef.current.scrollBy({ left: 100, behavior: 'smooth' });
-      } else if (isRightSwipe) {
-        // Swipe right - scroll left
-        navRef.current.scrollBy({ left: -100, behavior: 'smooth' });
-      }
-    }
-  };
-
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="fixed">
         
         <Toolbar sx={{ 
           display: 'flex', 
-          // alignItems: 'center', 
           justifyContent: 'space-between', 
           minHeight: { xs: '48px' },
           overflow: 'hidden'
@@ -170,11 +123,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           </Box>
 
           <Box 
-            ref={navRef}
             component="div"
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
             sx={{
               display: 'flex',
               overflow: 'auto',
@@ -192,24 +141,12 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                 flex: 'none'
               },
               WebkitOverflowScrolling: 'touch', // Enable momentum scrolling on iOS
+              overflowX: 'scroll', // Ensure horizontal scrolling is enabled
+              WebkitUserSelect: 'none', // Prevent text selection during swipe
+              userSelect: 'none',
+              touchAction: 'pan-x', // Allow horizontal touch actions
             }}
           >
-            {/* Home */}
-            {/* <Link to="/home" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton 
-                color="inherit"
-                sx={{
-                  '& .MuiSvgIcon-root': {
-                    color: isActive('/home') ? '#FF0000' : 'inherit'
-                  }
-                }}
-              >
-                <Tooltip title="Home">
-                  <HomeIcon />
-                </Tooltip>
-              </IconButton>
-            </Link> */}
-
             {/* Canadian Products */}
             <Link to="/canadian-products" style={{ textDecoration: 'none', color: 'inherit' }}>
               <IconButton 
