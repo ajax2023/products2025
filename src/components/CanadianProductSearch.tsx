@@ -536,7 +536,7 @@ export default function CanadianProductSearch() {
     <Box
       sx={{
         width: '95%',
-        height: 'calc(100vh - 175px)',
+        height: 'calc(100vh - 100px)',
         position: 'fixed',
         top: 60,
         left: 0,
@@ -670,158 +670,100 @@ export default function CanadianProductSearch() {
               >
                 <TableRow>
                   <TableCell width="22%" sx={{ fontWeight: 'bold', color: 'white' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <StoreIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Brand ({filteredProducts.length})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="40%" sx={{ fontWeight: 'bold', color: 'white' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
-                      <Inventory2Icon sx={{ color: 'white', fontSize: '1.2rem' }} />
-                      <span>Products ({countTotalProducts(filteredProducts)})</span>
-                    </Box>
-                  </TableCell>
                   <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CategoryIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Categories ({countTotalCategories(filteredProducts)})</span>
                     </Box>
                   </TableCell>
                   <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <VerifiedIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span> ({countTotalStatus(filteredProducts)})</span>
                     </Box>
                   </TableCell>
                   <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '24px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LocationOnIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Location</span>
                     </Box>
                   </TableCell>
                 </TableRow>
+                <TableRow sx={{ backgroundColor: 'primary.dark' }}>
+                  <TableCell colSpan={4} sx={{ fontWeight: 'bold', color: 'white', py: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Inventory2Icon sx={{ color: 'white', fontSize: '1.2rem' }} />
+                      <span>Products ({countTotalProducts(filteredProducts)})</span>
+                    </Box>
+                  </TableCell>
+                </TableRow>
               </TableHead>
               <TableBody>
-                {visibleProducts.map((product, index) => (
-                  <TableRow
-                    key={product._id}
-                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  >
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <LikeButton
-                            brandId={product._id}
-                            brandName={product.brand_name}
-                            initialLikeCount={product.likeStats?.totalLikes || 0}
-                          />
-                          {product.website && (
-                            <Link href={product.website} target="_blank" rel="noopener noreferrer">
-                              <IconButton size="small">
-                                <OpenInNewIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
-                              </IconButton>
-                            </Link>
-                          )}
-                        </Box>
-                        <Typography
-                          sx={{
-                            fontWeight: 500,
-                            fontSize: '0.875rem',
-                            color: 'text.primary',
-                            cursor: 'pointer',
-                            '&:hover': {
-                              textDecoration: 'underline',
-                            },
-                          }}
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setNotesDialogOpen(true);
-                          }}
-                        >
-                          {product.brand_name}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <ShareButton
-                            brandName={product.brand_name}
-                            products={product.products}
-                            website={product.website}
-                          />
-                          <IconButton
-                            size="small"
+                {/* ROWCSS - Alternating row colors for entire records (both rows together) */}
+                {visibleProducts.map((product, index) => {
+                  // Determine if this is an even or odd record for alternating colors
+                  const isEven = index % 2 === 0;
+                  const rowBackground = isEven ? 'white' : 'rgba(10, 10, 10, 0.1)' ;
+                  // const rowcolor = isEven ? 'none' : '1px solid red';
+                  
+                  return (
+                  <React.Fragment key={product._id}>
+                    <TableRow
+                      sx={{ 
+                        backgroundColor: rowBackground,
+                        // '& td': { borderBottom: rowcolor },
+                        // '&:last-child td': { borderBottom: 'none' }
+
+                      }}
+                    >
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <LikeButton
+                              brandId={product._id}
+                              brandName={product.brand_name}
+                              initialLikeCount={product.likeStats?.totalLikes || 0}
+                            />
+                            {product.website && (
+                              <Link href={product.website} target="_blank" rel="noopener noreferrer">
+                                <IconButton size="small">
+                                  <OpenInNewIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
+                                </IconButton>
+                              </Link>
+                            )}
+                          </Box>
+                          <Typography
+                            sx={{
+                              fontWeight: 500,
+                              fontSize: '0.875rem',
+                              color: 'text.primary',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                textDecoration: 'underline',
+                              },
+                            }}
                             onClick={() => {
                               setSelectedProduct(product);
                               setNotesDialogOpen(true);
                             }}
-                            sx={{
-                              padding: '4px',
-                              '& .MuiSvgIcon-root': {
-                                fontSize: '1.1rem',
-                                color: 'primary.main',
-                              },
-                            }}
                           >
-                            <InfoOutlinedIcon />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => readNotes(product)}
-                            sx={{
-                              padding: '4px',
-                              '& .MuiSvgIcon-root': {
-                                fontSize: '1.1rem',
-                                color: theme =>
-                                  readingProductId === product._id
-                                    ? theme.palette.secondary.main
-                                    : theme.palette.primary.main,
-                                animation:
-                                  readingProductId === product._id ? 'pulse 1s infinite' : 'none',
-                              },
-                              '@keyframes pulse': {
-                                '0%': {
-                                  transform: 'scale(1)',
-                                  opacity: 1,
-                                },
-                                '50%': {
-                                  transform: 'scale(1.1)',
-                                  opacity: 0.7,
-                                },
-                                '100%': {
-                                  transform: 'scale(1)',
-                                  opacity: 1,
-                                },
-                              },
-                            }}
-                          >
-                            <VolumeUpIcon />
-                          </IconButton>
-                          {user && (
-                            <Tooltip title="Add to Grocery">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => handleAddToGroceryPreferences(e, product)}
-                                sx={{
-                                  padding: '4px',
-                                  '& .MuiSvgIcon-root': {
-                                    fontSize: '1.1rem',
-                                    color: 'primary.main',
-                                  },
-                                }}
-                              >
-                                <AddShoppingCartIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                            {product.brand_name}
+                          </Typography>
                         </Box>
+                      </TableCell>
+                      <TableCell>
                         <Typography
                           sx={{
                             fontSize: '0.875rem',
                             color: 'text.secondary',
-                            display: 'inline-flex',
-                            alignItems: 'center',
+                            maxWidth: '200px',
+                            whiteSpace: 'normal',
+                            wordBreak: 'normal',
                             cursor: 'pointer',
                             '&:hover': {
                               textDecoration: 'underline',
@@ -832,68 +774,150 @@ export default function CanadianProductSearch() {
                             setNotesDialogOpen(true);
                           }}
                         >
-                          {product.products.join(', ')}
+                          {product.categories.join(', ')}
                         </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        sx={{
-                          fontSize: '0.875rem',
-                          color: 'text.secondary',
-                          maxWidth: '200px',
-                          whiteSpace: 'normal',
-                          wordBreak: 'normal',
-                          cursor: 'pointer',
-                          '&:hover': {
-                            textDecoration: 'underline',
-                          },
-                        }}
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setNotesDialogOpen(true);
-                        }}
-                      >
-                        {product.categories.join(', ')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {product.production_verified ? (
-                        <CheckIcon
+                      </TableCell>
+                      <TableCell>
+                        {product.production_verified ? (
+                          <CheckIcon
+                            sx={{
+                              color: '#4CAF50',
+                              fontSize: '1rem',
+                            }}
+                          />
+                        ) : (
+                          <CircleIcon
+                            sx={{
+                              color: '#FF9800',
+                              fontSize: '0.8rem',
+                            }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
                           sx={{
-                            color: '#4CAF50',
-                            fontSize: '1rem',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              textDecoration: 'underline',
+                            },
                           }}
-                        />
-                      ) : (
-                        <CircleIcon
-                          sx={{
-                            color: '#FF9800',
-                            fontSize: '0.8rem',
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setNotesDialogOpen(true);
                           }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            textDecoration: 'underline',
-                          },
-                        }}
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setNotesDialogOpen(true);
-                        }}
-                      >
-                        {product.city}, {product.province}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        >
+                          {product.city}, {product.province}
+                        </Typography>
+                      </TableCell>
+
+                    </TableRow>
+                    <TableRow sx={{ 
+                      backgroundColor: rowBackground,
+                      '&:last-child td, &:last-child th': { border: 0 },
+                      '& td': { borderBottom: 'none' }
+                    }}>
+                      <TableCell colSpan={4} sx={{ py: 0.5, borderTop: '1px dashed rgba(224, 224, 224, 0.5)' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 2 }}>
+                            <ShareButton
+                              brandName={product.brand_name}
+                              products={product.products}
+                              website={product.website}
+                            />
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setSelectedProduct(product);
+                                setNotesDialogOpen(true);
+                              }}
+                              sx={{
+                                padding: '4px',
+                                '& .MuiSvgIcon-root': {
+                                  fontSize: '1.1rem',
+                                  color: 'primary.main',
+                                },
+                              }}
+                            >
+                              <InfoOutlinedIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => readNotes(product)}
+                              sx={{
+                                padding: '4px',
+                                '& .MuiSvgIcon-root': {
+                                  fontSize: '1.1rem',
+                                  color: theme =>
+                                    readingProductId === product._id
+                                      ? theme.palette.secondary.main
+                                      : theme.palette.primary.main,
+                                  animation:
+                                    readingProductId === product._id ? 'pulse 1s infinite' : 'none',
+                                },
+                                '@keyframes pulse': {
+                                  '0%': {
+                                    transform: 'scale(1)',
+                                    opacity: 1,
+                                  },
+                                  '50%': {
+                                    transform: 'scale(1.1)',
+                                    opacity: 0.7,
+                                  },
+                                  '100%': {
+                                    transform: 'scale(1)',
+                                    opacity: 1,
+                                  },
+                                },
+                              }}
+                            >
+                              <VolumeUpIcon />
+                            </IconButton>
+                            {user && (
+                              <Tooltip title="Add to Grocery">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleAddToGroceryPreferences(e, product)}
+                                  sx={{
+                                    padding: '4px',
+                                    '& .MuiSvgIcon-root': {
+                                      fontSize: '1.1rem',
+                                      color: 'primary.main',
+                                    },
+                                  }}
+                                >
+                                  <AddShoppingCartIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                          <Typography
+                            sx={{
+                              fontSize: '0.875rem',
+                              color: 'text.secondary',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                textDecoration: 'underline',
+                              },
+                            }}
+                            onClick={() => {
+                              setSelectedProduct(product);
+                              setNotesDialogOpen(true);
+                            }}
+                          >
+                            {product.products.join(', ')}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      
+                    </TableRow>
+                  </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
             <TablePagination
