@@ -253,7 +253,7 @@ export default function AboutCanadianProducts() {
       }}>
         {/* Product of Canada */}
         <Paper
-          elevation={6}
+          elevation={10}
           sx={{
             bgcolor: 'success.light',
             color: 'success.dark',
@@ -295,7 +295,7 @@ export default function AboutCanadianProducts() {
 
         {/* Made in Canada */}
         <Paper
-          elevation={6}
+          elevation={10}
           sx={{
             bgcolor: 'primary.light',
             color: 'primary.dark',
@@ -381,7 +381,7 @@ export default function AboutCanadianProducts() {
           {updates.map((update) => (
             <Paper
               key={update.id}
-              elevation={8}
+              elevation={10}
               sx={{
                 mb: 3,
                 p: 2,
