@@ -34,6 +34,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const scrollContainer = React.useRef<HTMLDivElement | null>(null);
 
   const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
 
@@ -73,6 +74,17 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
     };
   }, []);
 
+// Enable scrolling with mouse wheel
+const handleWheelScroll = (e: React.WheelEvent) => {
+  if (scrollContainer.current) {
+    e.preventDefault();
+    scrollContainer.current.scrollBy({
+      left: e.deltaY * 1.5, // Adjust speed if needed
+      behavior: 'smooth',
+    });
+  }
+};
+
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
@@ -102,7 +114,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           minHeight: { xs: '48px' },
           overflow: 'hidden'
         }}>
-          <Box sx={{ mr: "40px" }}>
+          <Box sx={{ mr: "30px" }}>
           {/* Logo */}
 
           <Tooltip title="About Canadian Products">
@@ -124,6 +136,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
 
           <Box 
             component="div"
+            ref={scrollContainer}
+            onWheel={handleWheelScroll}
             sx={{
               display: 'flex',
               overflowX: 'auto', // Just focus on horizontal scrolling
@@ -278,7 +292,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                     '&:hover': {
                       backgroundColor: alpha(theme.palette.common.white, 0.1),
                     },
-                    marginLeft: '32px',
+                    marginLeft: '22px',
                   }}
                 >
                   <GetAppIcon sx={{ color: 'white' }} />
