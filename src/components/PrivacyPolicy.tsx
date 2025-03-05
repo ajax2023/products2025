@@ -132,8 +132,8 @@ const PrivacyPolicy: React.FC = () => {
                     4. Data Storage & Security
                   </Typography>
                   <Typography variant="body1" paragraph>
-                    Your data is stored securely using <strong>Google Firebase</strong>, which provides built-in security features,
-                    including encryption and authentication.
+                    Your account data is stored securely using <strong>Google Firebase</strong>, which provides built-in security features,
+                    including encryption and authentication. Your grocery lists are stored locally on your device using <strong>IndexedDB</strong> and are not transmitted to our servers.
                   </Typography>
                   <Typography variant="body1" paragraph>
                     If you <strong>delete your account</strong>, all associated data, including your email, will be permanently deleted.
