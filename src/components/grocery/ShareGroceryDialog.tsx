@@ -38,7 +38,7 @@ export const ShareGroceryDialog: React.FC<ShareGroceryDialogProps> = ({
       ? `\n\nComment from ${sharedBy}:\n${comment}`
       : '';
 
-    const shareText = `Grocery List: ${groceryList.name}${itemsText}${commentText}\n\nShared by: ${sharedBy}`;
+    const shareText = `Grocery List: ${groceryList.name}${itemsText}${commentText}\n\nShared by: ${sharedBy}\n\nProudly created by Canada2025.com`;
 
     try {
       if (navigator.share) {
