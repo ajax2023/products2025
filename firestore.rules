@@ -145,5 +145,11 @@ service cloud.firestore {
       // Only admins can write to public stats
       allow write: if isAdmin();
     }
+    
+    // Email Sequences collection
+    match /email_sequences/{sequenceId} {
+      // Only admins can read, create, update, or delete email sequences
+      allow read, write: if isAdmin();
+    }
   }
 }
