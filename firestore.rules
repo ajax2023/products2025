@@ -39,7 +39,7 @@ service cloud.firestore {
         (isUser(userId) && ['contributor', 'viewer'].includes(request.resource.data.role)) ||
         (isAdmin() && ['viewer', 'contributor', 'admin'].includes(request.resource.data.role)) ||
         isSuperAdmin()
-      );
+      ) || (request.auth != null && request.auth.uid == userId);
       allow update: if isSignedIn() && (
         (isUser(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
         (isAdmin() && resource.data.role != 'super_admin' && request.resource.data.role != 'super_admin') ||
