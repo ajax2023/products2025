@@ -6,7 +6,9 @@ import { Timestamp } from 'firebase/firestore';
 export interface SequenceEmail {
   subject: string;
   body: string;
-  sendAfterDays: number;
+  // Either sendAfterDays or triggerEvent should be provided
+  sendAfterDays?: number;
+  triggerEvent?: string;
 }
 
 /**
@@ -29,6 +31,7 @@ export interface EmailSequence {
   emails: SequenceEmail[];
   status: SequenceStatus;
   createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 /**

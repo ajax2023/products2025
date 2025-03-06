@@ -18,6 +18,7 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import GetAppIcon from '@mui/icons-material/GetApp';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import EmailIcon from '@mui/icons-material/Email';
 
 import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
@@ -260,25 +261,43 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                 </IconButton>
               </Link>
             )}
-          </Box>
 
-            {/* Settings */}
-            <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <IconButton 
-                color="inherit"
-                onClick={() => onTabChange && onTabChange('settings')}
+            {/* Email Management - Only show if admin */}
+            {isAdmin && (
+              <Link to="/admin/email" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <IconButton color="inherit"
+                onClick={() => onTabChange && onTabChange('admin/email')}
                 sx={{
                   '& .MuiSvgIcon-root': {
-                    color: isActive('/settings') || activeTab === 'settings' ? '#FF0000' : 'inherit'
+                    color: isActive('/admin/email') || activeTab === 'admin/email' ? '#00FF00' : 'inherit'
                   },
-                  marginLeft: '2px',
                 }}
-              >
-                <Tooltip title="Settings">
-                  <SettingsIcon />
-                </Tooltip>
-              </IconButton>
-            </Link>
+                >
+                  <Tooltip title="Email Management">
+                    <EmailIcon />
+                  </Tooltip>
+                </IconButton>
+              </Link>
+            )}
+          </Box>
+
+          {/* Settings */}
+          <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <IconButton 
+              color="inherit"
+              onClick={() => onTabChange && onTabChange('settings')}
+              sx={{
+                '& .MuiSvgIcon-root': {
+                  color: isActive('/settings') || activeTab === 'settings' ? '#FF0000' : 'inherit'
+                },
+                marginLeft: '2px',
+              }}
+            >
+              <Tooltip title="Settings">
+                <SettingsIcon />
+              </Tooltip>
+            </IconButton>
+          </Link>
 
           <Box sx={{ flexGrow: 1 }} /> {/* This pushes the following items to the right */}
 

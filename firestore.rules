@@ -2,6 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     function isSignedIn() {
       return request.auth != null;
     }
@@ -35,22 +36,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && (
-        // Allow users to create their own document with contributor or viewer role
-        (isUser(userId) && (request.resource.data.role == 'contributor' || request.resource.data.role == 'viewer')) ||
-        // Or admin can create with any role except super_admin
-        (isAdmin() && (request.resource.data.role == 'contributor' || request.resource.data.role != 'super_admin')) ||
-        // Or super_admin can create with any role
+        (isUser(userId) && ['contributor', 'viewer'].includes(request.resource.data.role)) ||
+        (isAdmin() && ['viewer', 'contributor', 'admin'].includes(request.resource.data.role)) ||
         isSuperAdmin()
       );
       allow update: if isSignedIn() && (
-        // Users can update their own non-role fields
         (isUser(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
-        // Admin can update roles except super_admin
         (isAdmin() && resource.data.role != 'super_admin' && request.resource.data.role != 'super_admin') ||
-        // Only super_admin can change any roles
         isSuperAdmin()
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isUser(userId);
     }
 
     // User Settings collection
@@ -61,37 +56,32 @@ service cloud.firestore {
 
     // User Stats collection
     match /user_stats/{userId} {
-      allow read: if isSignedIn();  // Anyone signed in can view stats
-      allow write: if isSignedIn() && (isUser(userId) || isAdmin());  // Users can update their own stats, admins can update any
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isUser(userId) || isAdmin());
     }
 
-    // Contributor requests collection
+    // Contributor Requests collection
     match /contributorRequests/{requestId} {
       allow read: if isSignedIn() && (
-        // Users can read their own requests
-        (exists(resource.data) && request.auth.uid == resource.data.userId) ||
-        // Admins can read all requests
+        request.auth.uid == resource.data.userId ||
         isAdmin()
       );
       allow create: if isSignedIn() && (
-        // Users can create requests for themselves
         request.auth.uid == request.resource.data.userId &&
-        // Only viewers can request contributor status
         getRole() == 'viewer' &&
-        // Request must have required fields
         request.resource.data.keys().hasAll(['userId', 'userEmail', 'status', 'createdAt'])
       );
       allow delete: if isSignedIn() && (
-        // Users can delete their own requests
-        (exists(resource.data) && request.auth.uid == resource.data.userId) ||
-        // Admins can delete any request
+        request.auth.uid == resource.data.userId ||
         isAdmin()
       );
     }
 
     // Receipts collection
     match /receipts/{receiptId} {
-      allow read, write: if true;  // For testing, allow all access
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
 
     // Products collection
@@ -100,11 +90,11 @@ service cloud.firestore {
       allow create: if isContributor();
       allow update: if isContributor();
       allow delete: if isSignedIn() && (
-        isAdmin() || 
-        resource.data.created_by == request.auth.uid
+        isAdmin() || resource.data.created_by == request.auth.uid
       );
     }
-    
+
+    // Companies collection
     match /companies/{companyId} {
       allow read: if isSignedIn();
       allow create: if isContributor();
@@ -114,42 +104,42 @@ service cloud.firestore {
 
     // Canadian Products collection
     match /canadian_products/{productId} {
-      // Anyone can read public products, authenticated users can read all products
       allow read: if resource.data.isPubliclyVisible == true || isSignedIn();
-      
-      // Only authenticated users can create, update, or delete
-      allow create, update, delete: if isSignedIn();
-
-      // Allow updating like stats separately
-      allow update: if isSignedIn() || 
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeStats']));
+      allow create, delete: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.created_by == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeStats'])
+      );
     }
 
     // Brand Likes collection
     match /brandLikes/{likeId} {
-      allow read: if true;  // Anyone can read like counts
-      allow create, update, delete: if request.auth != null;  // Must be signed in to like/unlike
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
     }
 
     // Brand Like Stats collection
     match /brandLikeStats/{brandId} {
-      allow read: if true;  // Anyone can read like stats
-      allow write: if request.auth != null;  // Must be signed in to update stats
+      allow read: if true;
+      allow write: if request.auth != null;
     }
 
     // Public Stats collection
     match /public_stats/{docId} {
-      // Anyone can read public stats
       allow read: if true;
-      
-      // Only admins can write to public stats
       allow write: if isAdmin();
     }
     
     // Email Sequences collection
     match /email_sequences/{sequenceId} {
-      // Only admins can read, create, update, or delete email sequences
       allow read, write: if isAdmin();
+    }
+    
+    // Email Logs collection
+    match /email_logs/{logId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if request.auth != null && request.auth.token.admin == true;
+      allow write: if request.auth == null; // Allow backend services
     }
   }
 }

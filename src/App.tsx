@@ -18,6 +18,7 @@ import { AuthProvider, RequireAuth, RequireAdmin, useAuth, ProtectedRoute } from
 import { NotificationProvider } from './components/common/NotificationSnackbar';
 import ProductManagement from './components/admin/ProductManagement';
 import MasterCategoryEditor from './components/admin/MasterCategoryEditor';
+import EmailManagement from './components/admin/EmailManagement';
 import { Footer } from './components/Footer';
 import { Box } from '@mui/material';
 import { PromotionalBanner } from './components/PromotionalBanner';
@@ -95,6 +96,17 @@ function App() {
                                 fallback="/login"
                               >
                                 <MasterCategoryEditor />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/admin/email"
+                            element={
+                              <ProtectedRoute
+                                requiredRole="admin"
+                                fallback="/login"
+                              >
+                                <EmailManagement />
                               </ProtectedRoute>
                             }
                           />

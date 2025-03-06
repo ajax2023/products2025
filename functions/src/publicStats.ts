@@ -56,12 +56,38 @@ export const onUserStatusChange = functions.firestore
       return null;
     }
     
-    // Trigger the stats update
+    // Since we can't directly call the function, we'll update the stats manually
     try {
-      await updatePublicStats.run();
+      const db = admin.firestore();
+      
+      // Get count of active users
+      const usersSnapshot = await db
+        .collection('users')
+        .where('status', '==', 'active')
+        .get();
+      
+      // Get count of Canadian products and public products
+      const productsSnapshot = await db
+        .collection('canadian_products')
+        .get();
+      
+      const totalProducts = productsSnapshot.size;
+      const publicProducts = productsSnapshot.docs.filter(
+        doc => doc.data().isPubliclyVisible === true
+      ).length;
+      
+      // Update the public stats document
+      await db.doc('public_stats/user_counts').set({
+        activeUsers: usersSnapshot.size,
+        totalProducts,
+        publicProducts,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
       console.log('Public stats updated after user status change');
+      return null;
     } catch (error) {
       console.error('Error updating stats after user change:', error);
-      throw error;
+      return null;
     }
   });

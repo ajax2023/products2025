@@ -206,3 +206,11 @@ exports.onUserStatusChange = functions.firestore
       throw error;
     }
   });
+
+// Import email automation functions
+const emailAutomation = require('./lib/emailAutomation.js');
+
+// Export email automation functions
+exports.processScheduledEmails = emailAutomation.processScheduledEmails;
+exports.processEventTriggeredEmail = emailAutomation.processEventTriggeredEmail;
+exports.retryFailedEmails = emailAutomation.retryFailedEmails;
