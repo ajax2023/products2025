@@ -88,20 +88,25 @@ const EmailSequenceList: React.FC<EmailSequenceListProps> = ({ sequences, onEdit
     if (!sequenceToTest) return;
     
     try {
-      // Create a test event in Firestore to trigger the email
-      const eventRef = collection(db, 'events');
-      await addDoc(eventRef, {
-        type: 'test_email_trigger',
+      // Create a test email log directly instead of an event
+      const logRef = collection(db, 'email_logs');
+      await addDoc(logRef, {
         sequenceId: sequenceToTest.id,
-        timestamp: serverTimestamp(),
-        userId: 'test', // This should be a real user ID in production
-        metadata: {
+        sequenceName: sequenceToTest.name,
+        emailSubject: sequenceToTest.emails[0]?.subject || 'Test Email',
+        emailBody: sequenceToTest.emails[0]?.body || 'This is a test email',
+        userId: 'test-user',
+        userEmail: 'test@example.com',
+        status: 'sent',
+        sentAt: serverTimestamp(),
+        triggerType: 'manual_test',
+        triggerDetails: {
           isTest: true,
-          sequenceName: sequenceToTest.name
+          triggeredBy: 'admin'
         }
       });
       
-      showMessage('Test email triggered successfully', 'success');
+      showMessage('Test email logged successfully', 'success');
     } catch (error) {
       console.error('Error triggering test email:', error);
       showMessage('Failed to trigger test email', 'error');

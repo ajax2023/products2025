@@ -7,6 +7,15 @@ const functions = require("firebase-functions");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 
+// Import email automation functions
+const emailAutomation = require('./lib/emailAutomation');
+
+// Export email automation functions
+exports.processScheduledEmails = emailAutomation.processScheduledEmails;
+exports.processEventTriggeredEmail = emailAutomation.processEventTriggeredEmail;
+exports.retryFailedEmails = emailAutomation.retryFailedEmails;
+exports.onUserCreated = emailAutomation.onUserCreated;
+
 // Define configuration parameters
 const geminiApiKey = defineString('GEMINI_API_KEY');
 
@@ -206,11 +215,3 @@ exports.onUserStatusChange = functions.firestore
       throw error;
     }
   });
-
-// Import email automation functions
-const emailAutomation = require('./lib/emailAutomation.js');
-
-// Export email automation functions
-exports.processScheduledEmails = emailAutomation.processScheduledEmails;
-exports.processEventTriggeredEmail = emailAutomation.processEventTriggeredEmail;
-exports.retryFailedEmails = emailAutomation.retryFailedEmails;

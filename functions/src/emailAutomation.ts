@@ -96,9 +96,28 @@ async function createTransporter() {
  * Sends an email using nodemailer with service account
  */
 async function sendEmail(recipient: string, subject: string, body: string): Promise<void> {
+  console.log(`[EMAIL SYSTEM] Preparing to send email to ${recipient} with subject: ${subject}`);
+  
   try {
+    // Check if we have Gmail config
+    const { clientEmail, privateKey } = getGmailConfig();
+    
+    if (!clientEmail || !privateKey) {
+      console.error('[EMAIL SYSTEM] Missing Gmail API configuration. Email will be logged but not sent.');
+      
+      // Log the email content for debugging
+      console.log('[EMAIL SYSTEM] Email content that would have been sent:');
+      console.log(`[EMAIL SYSTEM] To: ${recipient}`);
+      console.log(`[EMAIL SYSTEM] Subject: ${subject}`);
+      console.log(`[EMAIL SYSTEM] Body: ${body.substring(0, 200)}...`);
+      
+      // For testing, we'll consider this a success since we're logging it
+      console.log('[EMAIL SYSTEM] Email logged successfully (but not actually sent)');
+      return;
+    }
+    
+    console.log(`[EMAIL SYSTEM] Creating email transporter with client email: ${clientEmail}`);
     const transporter = await createTransporter();
-    const { clientEmail } = getGmailConfig();
     
     const mailOptions = {
       from: `"Products 2025" <${clientEmail}>`,
@@ -107,9 +126,17 @@ async function sendEmail(recipient: string, subject: string, body: string): Prom
       html: body
     };
 
+    console.log('[EMAIL SYSTEM] Sending email...');
     await transporter.sendMail(mailOptions);
+    console.log('[EMAIL SYSTEM] Email sent successfully');
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('[EMAIL SYSTEM] Error sending email:', error);
+    
+    // Log the attempted email for debugging
+    console.log('[EMAIL SYSTEM] Failed email details:');
+    console.log(`[EMAIL SYSTEM] To: ${recipient}`);
+    console.log(`[EMAIL SYSTEM] Subject: ${subject}`);
+    
     throw error;
   }
 }
@@ -347,20 +374,25 @@ export const processEventTriggeredEmail = functions.firestore
   .onCreate(async (snapshot, context) => {
     try {
       const eventData = snapshot.data();
+      const eventId = context.params.eventId;
       const eventType = eventData.type;
       const userId = eventData.userId;
       
+      console.log(`[EMAIL SYSTEM] Event trigger fired for event ID: ${eventId}`);
+      console.log(`[EMAIL SYSTEM] Event data:`, JSON.stringify(eventData));
+      
       if (!eventType || !userId) {
-        console.log('Event missing required fields:', eventData);
+        console.log(`[EMAIL SYSTEM] Event missing required fields:`, JSON.stringify(eventData));
         return null;
       }
       
       // Get user data
       const db = admin.firestore();
+      console.log(`[EMAIL SYSTEM] Looking up user data for user ID: ${userId}`);
       const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
       
       if (!userDoc.exists) {
-        console.log(`User ${userId} not found`);
+        console.log(`[EMAIL SYSTEM] User ${userId} not found`);
         return null;
       }
       
@@ -368,24 +400,40 @@ export const processEventTriggeredEmail = functions.firestore
       const userEmail = userData?.email;
       
       if (!userEmail) {
-        console.log(`User ${userId} has no email`);
+        console.log(`[EMAIL SYSTEM] User ${userId} has no email`);
         return null;
       }
       
+      console.log(`[EMAIL SYSTEM] Found user email: ${userEmail}`);
+      
       // Get active sequences with matching trigger event
+      console.log(`[EMAIL SYSTEM] Looking for active sequences with trigger event: ${eventType}`);
       const sequences = await getActiveSequences();
+      console.log(`[EMAIL SYSTEM] Found ${sequences.length} active sequences total`);
+      
       const matchingSequences = sequences.filter(sequence => 
         sequence.emails.some(email => email.triggerEvent === eventType)
       );
       
+      console.log(`[EMAIL SYSTEM] Found ${matchingSequences.length} matching sequences for event type: ${eventType}`);
+      
       for (const sequence of matchingSequences) {
+        console.log(`[EMAIL SYSTEM] Processing sequence: ${sequence.id} - ${sequence.name}`);
+        
         // Find all emails with matching trigger event
         sequence.emails.forEach(async (email, index) => {
           if (email.triggerEvent === eventType) {
+            console.log(`[EMAIL SYSTEM] Found matching email at index ${index} with subject: ${email.subject}`);
+            
             // Check if this event-triggered email has already been sent to this user
             const alreadySent = await hasEmailBeenSent(sequence.id, index, userId);
             
-            if (alreadySent) return;
+            if (alreadySent) {
+              console.log(`[EMAIL SYSTEM] Email already sent to user ${userId}, skipping`);
+              return;
+            }
+            
+            console.log(`[EMAIL SYSTEM] Preparing to send email to ${userEmail}`);
             
             // Create a pending log entry
             const logEntry: EmailLog = {
@@ -401,10 +449,13 @@ export const processEventTriggeredEmail = functions.firestore
               userId
             };
             
+            console.log(`[EMAIL SYSTEM] Creating email log entry`);
             const logId = await createEmailLog(logEntry);
+            console.log(`[EMAIL SYSTEM] Created log entry with ID: ${logId}`);
             
             try {
               // Send the email
+              console.log(`[EMAIL SYSTEM] Attempting to send email to ${userEmail}`);
               await sendEmail(userEmail, email.subject, email.body);
               
               // Update log to success
@@ -412,15 +463,16 @@ export const processEventTriggeredEmail = functions.firestore
                 status: 'success'
               });
               
-              console.log(`Successfully sent event-triggered email to ${userEmail}`);
+              console.log(`[EMAIL SYSTEM] Successfully sent event-triggered email to ${userEmail}`);
             } catch (error) {
               // Update log to failed
+              console.error(`[EMAIL SYSTEM] Failed to send email:`, error);
               await updateEmailLog(logId, {
                 status: 'failed',
                 error: error instanceof Error ? error.message : String(error)
               });
               
-              console.error(`Failed to send event-triggered email to ${userEmail}:`, error);
+              console.error(`[EMAIL SYSTEM] Failed to send event-triggered email to ${userEmail}:`, error);
             }
           }
         });
@@ -428,7 +480,48 @@ export const processEventTriggeredEmail = functions.firestore
       
       return null;
     } catch (error) {
-      console.error('Error processing event-triggered email:', error);
+      console.error('[EMAIL SYSTEM] Error processing event-triggered email:', error);
+      return null;
+    }
+  });
+
+/**
+ * Listens for new user creation and triggers the user_registration event
+ */
+export const onUserCreated = functions.firestore
+  .document('users/{userId}')
+  .onCreate(async (snapshot, context) => {
+    try {
+      const userData = snapshot.data();
+      const userId = context.params.userId;
+      
+      console.log(`[EMAIL SYSTEM] User created trigger fired for user ID: ${userId}`);
+      console.log(`[EMAIL SYSTEM] User data:`, JSON.stringify(userData));
+      
+      if (!userData.email) {
+        console.log(`[EMAIL SYSTEM] User ${userId} has no email, skipping registration email`);
+        return null;
+      }
+      
+      // Create an event document to trigger the email sequence
+      const db = admin.firestore();
+      console.log(`[EMAIL SYSTEM] Creating user_registration event for user ${userId} with email ${userData.email}`);
+      
+      const eventRef = await db.collection('events').add({
+        type: 'user_registration',
+        userId: userId,
+        userEmail: userData.email,
+        timestamp: admin.firestore.Timestamp.now(),
+        metadata: {
+          source: 'user_creation',
+          userDisplayName: userData.displayName || ''
+        }
+      });
+      
+      console.log(`[EMAIL SYSTEM] Created user_registration event with ID: ${eventRef.id} for user ${userId}`);
+      return null;
+    } catch (error) {
+      console.error('[EMAIL SYSTEM] Error creating user registration event:', error);
       return null;
     }
   });

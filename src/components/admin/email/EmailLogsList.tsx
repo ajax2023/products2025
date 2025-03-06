@@ -64,29 +64,33 @@ const EmailLogsList: React.FC = () => {
 
     setLoading(true);
     try {
-      // Build the query based on filters
+      // Start with a basic query
       let logsQuery = query(
         collection(db, EMAIL_LOGS_COLLECTION),
         orderBy('sentAt', 'desc'),
         limit(LOGS_PER_PAGE)
       );
 
-      // Apply status filter if not 'all'
-      if (statusFilter !== 'all') {
-        logsQuery = query(logsQuery, where('status', '==', statusFilter));
-      }
-
-      // Apply trigger type filter if not 'all'
-      if (triggerFilter !== 'all') {
-        logsQuery = query(logsQuery, where('triggerType', '==', triggerFilter));
-      }
-
-      // Apply pagination
-      if (!refresh && lastVisible && page > 1) {
-        logsQuery = query(logsQuery, startAfter(lastVisible));
-      }
-
+      // Apply filters one at a time to avoid complex index requirements
+      // Note: This approach may not be as efficient but requires fewer indexes
+      
+      // Get the documents
       const snapshot = await getDocs(logsQuery);
+      
+      // Filter results client-side if needed
+      let fetchedLogs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as EmailLog[];
+      
+      // Apply client-side filtering if needed
+      if (statusFilter !== 'all') {
+        fetchedLogs = fetchedLogs.filter(log => log.status === statusFilter);
+      }
+      
+      if (triggerFilter !== 'all') {
+        fetchedLogs = fetchedLogs.filter(log => log.triggerType === triggerFilter);
+      }
       
       // Check if there are more results
       setHasMore(snapshot.docs.length === LOGS_PER_PAGE);
@@ -98,16 +102,17 @@ const EmailLogsList: React.FC = () => {
         setLastVisible(null);
       }
 
-      // Map the documents to EmailLog objects
-      const fetchedLogs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as EmailLog[];
-
       setLogs(fetchedLogs);
     } catch (error) {
       console.error('Error loading email logs:', error);
-      showMessage('Failed to load email logs', 'error');
+      let errorMessage = 'Failed to load email logs';
+      
+      // Check if it's an index error and provide helpful message
+      if (error instanceof Error && error.message.includes('index')) {
+        errorMessage = 'Index error: The email logs query requires an index. Please follow the link in the console to create it.';
+      }
+      
+      showMessage(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
