@@ -15,6 +15,7 @@ exports.processScheduledEmails = emailAutomation.processScheduledEmails;
 exports.processEventTriggeredEmail = emailAutomation.processEventTriggeredEmail;
 exports.retryFailedEmails = emailAutomation.retryFailedEmails;
 exports.onUserCreated = emailAutomation.onUserCreated;
+exports.testWelcomeEmail = emailAutomation.testWelcomeEmail;
 
 // Define configuration parameters
 const geminiApiKey = defineString('GEMINI_API_KEY');

@@ -80,12 +80,12 @@ async function createTransporter() {
   
   // Create a transporter using service account credentials
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
-      type: 'OAuth2',
       user: clientEmail,
-      serviceClient: clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n')
+      pass: process.env.GMAIL_PASSWORD || functions.config().gmail?.password
     }
   });
   
@@ -593,3 +593,194 @@ export const retryFailedEmails = functions.pubsub
       return null;
     }
   });
+
+/**
+ * Test function to manually trigger a welcome email for a user
+ */
+export const testWelcomeEmail = functions.https.onCall(async (data, context) => {
+  try {
+    // Ensure the user is authenticated
+    if (!context.auth) {
+      console.log('[EMAIL SYSTEM] Unauthorized test email attempt');
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to test emails');
+    }
+    
+    // Get the user ID from the request or use the authenticated user's ID
+    const userId = data.userId || context.auth.uid;
+    console.log(`[EMAIL SYSTEM] Test welcome email triggered for user: ${userId}`);
+    
+    // Get user data
+    const db = admin.firestore();
+    const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+    
+    if (!userDoc.exists) {
+      console.log(`[EMAIL SYSTEM] Test failed: User ${userId} not found`);
+      throw new functions.https.HttpsError('not-found', `User ${userId} not found`);
+    }
+    
+    const userData = userDoc.data();
+    const userEmail = userData?.email;
+    
+    if (!userEmail) {
+      console.log(`[EMAIL SYSTEM] Test failed: User ${userId} has no email`);
+      throw new functions.https.HttpsError('failed-precondition', `User ${userId} has no email`);
+    }
+    
+    console.log(`[EMAIL SYSTEM] Creating test event for user ${userId} with email ${userEmail}`);
+    
+    // Create an event document to trigger the email sequence
+    const eventRef = await db.collection('events').add({
+      type: 'user_registration',
+      userId: userId,
+      userEmail: userEmail,
+      timestamp: admin.firestore.Timestamp.now(),
+      metadata: {
+        source: 'manual_test',
+        userDisplayName: userData.displayName || ''
+      }
+    });
+    
+    console.log(`[EMAIL SYSTEM] Created test event with ID: ${eventRef.id}`);
+    
+    // For immediate testing, also directly create an email log and send the email
+    console.log(`[EMAIL SYSTEM] Directly sending test welcome email to ${userEmail}`);
+    
+    // Find a welcome email sequence
+    const sequencesSnapshot = await db.collection('email_sequences')
+      .where('status', '==', 'active')
+      .get();
+    
+    const sequences = sequencesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name || '',
+        type: data.type || 'user',
+        emails: Array.isArray(data.emails) ? data.emails : [],
+        status: data.status || 'active',
+        createdAt: data.createdAt || admin.firestore.Timestamp.now(),
+        updatedAt: data.updatedAt || admin.firestore.Timestamp.now()
+      };
+    });
+    
+    console.log(`[EMAIL SYSTEM] Found ${sequences.length} active sequences`);
+    
+    // Look for a sequence with a user_registration trigger
+    const welcomeSequence = sequences.find(seq => 
+      Array.isArray(seq.emails) && seq.emails.some(email => email.triggerEvent === 'user_registration')
+    );
+    
+    if (!welcomeSequence) {
+      console.log('[EMAIL SYSTEM] No welcome email sequence found');
+      
+      // Create a simple welcome email directly
+      const subject = 'Welcome to Products 2025!';
+      const body = `
+        <h1>Welcome to Products 2025!</h1>
+        <p>Thank you for joining our community!</p>
+        <p>This is a test welcome email sent directly from our system.</p>
+      `;
+      
+      // Create a log entry
+      const logEntry: EmailLog = {
+        sequenceId: 'test_sequence',
+        emailIndex: 0,
+        recipient: userEmail,
+        subject,
+        sentAt: admin.firestore.Timestamp.now(),
+        status: 'pending',
+        retryCount: 0,
+        triggerType: 'event',
+        triggerValue: 'user_registration',
+        userId
+      };
+      
+      console.log('[EMAIL SYSTEM] Creating test email log');
+      const logId = await createEmailLog(logEntry);
+      
+      try {
+        // Send the email
+        await sendEmail(userEmail, subject, body);
+        
+        // Update log to success
+        await updateEmailLog(logId, {
+          status: 'success'
+        });
+        
+        console.log(`[EMAIL SYSTEM] Test welcome email sent successfully to ${userEmail}`);
+        return { success: true, message: 'Test welcome email sent successfully' };
+      } catch (error) {
+        console.error('[EMAIL SYSTEM] Failed to send test welcome email:', error);
+        
+        // Update log to failed
+        await updateEmailLog(logId, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error)
+        });
+        
+        throw new functions.https.HttpsError('internal', 'Failed to send test welcome email');
+      }
+    } else {
+      console.log(`[EMAIL SYSTEM] Found welcome sequence: ${welcomeSequence.id}`);
+      
+      // Find the welcome email in the sequence
+      const welcomeEmailIndex = welcomeSequence.emails.findIndex(email => 
+        email.triggerEvent === 'user_registration'
+      );
+      
+      if (welcomeEmailIndex === -1) {
+        console.log('[EMAIL SYSTEM] No welcome email found in sequence');
+        throw new functions.https.HttpsError('not-found', 'No welcome email found in sequence');
+      }
+      
+      const welcomeEmail = welcomeSequence.emails[welcomeEmailIndex];
+      console.log(`[EMAIL SYSTEM] Found welcome email at index ${welcomeEmailIndex}`);
+      
+      // Create a log entry
+      const logEntry: EmailLog = {
+        sequenceId: welcomeSequence.id,
+        emailIndex: welcomeEmailIndex,
+        recipient: userEmail,
+        subject: welcomeEmail.subject,
+        sentAt: admin.firestore.Timestamp.now(),
+        status: 'pending',
+        retryCount: 0,
+        triggerType: 'event',
+        triggerValue: 'user_registration',
+        userId
+      };
+      
+      console.log('[EMAIL SYSTEM] Creating email log entry');
+      const logId = await createEmailLog(logEntry);
+      
+      try {
+        // Send the email
+        await sendEmail(userEmail, welcomeEmail.subject, welcomeEmail.body);
+        
+        // Update log to success
+        await updateEmailLog(logId, {
+          status: 'success'
+        });
+        
+        console.log(`[EMAIL SYSTEM] Test welcome email sent successfully to ${userEmail}`);
+        return { success: true, message: 'Test welcome email sent successfully' };
+      } catch (error) {
+        console.error('[EMAIL SYSTEM] Failed to send test welcome email:', error);
+        
+        // Update log to failed
+        await updateEmailLog(logId, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error)
+        });
+        
+        throw new functions.https.HttpsError('internal', 'Failed to send test welcome email');
+      }
+    }
+  } catch (error) {
+    console.error('[EMAIL SYSTEM] Error in test welcome email function:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+});

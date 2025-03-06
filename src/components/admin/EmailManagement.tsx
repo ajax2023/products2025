@@ -16,6 +16,7 @@ import { useNotification } from '../common/NotificationSnackbar';
 import EmailSequenceList from './email/EmailSequenceList';
 import EmailLogsList from './email/EmailLogsList';
 import EmailSequenceEditor from './email/EmailSequenceEditor';
+import EmailTester from './email/EmailTester';
 import { EmailSequence } from '../../types/emailSequence';
 import { getEmailSequences } from '../../firebase/emailSequences';
 
@@ -128,6 +129,7 @@ const EmailManagement: React.FC = () => {
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="email management tabs">
             <Tab label="Email Sequences" {...a11yProps(0)} />
             <Tab label="Email Logs" {...a11yProps(1)} />
+            <Tab label="Email Testing" {...a11yProps(2)} />
           </Tabs>
         </Box>
 
@@ -147,6 +149,10 @@ const EmailManagement: React.FC = () => {
 
         <TabPanel value={tabValue} index={1}>
           <EmailLogsList />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={2}>
+          <EmailTester />
         </TabPanel>
       </Paper>
 
