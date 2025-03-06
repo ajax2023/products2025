@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import { differenceInDays } from 'date-fns';
+import { google } from 'googleapis';
 
 // Define types for email sequences and logs
 interface SequenceEmail {
@@ -68,32 +69,94 @@ const getGmailConfig = () => {
 const MAX_RETRY_ATTEMPTS = 3;
 
 /**
- * Creates a transporter for sending emails using service account
+ * Creates a transporter for sending emails using OAuth2
  */
 async function createTransporter() {
-  const { clientEmail, privateKey } = getGmailConfig();
-  
-  // Check if all required config values are present
-  if (!clientEmail || !privateKey) {
-    throw new Error('Missing Gmail API configuration. Please set gmail.client_email and gmail.private_key in Firebase config.');
-  }
-  
-  // Create a transporter using service account credentials
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: clientEmail,
-      pass: process.env.GMAIL_PASSWORD || functions.config().gmail?.password
+  try {
+    const { clientEmail, privateKey } = getGmailConfig();
+    
+    // Check if all required config values are present
+    if (!clientEmail || !privateKey) {
+      throw new Error('Missing Gmail API configuration. Please set gmail.client_email and gmail.private_key in Firebase config.');
     }
-  });
-  
-  return transporter;
+    
+    console.log(`[EMAIL SYSTEM] Creating transporter with client email: ${clientEmail}`);
+    
+    // Get OAuth2 client credentials from Firebase config
+    const clientId = functions.config().gmail?.client_id || '';
+    const clientSecret = functions.config().gmail?.client_secret || '';
+    const refreshToken = functions.config().gmail?.refresh_token || '';
+    
+    if (!clientId || !clientSecret || !refreshToken) {
+      console.warn('[EMAIL SYSTEM] Missing OAuth2 credentials, falling back to service account');
+      
+      // If using service account directly, log it for debugging
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          type: 'OAuth2',
+          user: clientEmail,
+          serviceClient: clientEmail,
+          privateKey: privateKey.replace(/\\n/g, '\n')
+        }
+      } as nodemailer.TransportOptions);
+      
+      return transporter;
+    }
+    
+    // Set up OAuth2 client
+    const OAuth2 = google.auth.OAuth2;
+    const oauth2Client = new OAuth2(
+      clientId,
+      clientSecret,
+      'https://developers.google.com/oauthplayground'
+    );
+    
+    // Set credentials
+    oauth2Client.setCredentials({
+      refresh_token: refreshToken
+    });
+    
+    // Get access token
+    console.log('[EMAIL SYSTEM] Getting access token...');
+    const accessToken = await oauth2Client.getAccessToken();
+    console.log('[EMAIL SYSTEM] Access token obtained');
+    
+    // Create transporter with OAuth2 authentication
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        type: 'OAuth2',
+        user: clientEmail,
+        clientId: clientId,
+        clientSecret: clientSecret,
+        refreshToken: refreshToken,
+        accessToken: accessToken.token
+      }
+    } as nodemailer.TransportOptions);
+    
+    // Verify the transporter configuration
+    try {
+      await transporter.verify();
+      console.log('[EMAIL SYSTEM] Transporter verified successfully');
+    } catch (error) {
+      console.error('[EMAIL SYSTEM] Transporter verification failed:', error);
+      throw error;
+    }
+    
+    return transporter;
+  } catch (error) {
+    console.error('[EMAIL SYSTEM] Error creating transporter:', error);
+    throw error;
+  }
 }
 
 /**
- * Sends an email using nodemailer with service account
+ * Sends an email using nodemailer with OAuth2
  */
 async function sendEmail(recipient: string, subject: string, body: string): Promise<void> {
   console.log(`[EMAIL SYSTEM] Preparing to send email to ${recipient} with subject: ${subject}`);

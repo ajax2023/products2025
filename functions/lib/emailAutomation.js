@@ -38,6 +38,7 @@ const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const nodemailer = __importStar(require("nodemailer"));
 const date_fns_1 = require("date-fns");
+const googleapis_1 = require("googleapis");
 // Collection paths
 const COLLECTIONS = {
     EMAIL_SEQUENCES: 'email_sequences',
@@ -66,29 +67,80 @@ const getGmailConfig = () => {
 // Maximum number of retry attempts for failed emails
 const MAX_RETRY_ATTEMPTS = 3;
 /**
- * Creates a transporter for sending emails using service account
+ * Creates a transporter for sending emails using OAuth2
  */
 async function createTransporter() {
-    var _a;
-    const { clientEmail, privateKey } = getGmailConfig();
-    // Check if all required config values are present
-    if (!clientEmail || !privateKey) {
-        throw new Error('Missing Gmail API configuration. Please set gmail.client_email and gmail.private_key in Firebase config.');
-    }
-    // Create a transporter using service account credentials
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-            user: clientEmail,
-            pass: process.env.GMAIL_PASSWORD || ((_a = functions.config().gmail) === null || _a === void 0 ? void 0 : _a.password)
+    var _a, _b, _c;
+    try {
+        const { clientEmail, privateKey } = getGmailConfig();
+        // Check if all required config values are present
+        if (!clientEmail || !privateKey) {
+            throw new Error('Missing Gmail API configuration. Please set gmail.client_email and gmail.private_key in Firebase config.');
         }
-    });
-    return transporter;
+        console.log(`[EMAIL SYSTEM] Creating transporter with client email: ${clientEmail}`);
+        // Get OAuth2 client credentials from Firebase config
+        const clientId = ((_a = functions.config().gmail) === null || _a === void 0 ? void 0 : _a.client_id) || '';
+        const clientSecret = ((_b = functions.config().gmail) === null || _b === void 0 ? void 0 : _b.client_secret) || '';
+        const refreshToken = ((_c = functions.config().gmail) === null || _c === void 0 ? void 0 : _c.refresh_token) || '';
+        if (!clientId || !clientSecret || !refreshToken) {
+            console.warn('[EMAIL SYSTEM] Missing OAuth2 credentials, falling back to service account');
+            // If using service account directly, log it for debugging
+            const transporter = nodemailer.createTransport({
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true,
+                auth: {
+                    type: 'OAuth2',
+                    user: clientEmail,
+                    serviceClient: clientEmail,
+                    privateKey: privateKey.replace(/\\n/g, '\n')
+                }
+            });
+            return transporter;
+        }
+        // Set up OAuth2 client
+        const OAuth2 = googleapis_1.google.auth.OAuth2;
+        const oauth2Client = new OAuth2(clientId, clientSecret, 'https://developers.google.com/oauthplayground');
+        // Set credentials
+        oauth2Client.setCredentials({
+            refresh_token: refreshToken
+        });
+        // Get access token
+        console.log('[EMAIL SYSTEM] Getting access token...');
+        const accessToken = await oauth2Client.getAccessToken();
+        console.log('[EMAIL SYSTEM] Access token obtained');
+        // Create transporter with OAuth2 authentication
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+                type: 'OAuth2',
+                user: clientEmail,
+                clientId: clientId,
+                clientSecret: clientSecret,
+                refreshToken: refreshToken,
+                accessToken: accessToken.token
+            }
+        });
+        // Verify the transporter configuration
+        try {
+            await transporter.verify();
+            console.log('[EMAIL SYSTEM] Transporter verified successfully');
+        }
+        catch (error) {
+            console.error('[EMAIL SYSTEM] Transporter verification failed:', error);
+            throw error;
+        }
+        return transporter;
+    }
+    catch (error) {
+        console.error('[EMAIL SYSTEM] Error creating transporter:', error);
+        throw error;
+    }
 }
 /**
- * Sends an email using nodemailer with service account
+ * Sends an email using nodemailer with OAuth2
  */
 async function sendEmail(recipient, subject, body) {
     console.log(`[EMAIL SYSTEM] Preparing to send email to ${recipient} with subject: ${subject}`);
