@@ -1,8 +1,9 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import * as nodemailer from 'nodemailer';
 import { differenceInDays } from 'date-fns';
-import { google } from 'googleapis';
+
+// Import SendGrid properly according to their documentation
+import sgMail from '@sendgrid/mail';
 
 // Define types for email sequences and logs
 interface SequenceEmail {
@@ -46,159 +47,50 @@ const COLLECTIONS = {
   USERS: 'users',
 };
 
-// Gmail service account configuration
-const getGmailConfig = () => {
-  try {
-    const gmailConfig = functions.config().gmail || {};
-    return {
-      clientEmail: gmailConfig.client_email || '',
-      privateKey: gmailConfig.private_key || '',
-      projectId: gmailConfig.project_id || ''
-    };
-  } catch (error) {
-    console.error('Error getting Gmail config:', error);
-    return {
-      clientEmail: '',
-      privateKey: '',
-      projectId: ''
-    };
-  }
-};
-
 // Maximum number of retry attempts for failed emails
 const MAX_RETRY_ATTEMPTS = 3;
 
 /**
- * Creates a transporter for sending emails using OAuth2
- */
-async function createTransporter() {
-  try {
-    const { clientEmail, privateKey } = getGmailConfig();
-    
-    // Check if all required config values are present
-    if (!clientEmail || !privateKey) {
-      throw new Error('Missing Gmail API configuration. Please set gmail.client_email and gmail.private_key in Firebase config.');
-    }
-    
-    console.log(`[EMAIL SYSTEM] Creating transporter with client email: ${clientEmail}`);
-    
-    // Get OAuth2 client credentials from Firebase config
-    const clientId = functions.config().gmail?.client_id || '';
-    const clientSecret = functions.config().gmail?.client_secret || '';
-    const refreshToken = functions.config().gmail?.refresh_token || '';
-    
-    if (!clientId || !clientSecret || !refreshToken) {
-      console.warn('[EMAIL SYSTEM] Missing OAuth2 credentials, falling back to service account');
-      
-      // If using service account directly, log it for debugging
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          type: 'OAuth2',
-          user: clientEmail,
-          serviceClient: clientEmail,
-          privateKey: privateKey.replace(/\\n/g, '\n')
-        }
-      } as nodemailer.TransportOptions);
-      
-      return transporter;
-    }
-    
-    // Set up OAuth2 client
-    const OAuth2 = google.auth.OAuth2;
-    const oauth2Client = new OAuth2(
-      clientId,
-      clientSecret,
-      'https://developers.google.com/oauthplayground'
-    );
-    
-    // Set credentials
-    oauth2Client.setCredentials({
-      refresh_token: refreshToken
-    });
-    
-    // Get access token
-    console.log('[EMAIL SYSTEM] Getting access token...');
-    const accessToken = await oauth2Client.getAccessToken();
-    console.log('[EMAIL SYSTEM] Access token obtained');
-    
-    // Create transporter with OAuth2 authentication
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        type: 'OAuth2',
-        user: clientEmail,
-        clientId: clientId,
-        clientSecret: clientSecret,
-        refreshToken: refreshToken,
-        accessToken: accessToken.token
-      }
-    } as nodemailer.TransportOptions);
-    
-    // Verify the transporter configuration
-    try {
-      await transporter.verify();
-      console.log('[EMAIL SYSTEM] Transporter verified successfully');
-    } catch (error) {
-      console.error('[EMAIL SYSTEM] Transporter verification failed:', error);
-      throw error;
-    }
-    
-    return transporter;
-  } catch (error) {
-    console.error('[EMAIL SYSTEM] Error creating transporter:', error);
-    throw error;
-  }
-}
-
-/**
- * Sends an email using nodemailer with OAuth2
+ * Sends an email using the SendGrid API
+ * @param recipient The email address of the recipient
+ * @param subject The subject of the email
+ * @param body The HTML body of the email
+ * @returns A promise that resolves when the email is sent
  */
 async function sendEmail(recipient: string, subject: string, body: string): Promise<void> {
-  console.log(`[EMAIL SYSTEM] Preparing to send email to ${recipient} with subject: ${subject}`);
+  const apiKey = functions.config().sendgrid?.api_key;
+  if (!apiKey) {
+    throw new Error('SendGrid API key is missing');
+  }
+  
+  sgMail.setApiKey(apiKey);
+  
+  // The sender email must be a verified sender in SendGrid
+  const fromEmail = functions.config().sendgrid?.from_email || 'ajax@canada2025.com';
   
   try {
-    // Check if we have Gmail config
-    const { clientEmail, privateKey } = getGmailConfig();
-    
-    if (!clientEmail || !privateKey) {
-      console.error('[EMAIL SYSTEM] Missing Gmail API configuration. Email will be logged but not sent.');
-      
-      // Log the email content for debugging
-      console.log('[EMAIL SYSTEM] Email content that would have been sent:');
-      console.log(`[EMAIL SYSTEM] To: ${recipient}`);
-      console.log(`[EMAIL SYSTEM] Subject: ${subject}`);
-      console.log(`[EMAIL SYSTEM] Body: ${body.substring(0, 200)}...`);
-      
-      // For testing, we'll consider this a success since we're logging it
-      console.log('[EMAIL SYSTEM] Email logged successfully (but not actually sent)');
-      return;
-    }
-    
-    console.log(`[EMAIL SYSTEM] Creating email transporter with client email: ${clientEmail}`);
-    const transporter = await createTransporter();
-    
-    const mailOptions = {
-      from: `"Products 2025" <${clientEmail}>`,
+    const msg = {
       to: recipient,
-      subject,
+      from: {
+        email: fromEmail,
+        name: 'Canada 2025 Products'
+      },
+      subject: subject,
       html: body
     };
-
-    console.log('[EMAIL SYSTEM] Sending email...');
-    await transporter.sendMail(mailOptions);
-    console.log('[EMAIL SYSTEM] Email sent successfully');
-  } catch (error) {
-    console.error('[EMAIL SYSTEM] Error sending email:', error);
     
-    // Log the attempted email for debugging
-    console.log('[EMAIL SYSTEM] Failed email details:');
-    console.log(`[EMAIL SYSTEM] To: ${recipient}`);
-    console.log(`[EMAIL SYSTEM] Subject: ${subject}`);
+    await sgMail.send(msg);
+    console.log(`Email sent to ${recipient}`);
+  } catch (error: any) {
+    console.error('Error sending email', error);
+    
+    // Include detailed error information for debugging
+    if (error.response) {
+      console.error('SendGrid API Error:', {
+        body: error.response.body,
+        statusCode: error.response.statusCode
+      });
+    }
     
     throw error;
   }

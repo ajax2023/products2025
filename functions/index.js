@@ -10,12 +10,18 @@ admin.initializeApp();
 // Import email automation functions
 const emailAutomation = require('./lib/emailAutomation');
 
+// Import direct mail test
+const { directMailTest } = require('./lib/directMailTest');
+
 // Export email automation functions
 exports.processScheduledEmails = emailAutomation.processScheduledEmails;
 exports.processEventTriggeredEmail = emailAutomation.processEventTriggeredEmail;
 exports.retryFailedEmails = emailAutomation.retryFailedEmails;
 exports.onUserCreated = emailAutomation.onUserCreated;
 exports.testWelcomeEmail = emailAutomation.testWelcomeEmail;
+
+// Export direct mail test
+exports.directMailTest = directMailTest;
 
 // Define configuration parameters
 const geminiApiKey = defineString('GEMINI_API_KEY');

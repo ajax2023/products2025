@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '../../../firebaseConfig';
+import DirectEmailTest from './DirectEmailTest';
 
 /**
  * Component for testing email functionality
@@ -98,6 +99,11 @@ const EmailTester: React.FC = () => {
           </Alert>
         )}
       </Box>
+      
+      <Divider sx={{ my: 3 }} />
+      
+      {/* Add the direct email test component */}
+      <DirectEmailTest />
       
       <Typography variant="body2" color="text.secondary">
         This will trigger the Cloud Function to send a welcome email to the specified user.
