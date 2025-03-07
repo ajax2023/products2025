@@ -18,6 +18,7 @@
     "@google/generative-ai": "^0.21.0",
     "@sendgrid/mail": "^8.1.4",
     "date-fns": "^3.4.0",
+    "dotenv": "^16.4.7",
     "firebase-admin": "^11.11.1",
     "firebase-functions": "^4.7.0",
     "googleapis": "^133.0.0",

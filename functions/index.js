@@ -3,6 +3,8 @@ const { defineString } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const functions = require("firebase-functions");
+// Load environment variables from .env file
+require('dotenv').config();
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();

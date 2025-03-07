@@ -33,8 +33,8 @@ import {
   CheckCircleIcon,
   ErrorIcon,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import RefreshIcon from '@mui/icons-material/Refresh';
+// import SearchIcon from '@mui/icons-material/Search';
+// import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
@@ -47,7 +47,7 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
-import AddIcon from '@mui/icons-material/Add';
+// import AddIcon from '@mui/icons-material/Add';
 import debounce from 'lodash/debounce';
 import { cacheService } from '../services/cacheService';
 import { useAuth } from '../auth/useAuth';

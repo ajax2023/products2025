@@ -19,6 +19,8 @@ import GetAppIcon from '@mui/icons-material/GetApp';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import EmailIcon from '@mui/icons-material/Email';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import CloseIcon from '@mui/icons-material/Close';
 
 import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
@@ -32,6 +34,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const { claims } = useAuth();
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [isInstallable, setIsInstallable] = React.useState(false);
+  const [showAdminMenu, setShowAdminMenu] = React.useState(false);
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -208,8 +211,42 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               </IconButton>
             </Link>
 
-            {/* Product Management - Only show if admin */}
-            {isAdmin && (
+            {/* Admin Menu Toggle - Only show if admin */}
+            {isAdmin && !showAdminMenu && (
+              <IconButton 
+                color="inherit"
+                onClick={() => setShowAdminMenu(true)}
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: '#00FF00'
+                  }
+                }}
+              >
+                <Tooltip title="Show Admin Menu">
+                  <AdminPanelSettingsIcon />
+                </Tooltip>
+              </IconButton>
+            )}
+
+            {/* Admin Close Button - Only show if admin menu is open */}
+            {isAdmin && showAdminMenu && (
+              <IconButton 
+                color="inherit"
+                onClick={() => setShowAdminMenu(false)}
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: '#00FF00'
+                  }
+                }}
+              >
+                <Tooltip title="Hide Admin Menu">
+                  <CloseIcon />
+                </Tooltip>
+              </IconButton>
+            )}
+
+            {/* Product Management - Only show if admin and admin menu is open */}
+            {isAdmin && showAdminMenu && (
               <Link to="/admin/products" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit"
                  onClick={() => onTabChange && onTabChange('admin/products')}
@@ -226,8 +263,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               </Link>
             )}
 
-            {/* Master Category Editor - Only show if admin */}
-            {isAdmin && (
+            {/* Master Category Editor - Only show if admin and admin menu is open */}
+            {isAdmin && showAdminMenu && (
               <Link to="/admin/master-categories" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit"
                 onClick={() => onTabChange && onTabChange('admin/master-categories')}
@@ -243,8 +280,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               </Link>
             )}
 
-            {/* User Management - Only show if admin */}
-            {isAdmin && (
+            {/* User Management - Only show if admin and admin menu is open */}
+            {isAdmin && showAdminMenu && (
               <Link to="/admin/users" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit"
                 onClick={() => onTabChange && onTabChange('admin/users')}
@@ -262,8 +299,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               </Link>
             )}
 
-            {/* Email Management - Only show if admin */}
-            {isAdmin && (
+            {/* Email Management - Only show if admin and admin menu is open */}
+            {isAdmin && showAdminMenu && (
               <Link to="/admin/email" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <IconButton color="inherit"
                 onClick={() => onTabChange && onTabChange('admin/email')}
