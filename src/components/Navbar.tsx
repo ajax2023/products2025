@@ -211,6 +211,45 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
               </IconButton>
             </Link>
 
+          {/* Settings */}
+          <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <IconButton 
+              color="inherit"
+              onClick={() => onTabChange && onTabChange('settings')}
+              sx={{
+                '& .MuiSvgIcon-root': {
+                  color: isActive('/settings') || activeTab === 'settings' ? '#FF0000' : 'inherit'
+                },
+                marginLeft: '2px',
+              }}
+            >
+              <Tooltip title="Settings">
+                <SettingsIcon />
+              </Tooltip>
+            </IconButton>
+          </Link>
+
+          <Box sx={{ flexGrow: 1 }} /> {/* This pushes the following items to the right */}
+
+          {isInstallable && (
+            <Box sx={{ marginLeft: 'auto' }}> {/* Ensures it aligns to the right */}
+              <Tooltip title="Install App">
+                <IconButton
+                  onClick={handleInstallClick}
+                  sx={{
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.common.white, 0.1),
+                    },
+                    marginLeft: '15px',
+                  }}
+                >
+                  <GetAppIcon sx={{ color: 'white' }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+
             {/* Admin Menu Toggle - Only show if admin */}
             {isAdmin && !showAdminMenu && (
               <IconButton 
@@ -218,6 +257,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                 onClick={() => setShowAdminMenu(true)}
                 sx={{
                   '& .MuiSvgIcon-root': {
+                    // color: '#336699'
                     color: '#00FF00'
                   }
                 }}
@@ -318,44 +358,6 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
             )}
           </Box>
 
-          {/* Settings */}
-          <Link to="/settings" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <IconButton 
-              color="inherit"
-              onClick={() => onTabChange && onTabChange('settings')}
-              sx={{
-                '& .MuiSvgIcon-root': {
-                  color: isActive('/settings') || activeTab === 'settings' ? '#FF0000' : 'inherit'
-                },
-                marginLeft: '2px',
-              }}
-            >
-              <Tooltip title="Settings">
-                <SettingsIcon />
-              </Tooltip>
-            </IconButton>
-          </Link>
-
-          <Box sx={{ flexGrow: 1 }} /> {/* This pushes the following items to the right */}
-
-          {isInstallable && (
-            <Box sx={{ marginLeft: 'auto' }}> {/* Ensures it aligns to the right */}
-              <Tooltip title="Install App">
-                <IconButton
-                  onClick={handleInstallClick}
-                  sx={{
-                    color: 'white',
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.common.white, 0.1),
-                    },
-                    marginLeft: '15px',
-                  }}
-                >
-                  <GetAppIcon sx={{ color: 'white' }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          )}
         </Toolbar>
       </AppBar>
     </Box>
