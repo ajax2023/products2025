@@ -65,16 +65,30 @@ export const getUpdateById = async (id: string): Promise<Update | null> => {
 // Add a new update
 export const addUpdate = async (update: Omit<Update, 'id' | 'createdAt' | 'updatedAt'>, userId: string): Promise<string> => {
   try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+    console.log('addUpdate called with:', { update, userId });
+    console.log('Using collection:', COLLECTION_NAME);
+    
+    const updateData = {
       ...update,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       createdBy: userId,
-    });
+    };
+    console.log('Prepared update data:', updateData);
+    
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), updateData);
+    console.log('Document written with ID:', docRef.id);
     
     return docRef.id;
   } catch (error) {
-    console.error('Error adding update:', error);
+    console.error('Detailed error in addUpdate:', {
+      error,
+      errorMessage: error.message,
+      errorCode: error.code,
+      update,
+      userId,
+      collection: COLLECTION_NAME
+    });
     throw error;
   }
 };
@@ -82,14 +96,26 @@ export const addUpdate = async (update: Omit<Update, 'id' | 'createdAt' | 'updat
 // Update an existing update
 export const updateExistingUpdate = async (id: string, updateData: Partial<Update>): Promise<void> => {
   try {
+    console.log('updateExistingUpdate called with:', { id, updateData });
     const updateRef = doc(db, COLLECTION_NAME, id);
     
-    await updateDoc(updateRef, {
+    const finalData = {
       ...updateData,
       updatedAt: serverTimestamp(),
-    });
+    };
+    console.log('Prepared update data:', finalData);
+    
+    await updateDoc(updateRef, finalData);
+    console.log('Document updated successfully');
   } catch (error) {
-    console.error(`Error updating update with ID ${id}:`, error);
+    console.error('Detailed error in updateExistingUpdate:', {
+      error,
+      errorMessage: error.message,
+      errorCode: error.code,
+      id,
+      updateData,
+      collection: COLLECTION_NAME
+    });
     throw error;
   }
 };

@@ -70,14 +70,24 @@ export default function UpdateManager({ open, onClose, update, userId, onUpdateS
     setError(null);
     
     try {
+      console.log('Attempting to save update with data:', {
+        title,
+        content,
+        userId,
+        isEditing,
+        updateId: update?.id
+      });
+
       if (isEditing && update) {
         // Update existing update
+        console.log('Updating existing update:', update.id);
         await updateExistingUpdate(update.id, {
           title,
           content,
         });
       } else {
         // Add new update
+        console.log('Creating new update for user:', userId);
         await addUpdate({
           title,
           content,
@@ -85,10 +95,22 @@ export default function UpdateManager({ open, onClose, update, userId, onUpdateS
         }, userId);
       }
       
+      console.log('Update saved successfully');
       onUpdateSaved();
       handleClose();
     } catch (err) {
-      console.error('Error saving update:', err);
+      console.error('Detailed error saving update:', {
+        error: err,
+        errorMessage: err.message,
+        errorCode: err.code,
+        userId,
+        isEditing,
+        updateData: {
+          title,
+          content,
+          createdBy: userId
+        }
+      });
       setError('Failed to save update. Please try again.');
     } finally {
       setIsSubmitting(false);
