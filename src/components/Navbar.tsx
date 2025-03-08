@@ -21,9 +21,11 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import EmailIcon from '@mui/icons-material/Email';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import CloseIcon from '@mui/icons-material/Close';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
+import { swUpdateEvent } from '../serviceWorker';
 
 interface NavbarProps {
   onTabChange?: (tab: ViewState) => void;
@@ -35,6 +37,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [isInstallable, setIsInstallable] = React.useState(false);
   const [showAdminMenu, setShowAdminMenu] = React.useState(false);
+  const [updateAvailable, setUpdateAvailable] = React.useState(false);
+  const [swRegistration, setSwRegistration] = React.useState<ServiceWorkerRegistration | null>(null);
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -78,6 +82,24 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
     };
   }, []);
 
+  // Listen for service worker updates
+  React.useEffect(() => {
+    const handleSwUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('New version available!');
+      setUpdateAvailable(true);
+      if (customEvent.detail && customEvent.detail.registration) {
+        setSwRegistration(customEvent.detail.registration);
+      }
+    };
+
+    window.addEventListener(swUpdateEvent, handleSwUpdate);
+    
+    return () => {
+      window.removeEventListener(swUpdateEvent, handleSwUpdate);
+    };
+  }, []);
+
   // Enable scrolling with mouse wheel
   const handleWheelScroll = (e: React.WheelEvent) => {
     if (scrollContainer.current) {
@@ -104,6 +126,16 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
     if (outcome === 'accepted') {
       setIsInstallable(false);
     }
+  };
+
+  const handleUpdateClick = () => {
+    if (swRegistration && swRegistration.waiting) {
+      // Send message to service worker to skip waiting
+      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    
+    // Reload the page to get the new version
+    window.location.reload();
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -230,6 +262,31 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           </Link>
 
           <Box sx={{ flexGrow: 1 }} /> {/* This pushes the following items to the right */}
+
+          {updateAvailable && (
+            <Box sx={{ marginLeft: 'auto' }}> {/* Ensures it aligns to the right */}
+              <Tooltip title="Update Available - Click to Refresh">
+                <IconButton
+                  onClick={handleUpdateClick}
+                  sx={{
+                    color: '#FF9800', // Orange color to indicate update
+                    animation: 'pulse 1.5s infinite',
+                    '@keyframes pulse': {
+                      '0%': { opacity: 1 },
+                      '50%': { opacity: 0.6 },
+                      '100%': { opacity: 1 },
+                    },
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.common.white, 0.1),
+                    },
+                    marginLeft: '15px',
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
 
           {isInstallable && (
             <Box sx={{ marginLeft: 'auto' }}> {/* Ensures it aligns to the right */}

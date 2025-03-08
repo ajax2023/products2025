@@ -12,6 +12,9 @@ type Config = {
   onUpdate?: (registration: ServiceWorkerRegistration) => void;
 };
 
+// Create a custom event for service worker updates
+export const swUpdateEvent = 'swUpdate';
+
 export function register(config?: Config) {
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
     const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
@@ -46,6 +49,12 @@ function registerValidSW(swUrl: string, config?: Config) {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
               console.log('New content is available and will be used when all tabs for this page are closed.');
+              
+              // Dispatch a custom event when new content is available
+              window.dispatchEvent(new CustomEvent(swUpdateEvent, { 
+                detail: { registration } 
+              }));
+              
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }

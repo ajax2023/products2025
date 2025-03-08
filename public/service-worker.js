@@ -75,3 +75,11 @@ self.addEventListener('activate', event => {
     })
   );
 });
+
+// Add message event listener to handle SKIP_WAITING
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Service worker received SKIP_WAITING message');
+    self.skipWaiting();
+  }
+});
