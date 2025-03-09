@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isSuperAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+    
+    // Product Submissions Collection
+    match /product_submissions/{submissionId} {
+      // Anyone authenticated can create submissions
+      allow create: if isSignedIn() && 
+                     request.resource.data.submittedBy == request.auth.uid &&
+                     request.resource.data.status == 'pending';
+      
+      // Submitters can view their own submissions
+      allow read: if isSignedIn() && (
+        resource.data.submittedBy == request.auth.uid || isAdmin() || isSuperAdmin()
+      );
+      
+      // Only admins can update submissions (for approval process)
+      allow update: if isAdmin() || isSuperAdmin();
+      
+      // Only admins can delete submissions
+      allow delete: if isAdmin() || isSuperAdmin();
+    }
+    
+    // Keep your existing rules for other collections
+    // Example for canadian_products collection
+    match /canadian_products/{productId} {
+      // Anyone can read approved products
+      allow read: if true;
+      
+      // Only admins can create/update/delete products
+      allow create, update, delete: if isAdmin() || isSuperAdmin();
+    }
+    
+    // Add this to your existing rules for other collections
+  }
+}

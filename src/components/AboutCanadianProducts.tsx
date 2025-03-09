@@ -17,12 +17,14 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import StopIcon from '@mui/icons-material/Stop';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../auth/useAuth';
 import { Update } from '../types/update';
 import { getUpdates } from '../services/updateService';
 import UpdateManager from './UpdateManager';
+import ProductSubmissionForm from './product/ProductSubmissionForm';
 
 export default function AboutCanadianProducts() {
   const { user, claims } = useAuth();
@@ -62,6 +64,16 @@ export default function AboutCanadianProducts() {
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://www.gofundme.com/static/js/embed.js';
+    script.defer = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
     };
   }, []);
 
@@ -219,23 +231,42 @@ export default function AboutCanadianProducts() {
         About Canadian Products
       </Typography>
 
-      {/* App Made in Canada */}
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        my: 1
-      }}>
-        <img
-          src="/2.png"
-          alt="Canada Flag"
-          style={{
-            width: '120px',
-            height: 'auto'
-          }}
-        />
-      </Box>
+      <Box sx={{ mt: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <ProductSubmissionForm />
+        </Box>
+     
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          my: 1
+        }}>
+          <img
+            src="/2.png"
+            alt="Canada Flag"
+            style={{
+              width: '120px',
+              height: 'auto'
+            }}
+          />
+        </Box>
 
+        <Box sx={{ textAlign: 'center' }}>
+          <a href="https://www.gofundme.com/f/buy-canadian-help-build-the-ultimate-local-product-finder" target="_blank" rel="noopener noreferrer">
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<FavoriteIcon />}
+              size="large"
+              sx={{ py: 1, px: 2 }}
+            >
+              GoFundMe - Support This Project
+            </Button>
+          </a>
+        </Box>
+      </Box>
+      
       <Typography variant="h6" align="center" gutterBottom>
         This application is proudly made in Canada—created by Canadians, for Canadians, and for those who support Canada!
       </Typography>
