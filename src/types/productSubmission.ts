@@ -1,45 +1,42 @@
 import { Timestamp } from 'firebase/firestore';
+import { ProductCategory, MasterCategory } from './product';
 
 /**
  * Interface for product submissions awaiting approval
  */
-export interface ProductSubmission {
-  id: string;                      // Auto-generated submission ID
-  
-  // Product Information
-  brandName: string;               // Brand name for the product
-  productName: string;             // Name of the product
-  description: string;             // Product description
-  category: string;                // Product category (e.g., "Food", "Clothing")
-  subCategory?: string;            // Optional subcategory
-  images: string[];                // Array of image URLs
-  
-  // Canadian Status
-  canadianOwned: boolean;          // Is the company Canadian-owned?
-  canadianMade: boolean;           // Is the product made in Canada?
-  locationManufactured?: string;   // Where it's manufactured
-  locationHeadquarters?: string;   // Company HQ location
-  
-  // Additional Product Details
-  certifications?: string[];       // Any certifications (e.g., "Organic", "Fair Trade")
-  website?: string;                // Company website
-  price?: number;                  // Approximate price (optional)
-  whereToFind?: string[];          // Places to purchase (stores, online)
-  
-  // Submission Metadata
-  submittedBy: string;             // User ID of submitter
-  submittedAt: Timestamp;          // When the product was submitted
-  status: SubmissionStatus;        // Current status
-  
-  // Review Information
-  reviewedBy?: string;             // Admin user ID who reviewed submission
-  reviewedAt?: Timestamp;          // When the review occurred
-  rejectionReason?: string;        // If rejected, why
-  adminNotes?: string;             // Private notes for admins
-  
-  // Additional fields
-  tags?: string[];                 // Searchable tags
-  sourceData?: any;                // Optional data source information
+export interface CanadianProduct {
+  _id: string;
+  brand_name: string;
+  website: string;
+  city: string;
+  province: string;
+  country: string;
+  products: string[];
+  categories: string[];
+  masterCategory?: string;
+  notes: string;
+  added_by: string;
+  added_by_email?: string;
+  added_by_name?: string;
+  date_added: string;
+  date_modified: string;
+  is_active: boolean;
+  version: number;
+  isPubliclyVisible: boolean;
+  production_verified: boolean;
+  site_verified: boolean;
+  site_verified_by?: string;
+  site_verified_at?: string;
+  cdn_prod_tags?: string[];
+}
+
+export interface ProductSubmission extends CanadianProduct {
+  status: SubmissionStatus;
+  reviewedBy?: string;
+  reviewedAt?: Timestamp;
+  rejectionReason?: string;
+  adminNotes?: string;
+  cdn_prod_tags?: string[];
 }
 
 /**
@@ -51,21 +48,20 @@ export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
  * Interface for the submission form state
  * (Simplified version of ProductSubmission without the metadata fields)
  */
-export interface ProductSubmissionFormData {
-  brandName: string;
-  productName: string;
-  description: string;
-  category: string;
-  subCategory?: string;
-  canadianOwned: boolean;
-  canadianMade: boolean;
-  locationManufactured?: string;
-  locationHeadquarters?: string;
-  certifications?: string[];
-  website?: string;
-  price?: number;
-  whereToFind?: string[];
-  tags?: string[];
+export interface ProductSubmissionFormData extends Omit<CanadianProduct, 
+  '_id' | 'site_verified_by' | 'site_verified_at' | 
+  'date_added' | 'date_modified' | 'modified_by' | 
+  'modified_by_email' | 'modified_by_name' | 'likeStats'> {}
+
+/**
+ * Interface for the extended submission form state
+ */
+export interface ExtendedProductSubmissionFormData extends CanadianProduct {
+  // Additional fields for the form
+  modified_by: string;
+  modified_by_email: string;
+  modified_by_name: string;
+  likeStats?: any;
 }
 
 /**

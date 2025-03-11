@@ -164,6 +164,9 @@ export async function searchCanadianProducts(criteria: {
       if (/[a-zA-Z0-9]/.test(searchTerm)) {
         console.log('Filtering by brand name:', searchTerm);
         results = results.filter(product => {
+          // Add null check for brand_name
+          if (!product.brand_name) return false;
+          
           const productName = product.brand_name.toLowerCase();
           const words = searchTerm.split(/\s+/).filter(word => word.length > 0); // Ignore empty words
           return words.every(word => productName.includes(word)); //
@@ -176,18 +179,19 @@ export async function searchCanadianProducts(criteria: {
 
     if (criteria.province) {
       results = results.filter(product => 
-        product.province === criteria.province
+        product.province && product.province === criteria.province
       );
     }
 
     if (criteria.city) {
       results = results.filter(product => 
-        product.city === criteria.city
+        product.city && product.city === criteria.city
       );
     }
 
     if (criteria.categories && criteria.categories.length > 0) {
       results = results.filter(product => 
+        product.categories && Array.isArray(product.categories) &&
         criteria.categories!.some(cat => product.categories.includes(cat))
       );
     }

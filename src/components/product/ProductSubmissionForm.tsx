@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, 
   TextField, FormControlLabel, Checkbox, MenuItem, Typography,
-  Snackbar, Alert, CircularProgress
+  Chip, IconButton, Stack, Snackbar, Alert, CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useAuth } from '../../auth/useAuth';
 import { createProductSubmission } from '../../services/productSubmissionService';
-import { ProductSubmissionFormData, PRODUCT_CATEGORIES, COMMON_CERTIFICATIONS } from '../../types/productSubmission';
+import { CanadianProduct, ExtendedProductSubmissionFormData, PRODUCT_CATEGORIES } from '../../types/productSubmission';
 
 interface ProductSubmissionFormProps {
   onSubmitSuccess?: () => void;
@@ -20,14 +20,40 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [formData, setFormData] = useState<ProductSubmissionFormData>({
-    brandName: '',
-    productName: '',
-    description: '',
-    category: '',
-    canadianOwned: false,
-    canadianMade: false,
+  const [formData, setFormData] = useState<ExtendedProductSubmissionFormData>({
+    _id: '',
+    brand_name: '',
+    website: '',
+    city: '',
+    province: '',
+    country: 'Canada',
+    production_verified: false,
+    site_verified: false,
+    site_verified_by: '',
+    site_verified_at: '',
+    notes: '',
+    products: [],
+    categories: [],
+    masterCategory: undefined,
+    cdn_prod_tags: [],
+    added_by: user?.uid || '',
+    added_by_email: user?.email || '',
+    added_by_name: user?.displayName || '',
+    date_added: new Date().toISOString(),
+    date_modified: new Date().toISOString(),
+    modified_by: user?.uid || '',
+    modified_by_email: user?.email || '',
+    modified_by_name: user?.displayName || '',
+    is_active: true,
+    version: 1,
+    isPubliclyVisible: false
   });
+
+  // State for product input
+  const [productInput, setProductInput] = useState('');
+
+  // State for tag input
+  const [tagInput, setTagInput] = useState('');
 
   const handleOpen = () => {
     setOpen(true);
@@ -47,6 +73,49 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
+  const handleAddProduct = () => {
+    if (productInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        products: [...prev.products, productInput.trim()]
+      }));
+      setProductInput('');
+    }
+  };
+
+  const handleRemoveProduct = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      products: prev.products.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        cdn_prod_tags: [...prev.cdn_prod_tags, tagInput.trim()]
+      }));
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      cdn_prod_tags: prev.cdn_prod_tags.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<{ value: unknown }>) => {
+    const selectedCategory = e.target.value as string;
+    
+    setFormData(prev => ({
+      ...prev,
+      categories: [selectedCategory as any]
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -56,8 +125,14 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
     }
 
     // Validate required fields
-    if (!formData.brandName || !formData.productName || !formData.description || !formData.category) {
+    if (!formData.brand_name || formData.products.length === 0 || !formData.categories.length) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate email format
+    if (!formData.added_by_email || !/^\S+@\S+\.\S+$/.test(formData.added_by_email)) {
+      setError('Please provide a valid email address');
       return;
     }
 
@@ -65,15 +140,35 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
     setError(null);
 
     try {
-      await createProductSubmission(formData as any, user.uid);
+      await createProductSubmission(formData, user.uid);
       setSuccess(true);
       setFormData({
-        brandName: '',
-        productName: '',
-        description: '',
-        category: '',
-        canadianOwned: false,
-        canadianMade: false,
+        _id: '',
+        brand_name: '',
+        website: '',
+        city: '',
+        province: '',
+        country: 'Canada',
+        production_verified: false,
+        site_verified: false,
+        site_verified_by: '',
+        site_verified_at: '',
+        notes: '',
+        products: [],
+        categories: [],
+        masterCategory: undefined,
+        cdn_prod_tags: [],
+        added_by: user?.uid || '',
+        added_by_email: user?.email || '',
+        added_by_name: user?.displayName || '',
+        date_added: new Date().toISOString(),
+        date_modified: new Date().toISOString(),
+        modified_by: user?.uid || '',
+        modified_by_email: user?.email || '',
+        modified_by_name: user?.displayName || '',
+        is_active: true,
+        version: 1,
+        isPubliclyVisible: false
       });
       handleClose();
       if (onSubmitSuccess) {
@@ -95,7 +190,7 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
         startIcon={<AddIcon />}
         size="large"
         onClick={handleOpen}
-        sx={{ py: 1, px: 2 }}
+        sx={{ py: 1, px: 1 }}
       >
         Submit a New Brand and Products
       </Button>
@@ -103,103 +198,110 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Submit a Canadian Product</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="textSecondary" paragraph>
+          {/* <Typography variant="body2" color="textSecondary" paragraph>
             Help us grow our database of Canadian products! Your submission will be reviewed by our team before being added to the site.
-          </Typography>
+          </Typography> */}
 
           <Box component="form" noValidate sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+            {/* <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
               Brand Information
-            </Typography>
+            </Typography> */}
             
             <TextField
               margin="normal"
               required
               fullWidth
               label="Brand Name"
-              name="brandName"
-              value={formData.brandName}
+              name="brand_name"
+              value={formData.brand_name}
               onChange={handleChange}
             />
 
-            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+            {/* <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
               <FormControlLabel
                 control={
                   <Checkbox 
-                    checked={formData.canadianOwned} 
+                    checked={formData.production_verified} 
                     onChange={handleCheckboxChange} 
-                    name="canadianOwned" 
+                    name="production_verified" 
                   />
                 }
-                label="Canadian Owned"
+                label="Production Verified"
               />
-              <FormControlLabel
-                control={
-                  <Checkbox 
-                    checked={formData.canadianMade} 
-                    onChange={handleCheckboxChange} 
-                    name="canadianMade" 
-                  />
-                }
-                label="Made in Canada"
-              />
-            </Box>
+            </Box> */}
 
+            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>            
             <TextField
               margin="normal"
               fullWidth
               label="Company Website"
               name="website"
-              value={formData.website || ''}
+              value={formData.website}
               onChange={handleChange}
               placeholder="https://example.com"
             />
 
-            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+
               <TextField
                 margin="normal"
                 fullWidth
-                label="Headquarters Location"
-                name="locationHeadquarters"
-                value={formData.locationHeadquarters || ''}
+                label="City"
+                name="city"
+                value={formData.city}
                 onChange={handleChange}
-                placeholder="City, Province"
+                placeholder="e.g., Toronto"
               />
               
               <TextField
                 margin="normal"
                 fullWidth
-                label="Manufacturing Location"
-                name="locationManufactured"
-                value={formData.locationManufactured || ''}
+                label="Province"
+                name="province"
+                value={formData.province}
                 onChange={handleChange}
-                placeholder="City, Province"
+                placeholder="e.g., Ontario"
               />
             </Box>
 
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 3 }}>
+            {/* <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 3 }}>
               Product Information
-            </Typography>
+            </Typography> */}
             
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Product Name"
-              name="productName"
-              value={formData.productName}
-              onChange={handleChange}
-            />
+            <Box sx={{ mb: 2, display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+              <TextField
+                margin="normal"
+                // fullWidth
+                label="Add Product"
+                value={productInput}
+                onChange={(e) => setProductInput(e.target.value)}
+                placeholder="Enter product name and press Add"
+              />
+              <Button 
+                variant="outlined" 
+                onClick={handleAddProduct}
+                sx={{ mt: 1, width: '200px', height: '40px' }}
+              >
+                Add Product
+              </Button>
+              
+              <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', gap: 1 }}>
+                {formData.products.map((product, index) => (
+                  <Chip 
+                    key={index} 
+                    label={product} 
+                    onDelete={() => handleRemoveProduct(index)} 
+                  />
+                ))}
+              </Stack>
+            </Box>
 
             <TextField
               select
-              margin="normal"
-              required
               fullWidth
               label="Category"
               name="category"
-              value={formData.category}
-              onChange={handleChange}
+              value={formData.categories[0] || ''}
+              onChange={handleCategoryChange}
             >
               {PRODUCT_CATEGORIES.map((category) => (
                 <MenuItem key={category} value={category}>
@@ -209,43 +311,68 @@ const ProductSubmissionForm: React.FC<ProductSubmissionFormProps> = ({ onSubmitS
             </TextField>
 
             <TextField
-              margin="normal"
               fullWidth
-              label="Subcategory"
-              name="subCategory"
-              value={formData.subCategory || ''}
-              onChange={handleChange}
-              placeholder="e.g., Dairy, Snacks, T-shirts"
-            />
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              multiline
-              rows={4}
               label="Product Description"
-              name="description"
-              value={formData.description}
+              name="notes"
+              multiline
+              rows={2}
+              value={formData.notes}
               onChange={handleChange}
-              placeholder="Describe the product, its features, and why it's great!"
+              margin="normal"
+            />
+
+            <Box sx={{ mb: 2, display: 'flex', flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+            <TextField
+              fullWidth
+              required
+              label="Your Email"
+              name="added_by_email"
+              type="email"
+              value={formData.added_by_email}
+              onChange={handleChange}
+              margin="normal"
+              helperText="We'll use this to contact you about your submission"
             />
 
             <TextField
-              margin="normal"
               fullWidth
-              label="Where to Find"
-              name="whereToFind"
-              value={formData.whereToFind?.join(', ') || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setFormData(prev => ({
-                  ...prev,
-                  whereToFind: value ? value.split(',').map(item => item.trim()) : []
-                }));
-              }}
-              placeholder="Stores or websites where this product can be purchased (comma separated)"
+              required
+              label="Your Name"
+              name="added_by_name"
+              value={formData.added_by_name}
+              onChange={handleChange}
+              margin="normal"
+              helperText="Please provide your full name"
             />
+            </Box>
+
+            {/* <Box sx={{ mb: 2 }}>
+              <TextField
+                margin="normal"
+                fullWidth
+                label="Add Tag"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="Enter tag and press Add"
+              />
+              <Button 
+                variant="outlined" 
+                onClick={handleAddTag}
+                sx={{ mt: 1 }}
+              >
+                Add Tag
+              </Button>
+              
+              <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', gap: 1 }}>
+                {formData.cdn_prod_tags.map((tag, index) => (
+                  <Chip 
+                    key={index} 
+                    label={tag} 
+                    onDelete={() => handleRemoveTag(index)} 
+                  />
+                ))}
+              </Stack>
+            </Box> */}
           </Box>
         </DialogContent>
         <DialogActions>

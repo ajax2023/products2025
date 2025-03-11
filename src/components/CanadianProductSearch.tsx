@@ -288,17 +288,19 @@ export default function CanadianProductSearch() {
 
   const countTotalProducts = (products: CanadianProduct[]) => {
     return products.reduce((sum, p) => {
+      if (!p.products) return sum;
+      
       const productCount = p.products
-        .map(prod => prod.split(',').map(p => p.trim()))
+        .map(prod => prod?.split(',')?.map(p => p?.trim()) || [])
         .flat()
-        .filter(p => p.length > 0).length;
+        .filter(p => p && p.length > 0).length;
       return sum + productCount;
     }, 0);
   };
 
   const countTotalCategories = (products: CanadianProduct[]) => {
     return products.reduce((sum, p) => {
-      return sum + p.categories.length;
+      return sum + (p.categories?.length || 0);
     }, 0);
   };
 
@@ -329,12 +331,12 @@ export default function CanadianProductSearch() {
       // Product filter
       const matchesProduct =
         !productFilter ||
-        product.products.some(p => p.toLowerCase().includes(productFilter.toLowerCase()));
+        (product.products && product.products.some(p => p && p.toLowerCase().includes(productFilter.toLowerCase())));
 
       // Category filter
       const matchesCategory =
         !categoryFilter ||
-        product.categories.some(c => c.toLowerCase().includes(categoryFilter.toLowerCase()));
+        (product.categories && product.categories.some(c => c && c.toLowerCase().includes(categoryFilter.toLowerCase())));
 
       // Location filter - check city and province
       const matchesLocation =

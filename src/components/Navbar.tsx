@@ -22,6 +22,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 
 import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
@@ -409,6 +410,24 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                 >
                   <Tooltip title="Email Management">
                     <EmailIcon />
+                  </Tooltip>
+                </IconButton>
+              </Link>
+            )}
+
+            {/* Product Submissions Review - Only show if admin and admin menu is open */}
+            {isAdmin && showAdminMenu && (
+              <Link to="/admin/submissions" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <IconButton color="inherit"
+                onClick={() => onTabChange && onTabChange('admin/submissions')}
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    color: isActive('/admin/submissions') || activeTab === 'admin/submissions' ? '#00FF00' : 'inherit'
+                  },
+                }}
+                >
+                  <Tooltip title="Product Submissions">
+                    <AssignmentIcon />
                   </Tooltip>
                 </IconButton>
               </Link>

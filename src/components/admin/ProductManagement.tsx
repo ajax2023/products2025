@@ -243,19 +243,19 @@ const ProductManagement: React.FC = () => {
     return products.filter(product => {
       // Search query filter (brand name)
       const matchesSearch = !searchQuery || 
-        product.brand_name.toLowerCase().includes(searchQuery.toLowerCase());
+        (product.brand_name && product.brand_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
       // Product filter
       const matchesProduct = !productFilter || 
-        product.products.some(p => 
-          p.toLowerCase().includes(productFilter.toLowerCase())
-        );
+        (product.products && Array.isArray(product.products) && product.products.some(p => 
+          p && p.toLowerCase().includes(productFilter.toLowerCase())
+        ));
 
       // Category filter
       const matchesCategory = !categoryFilter ||
-        product.categories.some(c => 
-          c.toLowerCase().includes(categoryFilter.toLowerCase())
-        );
+        (product.categories && Array.isArray(product.categories) && product.categories.some(c => 
+          c && c.toLowerCase().includes(categoryFilter.toLowerCase())
+        ));
 
       // Master Category filter
       const matchesMasterCategory = !masterCategoryFilter ||
@@ -263,8 +263,8 @@ const ProductManagement: React.FC = () => {
 
       // Location filter
       const matchesLocation = !locationFilter ||
-        (product.city?.toLowerCase().includes(locationFilter.toLowerCase()) ||
-         product.province?.toLowerCase().includes(locationFilter.toLowerCase()));
+        ((product.city && product.city.toLowerCase().includes(locationFilter.toLowerCase())) ||
+         (product.province && product.province.toLowerCase().includes(locationFilter.toLowerCase())));
 
       return matchesSearch && matchesProduct && matchesCategory && matchesMasterCategory && matchesLocation;
     });
@@ -572,7 +572,57 @@ const ProductManagement: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    // Implement CSV export logic here
+    // Create CSV header
+    const headers = [
+      'ID',
+      'Brand',
+      'Products',
+      'Categories',
+      'Canadian Owned',
+      'Canadian Made',
+      'City',
+      'Province',
+      'Website',
+      'Production Verified',
+      'Created At',
+      'Updated At'
+    ];
+
+    // Convert products to CSV rows
+    const csvRows = [
+      headers.join(','), // Header row
+      ...filteredProducts.map(product => {
+        const row = [
+          product._id,
+          `"${(product.brand_name || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
+          `"${(product.products || []).join(', ').replace(/"/g, '""')}"`,
+          `"${(product.categories || []).join(', ').replace(/"/g, '""')}"`,
+          product.canadian_owned ? 'Yes' : 'No',
+          product.canadian_made ? 'Yes' : 'No',
+          `"${(product.city || '').replace(/"/g, '""')}"`,
+          `"${(product.province || '').replace(/"/g, '""')}"`,
+          `"${(product.website || '').replace(/"/g, '""')}"`,
+          product.production_verified ? 'Yes' : 'No',
+          product.date_added ? new Date(product.date_added).toISOString() : '',
+          product.date_modified ? new Date(product.date_modified).toISOString() : ''
+        ];
+        return row.join(',');
+      })
+    ];
+
+    // Create CSV content
+    const csvContent = csvRows.join('\n');
+
+    // Create a blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `canadian-products-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleCopyDetails = () => {

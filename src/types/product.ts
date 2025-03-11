@@ -64,7 +64,7 @@ export interface CanadianProduct {
   is_active: boolean;
   version: number;
   isPubliclyVisible: boolean;
-  likeStats?: BrandLikeStats;  // Like statistics for the brand
+  likeStats?: BrandLikeStats;
 }
 
 export interface CanadianProductStats {

@@ -26,7 +26,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { 
   getPendingSubmissions, 
   approveSubmission, 
-  rejectSubmission,
+  rejectProductSubmission,
   getSubmissionById
 } from '../../services/productSubmissionService';
 import { ProductSubmission } from '../../types/productSubmission';
@@ -145,7 +145,7 @@ const ProductSubmissionReview: React.FC = () => {
     
     setActionLoading(true);
     try {
-      await rejectSubmission(
+      await rejectProductSubmission(
         selectedSubmission.id, 
         user.uid, 
         rejectionReason, 
@@ -221,7 +221,7 @@ const ProductSubmissionReview: React.FC = () => {
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                       <Typography variant="h6">
-                        {submission.brandName} - {submission.productName}
+                        {submission.brand_name} {submission.products && submission.products.length > 0 && `- ${submission.products.join(', ')}`}
                       </Typography>
                       <Chip 
                         label={submission.status.toUpperCase()} 
@@ -233,28 +233,24 @@ const ProductSubmissionReview: React.FC = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={8}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>Description:</strong> {submission.description}
+                          <strong>Notes:</strong> {submission.notes || 'No description provided'}
                         </Typography>
                         
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="body2">
-                            <strong>Category:</strong> {submission.category}
-                            {submission.subCategory && ` > ${submission.subCategory}`}
+                            <strong>Categories:</strong> {submission.categories && submission.categories.join(', ')}
+                            {submission.masterCategory && ` > ${submission.masterCategory}`}
                           </Typography>
                           
                           <Box sx={{ mt: 1, display: 'flex', gap: 2 }}>
-                            <Chip 
-                              label="Canadian Owned" 
-                              color={submission.canadianOwned ? "success" : "default"}
-                              variant={submission.canadianOwned ? "filled" : "outlined"}
-                              size="small"
-                            />
-                            <Chip 
-                              label="Made in Canada" 
-                              color={submission.canadianMade ? "success" : "default"}
-                              variant={submission.canadianMade ? "filled" : "outlined"}
-                              size="small"
-                            />
+                            {submission.cdn_prod_tags && submission.cdn_prod_tags.map((tag, index) => (
+                              <Chip 
+                                key={index}
+                                label={tag} 
+                                color="primary"
+                                size="small"
+                              />
+                            ))}
                           </Box>
                         </Box>
                         
@@ -264,18 +260,11 @@ const ProductSubmissionReview: React.FC = () => {
                           </Typography>
                         )}
                         
-                        {(submission.locationHeadquarters || submission.locationManufactured) && (
+                        {(submission.city || submission.province) && (
                           <Box sx={{ mt: 1 }}>
-                            {submission.locationHeadquarters && (
-                              <Typography variant="body2">
-                                <strong>HQ:</strong> {submission.locationHeadquarters}
-                              </Typography>
-                            )}
-                            {submission.locationManufactured && (
-                              <Typography variant="body2">
-                                <strong>Manufacturing:</strong> {submission.locationManufactured}
-                              </Typography>
-                            )}
+                            <Typography variant="body2">
+                              <strong>Location:</strong> {[submission.city, submission.province, submission.country].filter(Boolean).join(', ')}
+                            </Typography>
                           </Box>
                         )}
                       </Grid>
@@ -286,7 +275,10 @@ const ProductSubmissionReview: React.FC = () => {
                             Submission Details
                           </Typography>
                           <Typography variant="body2">
-                            <strong>Submitted by:</strong> {submission.submittedBy}
+                            <strong>Submitted by:</strong> {submission.added_by_name || submission.submittedBy || 'Unknown'}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Email:</strong> {submission.added_by_email || 'Not provided'}
                           </Typography>
                           <Typography variant="body2">
                             <strong>Date:</strong> {formatDate(submission.submittedAt)}

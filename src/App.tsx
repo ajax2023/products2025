@@ -19,6 +19,7 @@ import { NotificationProvider } from './components/common/NotificationSnackbar';
 import ProductManagement from './components/admin/ProductManagement';
 import MasterCategoryEditor from './components/admin/MasterCategoryEditor';
 import EmailManagement from './components/admin/EmailManagement';
+import ProductSubmissionReview from './components/admin/ProductSubmissionReview';
 import { Footer } from './components/Footer';
 import { Box } from '@mui/material';
 import { PromotionalBanner } from './components/PromotionalBanner';
@@ -110,17 +111,28 @@ function App() {
                               </ProtectedRoute>
                             }
                           />
+                          <Route
+                            path="/admin/submissions"
+                            element={
+                              <ProtectedRoute
+                                requiredRole="admin"
+                                fallback="/login"
+                              >
+                                <ProductSubmissionReview />
+                              </ProtectedRoute>
+                            }
+                          />
                            <Route 
-                           path="/admin/users" 
-                           element={
-                            <ProtectedRoute
-                            requiredRole="admin"
-                            fallback="/login"
-                            >
-                           <UserManagement />
-                           </ProtectedRoute>
-                        }
-                      />
+                            path="/admin/users" 
+                            element={
+                             <ProtectedRoute
+                             requiredRole="admin"
+                             fallback="/login"
+                             >
+                            <UserManagement />
+                            </ProtectedRoute>
+                          }
+                          />
                         </Routes>
                       </Box>
                       <Box sx={{ position: 'relative', zIndex: 1000 }}>
