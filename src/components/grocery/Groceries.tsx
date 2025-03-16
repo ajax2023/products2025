@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -23,6 +23,8 @@ import {
   CircularProgress,
   Chip,
   Divider,
+  Tooltip,
+  Badge,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -30,26 +32,40 @@ import EditIcon from '@mui/icons-material/Edit';
 import ShareIcon from '@mui/icons-material/Share';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import PeopleIcon from '@mui/icons-material/People';
 import ShareGroceryButton from './ShareGroceryButton';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { groceryDb, GroceryList, GroceryItem } from '../../config/groceryDb';
 import { useAuth } from '../../auth/useAuth';
 import AddGroceryDialog from './AddGroceryDialog';
+import { getSharedLists, updateSharedListItem, subscribeToSharedList } from '../../services/sharedListService';
 
 export default function Groceries() {
   const { user } = useAuth();
   const [lists, setLists] = useState<GroceryList[]>([]);
+  const [sharedLists, setSharedLists] = useState<GroceryList[]>([]);
   const [selectedList, setSelectedList] = useState<GroceryList | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [listToDelete, setListToDelete] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingShared, setLoadingShared] = useState(true);
+  // Keep track of active subscriptions to avoid memory leaks
+  const unsubscribeRefs = useRef<{[key: string]: () => void}>({});
 
   useEffect(() => {
     if (user) {
       loadLists();
+      loadSharedLists();
     }
+    
+    // Cleanup subscriptions on unmount
+    return () => {
+      Object.values(unsubscribeRefs.current).forEach(unsubscribe => {
+        unsubscribe();
+      });
+    };
   }, [user]);
 
   const loadLists = async () => {
@@ -76,6 +92,107 @@ export default function Groceries() {
     }
   };
 
+  const loadSharedLists = async () => {
+    if (!user) return;
+    
+    try {
+      setLoadingShared(true);
+      const shared = await getSharedLists();
+      setSharedLists(shared);
+      
+      // Setup real-time listeners for each shared list
+      shared.forEach(list => {
+        if (list.firebaseId && !unsubscribeRefs.current[list.firebaseId]) {
+          const unsubscribe = subscribeToSharedList(list.firebaseId, (updatedFirestoreList) => {
+            // Update the list in our state when it changes in Firestore
+            updateListFromFirestore(list, updatedFirestoreList);
+          });
+          
+          unsubscribeRefs.current[list.firebaseId] = unsubscribe;
+        }
+      });
+    } catch (error) {
+      console.error('Error loading shared lists:', error);
+    } finally {
+      setLoadingShared(false);
+    }
+  };
+
+  const updateListFromFirestore = (localList: GroceryList, firestoreData: any) => {
+    // Update the shared list in our state when it changes in Firestore
+    setSharedLists(prev => prev.map(list => {
+      if (list.firebaseId === localList.firebaseId) {
+        const updatedList = {
+          ...list,
+          name: firestoreData.name,
+          items: firestoreData.items,
+          lastUpdated: firestoreData.lastUpdated,
+          lastUpdatedBy: firestoreData.lastUpdatedBy
+        };
+        
+        // If this is the currently selected list, update it too
+        if (selectedList?.firebaseId === localList.firebaseId) {
+          setSelectedList(updatedList);
+        }
+        
+        // Also update the local Dexie database if this list is owned by the current user
+        if (list.id && list.userId === user?.uid) {
+          groceryDb.groceryLists.update(list.id, updatedList);
+        }
+        
+        return updatedList;
+      }
+      return list;
+    }));
+  };
+
+  const handleListUpdated = (updatedList: GroceryList) => {
+    // Handle a list the user has left (no longer in sharedWith)
+    if (updatedList.isShared && 
+        updatedList.sharedWith && 
+        user?.email && 
+        !updatedList.sharedWith.includes(user.email) && 
+        updatedList.userId !== user.uid) {
+      
+      // User left this list - remove it from displayed lists
+      setSharedLists(prev => prev.filter(list => 
+        list.firebaseId !== updatedList.firebaseId
+      ));
+      
+      // If this was the selected list, clear selection
+      if (selectedList?.firebaseId === updatedList.firebaseId) {
+        setSelectedList(null);
+      }
+      
+      // Clean up any subscription
+      if (updatedList.firebaseId && unsubscribeRefs.current[updatedList.firebaseId]) {
+        unsubscribeRefs.current[updatedList.firebaseId]();
+        delete unsubscribeRefs.current[updatedList.firebaseId];
+      }
+      
+      return;
+    }
+    
+    // Regular update handling
+    const isInLists = lists.some(list => list.id === updatedList.id);
+    
+    if (isInLists) {
+      setLists(prev => prev.map(list => 
+        list.id === updatedList.id ? updatedList : list
+      ));
+    }
+    
+    // Update selected list if it's the one that was updated
+    if (selectedList?.id === updatedList.id) {
+      setSelectedList(updatedList);
+    }
+    
+    // If this is a newly shared list, reload shared lists
+    if (updatedList.isShared) {
+      loadSharedLists();
+    }
+  };
+
   const handleCreateList = () => {
     setSelectedList(null);
     setIsAddDialogOpen(true);
@@ -91,7 +208,13 @@ export default function Groceries() {
       let savedListId: number;
       
       if (list.id) {
-        await groceryDb.groceryLists.update(list.id, list);
+        // Fix the lint error by using an update spec object
+        await groceryDb.groceryLists.update(list.id, {
+          name: list.name,
+          items: list.items,
+          date: list.date,
+          // Include other updated fields as needed
+        });
         savedListId = list.id;
       } else {
         savedListId = await groceryDb.groceryLists.add(list);
@@ -156,8 +279,20 @@ export default function Groceries() {
         items: updatedItems
       };
 
-      await groceryDb.groceryLists.update(selectedList.id!, updatedList);
+      // Update local database
+      if (selectedList.id) {
+        await groceryDb.groceryLists.update(selectedList.id, {
+          items: updatedItems
+        });
+      }
+      
       setSelectedList(updatedList);
+      
+      // If this is a shared list, update Firestore
+      if (selectedList.isShared && selectedList.firebaseId) {
+        await updateSharedListItem(selectedList, updatedItems);
+      }
+      
       await loadLists();
     } catch (err) {
       console.error('Error updating item:', err);
@@ -182,15 +317,41 @@ export default function Groceries() {
     };
 
     try {
-      await groceryDb.groceryLists.update(selectedList.id!, updatedList);
+      // Update local database
+      if (selectedList.id) {
+        await groceryDb.groceryLists.update(selectedList.id, {
+          items: updatedItems
+        });
+      }
+      
       setSelectedList(updatedList);
+      
+      // If this is a shared list, update Firestore
+      if (selectedList.isShared && selectedList.firebaseId) {
+        await updateSharedListItem(selectedList, updatedItems);
+      }
+      
       await loadLists();
     } catch (err) {
       console.error('Error reordering items:', err);
     }
   };
 
-  const filteredLists = lists.filter(list => 
+  // Combine all lists for display, avoiding duplicates
+  const allLists = [
+    ...lists,
+    ...sharedLists.filter(shared => {
+      // Don't include shared lists that are already in the local lists
+      // Check both id and firebaseId to avoid duplicates
+      return !lists.some(list => 
+        // If either id matches or firebaseId matches, it's a duplicate
+        (list.id === shared.id && list.id !== undefined) || 
+        (list.firebaseId === shared.firebaseId && shared.firebaseId !== undefined)
+      );
+    })
+  ];
+  
+  const filteredLists = allLists.filter(list => 
     list.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -257,9 +418,9 @@ export default function Groceries() {
             ) : (
               <List sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
                 {filteredLists.map((list) => (
-                  <React.Fragment key={list.id}>
+                  <React.Fragment key={list.id || list.firebaseId}>
                     <ListItemButton
-                      selected={selectedList?.id === list.id}
+                      selected={selectedList?.id === list.id || selectedList?.firebaseId === list.firebaseId}
                       onClick={() => handleSelectList(list)}
                       sx={{
                         display: 'flex',
@@ -267,10 +428,42 @@ export default function Groceries() {
                       }}
                     >
                       <ListItemText
-                        primary={list.name}
-                        secondary={`${list.items.length} items`}
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {list.name}
+                            {list.isShared && (
+                              <Tooltip title={list.userId === user?.uid 
+                                ? `Shared with ${list.sharedWith?.length} people` 
+                                : "Shared with you"}>
+                                <Chip
+                                  icon={<PeopleIcon fontSize="small" />}
+                                  label={list.userId === user?.uid ? "Shared" : "Shared with you"}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Typography variant="body2" component="span">
+                              {`${list.items.length} items`}
+                            </Typography>
+                            {list.lastUpdated && (
+                              <Typography variant="caption" component="span" sx={{ ml: 1, color: 'text.secondary' }}>
+                                · Updated {new Date(list.lastUpdated).toLocaleString()}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
                       />
-                      <ShareGroceryButton groceryList={list} />
+                      <ShareGroceryButton 
+                        groceryList={list} 
+                        onListUpdated={handleListUpdated}
+                      />
                       <IconButton
                         edge="end"
                         onClick={(e) => {
@@ -288,6 +481,7 @@ export default function Groceries() {
                           handleDeleteList(list.id!);
                         }}
                         size="small"
+                        disabled={!list.id} // Disable delete for shared lists we don't own
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -305,7 +499,22 @@ export default function Groceries() {
             {selectedList ? (
               <>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">{selectedList.name}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="h6">{selectedList.name}</Typography>
+                    {selectedList.isShared && (
+                      <Tooltip title={selectedList.userId === user?.uid 
+                        ? `Shared with ${selectedList.sharedWith?.length} people` 
+                        : "Shared with you"}>
+                        <Chip
+                          icon={<PeopleIcon fontSize="small" />}
+                          label={selectedList.userId === user?.uid ? "Shared" : "Shared with you"}
+                          size="small"
+                          color="primary"
+                          sx={{ ml: 1 }}
+                        />
+                      </Tooltip>
+                    )}
+                  </Box>
                   <Box>
                     <Button
                       variant="outlined"
@@ -313,27 +522,40 @@ export default function Groceries() {
                       onClick={() => handleEditList(selectedList)}
                       startIcon={<EditIcon />}
                       sx={{ mr: 1 }}
+                      disabled={selectedList.userId !== user?.uid}
                     >
                       Edit
                     </Button>
-                    <Box sx={{ display: 'inline-block', mr: 1 }}>
-                      <ShareGroceryButton groceryList={selectedList} />
-                    </Box>
+                    <ShareGroceryButton 
+                      groceryList={selectedList} 
+                      onListUpdated={handleListUpdated}
+                    />
                     <Button
                       variant="outlined"
                       color="error"
                       size="small"
                       onClick={() => handleDeleteList(selectedList.id!)}
                       startIcon={<DeleteIcon />}
+                      sx={{ ml: 1 }}
+                      disabled={!selectedList.id || selectedList.userId !== user?.uid}
                     >
                       Delete
                     </Button>
                   </Box>
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Created on {new Date(selectedList.date).toLocaleDateString()}
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Created on {new Date(selectedList.date).toLocaleDateString()}
+                  </Typography>
+                  
+                  {selectedList.lastUpdated && (
+                    <Typography variant="body2" color="text.secondary">
+                      Last updated: {new Date(selectedList.lastUpdated).toLocaleString()}
+                      {selectedList.lastUpdatedBy && selectedList.lastUpdatedBy !== user?.uid && " by someone else"}
+                    </Typography>
+                  )}
+                </Box>
 
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="grocery-items">

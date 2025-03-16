@@ -32,6 +32,34 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Shared Lists collection
+    match /sharedLists/{listId} {
+      // Allow any authenticated user to query the collection
+      allow list: if isSignedIn();
+      
+      // Allow read if the user is the owner or the list is shared with them
+      allow get: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid || 
+        resource.data.sharedWith.hasAny([request.auth.email, request.auth.email.lower()])
+      );
+      
+      // Allow create if the user is authenticated and setting themselves as owner
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      
+      // Allow update for several cases (with detailed permissions)
+      allow update: if isSignedIn() && (
+        // Case 1: Owner can do any updates
+        resource.data.ownerId == request.auth.uid ||
+        
+        // Case 2: If you're in the sharedWith list, you can update the list content
+        (resource.data.sharedWith.hasAny([request.auth.email, request.auth.email.lower()]) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sharedWith']))
+      );
+      
+      // Allow delete only for the owner
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -140,6 +168,30 @@ service cloud.firestore {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn(); 
       allow update, delete: if isAdmin();
+    }
+  
+    match /product_submissions/{submissionId} {
+    // Anyone authenticated can create submissions
+    allow create: if isSignedIn() && request.resource.data.submittedBy == request.auth.uid;
+
+    // Submitters can view their own submissions
+    allow read: if isSignedIn() && (
+      resource.data.submittedBy == request.auth.uid || isAdmin()
+    );
+
+    // Only admins can update submissions (for approval process)
+    allow update: if isAdmin();
+
+    // Only admins can delete submissions
+    allow delete: if isAdmin();
+  }
+
+    // Updates collection (move it inside)
+    match /updates/{updateId} {
+      allow read: if true;  // Anyone can read updates
+      allow create: if isContributor();  // Contributors, admins, and super_admins can create
+      allow update: if isContributor();  // Same group can update
+      allow delete: if isAdmin();  // Only admins and super_admins can delete
     }
   }
 }

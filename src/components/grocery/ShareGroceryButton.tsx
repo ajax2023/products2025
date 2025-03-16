@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import { IconButton, Tooltip, Badge } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
-import { ShareGroceryDialog } from './ShareGroceryDialog';
+import { ShareListDialog } from './ShareListDialog';
 import { GroceryList } from '../../config/groceryDb';
 
 interface ShareGroceryButtonProps {
   groceryList: GroceryList;
+  onListUpdated?: (updatedList: GroceryList) => void;
 }
 
-const ShareGroceryButton: React.FC<ShareGroceryButtonProps> = ({ groceryList }) => {
+const ShareGroceryButton: React.FC<ShareGroceryButtonProps> = ({ 
+  groceryList, 
+  onListUpdated = () => {} 
+}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleOpenDialog = (e: React.MouseEvent) => {
@@ -20,23 +24,37 @@ const ShareGroceryButton: React.FC<ShareGroceryButtonProps> = ({ groceryList }) 
     setDialogOpen(false);
   };
 
+  const handleListUpdated = (updatedList: GroceryList) => {
+    onListUpdated(updatedList);
+  };
+
+  // Determine if the list is already shared
+  const isShared = groceryList.isShared && Array.isArray(groceryList.sharedWith) && groceryList.sharedWith.length > 0;
+
   return (
     <>
-      <Tooltip title="Share List">
+      <Tooltip title={isShared ? "Manage Sharing" : "Share List"}>
         <IconButton
           onClick={handleOpenDialog}
           size="small"
           sx={{ 
-            color: 'primary.main',
+            color: isShared ? 'success.main' : 'primary.main',
           }}
         >
-          <ShareIcon fontSize="small" />
+          <Badge 
+            badgeContent={isShared ? groceryList.sharedWith?.length || 0 : 0}
+            color="primary"
+            invisible={!isShared}
+          >
+            <ShareIcon fontSize="small" />
+          </Badge>
         </IconButton>
       </Tooltip>
-      <ShareGroceryDialog
+      <ShareListDialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        groceryList={groceryList}
+        list={groceryList}
+        onListUpdated={handleListUpdated}
       />
     </>
   );

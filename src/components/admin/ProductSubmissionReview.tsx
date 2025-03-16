@@ -31,6 +31,7 @@ import {
 } from '../../services/productSubmissionService';
 import { ProductSubmission } from '../../types/productSubmission';
 import { useAuth } from '../../auth/useAuth';
+import { MASTER_CATEGORIES } from '../../types/product';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -66,7 +67,15 @@ const ProductSubmissionReview: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
+  const [openApproveDialog, setOpenApproveDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [approvalOptions, setApprovalOptions] = useState({
+    isPubliclyVisible: true,
+    site_verified: false,
+    production_verified: false,
+    is_active: true,
+    masterCategory: ''
+  });
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -95,18 +104,29 @@ const ProductSubmissionReview: React.FC = () => {
     }
   };
 
-  const handleApprove = async (submission: ProductSubmission) => {
-    if (!user) return;
+  const handleApprove = async () => {
+    if (!user || !selectedSubmission) return;
     
     setActionLoading(true);
     try {
-      await approveSubmission(submission.id, user.uid);
-      setSubmissions(prev => prev.filter(s => s.id !== submission.id));
+      await approveSubmission(
+        selectedSubmission.id, 
+        user.uid,
+        {
+          isPubliclyVisible: approvalOptions.isPubliclyVisible,
+          site_verified: approvalOptions.site_verified,
+          production_verified: approvalOptions.production_verified,
+          is_active: approvalOptions.is_active,
+          masterCategory: approvalOptions.masterCategory || null
+        }
+      );
+      setSubmissions(prev => prev.filter(s => s.id !== selectedSubmission.id));
       setSnackbar({
         open: true,
         message: 'Product approved successfully',
         severity: 'success'
       });
+      setOpenApproveDialog(false);
     } catch (error) {
       console.error('Error approving submission:', error);
       setSnackbar({
@@ -128,6 +148,23 @@ const ProductSubmissionReview: React.FC = () => {
 
   const handleCloseRejectDialog = () => {
     setOpenRejectDialog(false);
+    setSelectedSubmission(null);
+  };
+
+  const handleOpenApproveDialog = (submission: ProductSubmission) => {
+    setSelectedSubmission(submission);
+    setApprovalOptions({
+      isPubliclyVisible: submission.isPubliclyVisible !== undefined ? submission.isPubliclyVisible : true,
+      site_verified: submission.site_verified !== undefined ? submission.site_verified : false,
+      production_verified: submission.production_verified !== undefined ? submission.production_verified : false,
+      is_active: submission.is_active !== undefined ? submission.is_active : true,
+      masterCategory: submission.masterCategory || ''
+    });
+    setOpenApproveDialog(true);
+  };
+
+  const handleCloseApproveDialog = () => {
+    setOpenApproveDialog(false);
     setSelectedSubmission(null);
   };
 
@@ -300,10 +337,10 @@ const ProductSubmissionReview: React.FC = () => {
                       Reject
                     </Button>
                     <Button 
+                      variant="contained" 
+                      color="primary" 
                       startIcon={<CheckCircleIcon />}
-                      variant="contained"
-                      color="success"
-                      onClick={() => handleApprove(submission)}
+                      onClick={() => handleOpenApproveDialog(submission)}
                       disabled={actionLoading}
                     >
                       Approve
@@ -356,6 +393,130 @@ const ProductSubmissionReview: React.FC = () => {
             disabled={actionLoading || !rejectionReason}
           >
             {actionLoading ? <CircularProgress size={24} /> : 'Reject Submission'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Approval Dialog */}
+      <Dialog open={openApproveDialog} onClose={handleCloseApproveDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Approve Product Submission</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            You are about to approve this product submission. Please set the following options:
+          </Typography>
+          
+          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2">Public Visibility</Typography>
+                <Button 
+                  variant={approvalOptions.isPubliclyVisible ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, isPubliclyVisible: true }))}
+                  sx={{ mr: 1, mt: 1 }}
+                >
+                  Visible
+                </Button>
+                <Button 
+                  variant={!approvalOptions.isPubliclyVisible ? "contained" : "outlined"}
+                  color="secondary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, isPubliclyVisible: false }))}
+                  sx={{ mt: 1 }}
+                >
+                  Hidden
+                </Button>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Typography variant="subtitle2">Site Verification</Typography>
+                <Button 
+                  variant={approvalOptions.site_verified ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, site_verified: true }))}
+                  sx={{ mr: 1, mt: 1 }}
+                >
+                  Verified
+                </Button>
+                <Button 
+                  variant={!approvalOptions.site_verified ? "contained" : "outlined"}
+                  color="secondary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, site_verified: false }))}
+                  sx={{ mt: 1 }}
+                >
+                  Not Verified
+                </Button>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Typography variant="subtitle2">Production Verification</Typography>
+                <Button 
+                  variant={approvalOptions.production_verified ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, production_verified: true }))}
+                  sx={{ mr: 1, mt: 1 }}
+                >
+                  Verified
+                </Button>
+                <Button 
+                  variant={!approvalOptions.production_verified ? "contained" : "outlined"}
+                  color="secondary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, production_verified: false }))}
+                  sx={{ mt: 1 }}
+                >
+                  Not Verified
+                </Button>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Typography variant="subtitle2">Status</Typography>
+                <Button 
+                  variant={approvalOptions.is_active ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, is_active: true }))}
+                  sx={{ mr: 1, mt: 1 }}
+                >
+                  Active
+                </Button>
+                <Button 
+                  variant={!approvalOptions.is_active ? "contained" : "outlined"}
+                  color="secondary"
+                  onClick={() => setApprovalOptions(prev => ({ ...prev, is_active: false }))}
+                  sx={{ mt: 1 }}
+                >
+                  Inactive
+                </Button>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Typography variant="subtitle2">Master Category</Typography>
+                <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {MASTER_CATEGORIES.map((category) => (
+                    <Chip
+                      key={category}
+                      label={category}
+                      onClick={() => setApprovalOptions(prev => ({ ...prev, masterCategory: category }))}
+                      color={approvalOptions.masterCategory === category ? "primary" : "default"}
+                      variant={approvalOptions.masterCategory === category ? "filled" : "outlined"}
+                      sx={{ m: 0.5 }}
+                    />
+                  ))}
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseApproveDialog} disabled={actionLoading}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleApprove} 
+            variant="contained" 
+            color="primary" 
+            disabled={actionLoading}
+            startIcon={actionLoading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+          >
+            Approve
           </Button>
         </DialogActions>
       </Dialog>

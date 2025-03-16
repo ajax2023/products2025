@@ -19,6 +19,11 @@ export interface GroceryList {
   name: string;
   date: number;
   items: GroceryItem[];
+  isShared?: boolean;
+  sharedWith?: string[]; // Array of user emails
+  firebaseId?: string; // Firestore document ID
+  lastUpdated?: number;
+  lastUpdatedBy?: string;
 }
 
 export interface GroceryPreference {
