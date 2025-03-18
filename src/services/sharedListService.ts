@@ -327,11 +327,22 @@ export const getSharedLists = async (): Promise<GroceryList[]> => {
   if (!user) throw new Error("User not authenticated");
   if (!user.email) throw new Error("User email not available");
   
-  // Get lists shared with me
-  const sharedWithMeQuery = query(
-    sharedListsCollection, 
-    where('sharedWith', 'array-contains', user.email)
-  );
+  console.log('Fetching shared lists for user:', {
+    uid: user.uid,
+    email: user.email
+  });
+  
+  // Get lists shared with me - try both original and lowercase email
+  const userEmail = user.email;
+  const userEmailLower = user.email.toLowerCase();
+  
+  // Create queries for both email cases
+  const sharedWithMeQueries = [
+    query(sharedListsCollection, where('sharedWith', 'array-contains', userEmail)),
+    userEmail !== userEmailLower ? 
+      query(sharedListsCollection, where('sharedWith', 'array-contains', userEmailLower)) : 
+      null
+  ].filter(Boolean);
   
   // Get lists I've shared with others
   const mySharedListsQuery = query(
@@ -339,48 +350,56 @@ export const getSharedLists = async (): Promise<GroceryList[]> => {
     where('ownerId', '==', user.uid)
   );
   
-  const [sharedWithMeSnapshot, mySharedListsSnapshot] = await Promise.all([
-    getDocs(sharedWithMeQuery),
-    getDocs(mySharedListsQuery)
-  ]);
-  
-  const sharedLists: GroceryList[] = [];
-  
-  // Process lists shared with me
-  sharedWithMeSnapshot.forEach(doc => {
-    if (!doc.exists()) return;
+  try {
+    // Execute all queries in parallel
+    const queryResults = await Promise.all([
+      ...sharedWithMeQueries.map(q => getDocs(q as any)),
+      getDocs(mySharedListsQuery)
+    ]);
     
-    const data = doc.data() as FirestoreSharedList;
+    const sharedLists: GroceryList[] = [];
+    const processedIds = new Set<string>();
     
-    // Skip deleted lists
-    if (data['isDeleted']) return;
+    // Process all query results
+    for (const snapshot of queryResults) {
+      snapshot.forEach(doc => {
+        if (!doc.exists()) return;
+        
+        const data = doc.data() as FirestoreSharedList;
+        
+        // Skip deleted lists
+        if (data['isDeleted']) {
+          console.log('Skipping deleted list:', doc.id);
+          return;
+        }
+        
+        // Skip if we already processed this list
+        if (processedIds.has(doc.id)) {
+          console.log('Skipping duplicate list:', doc.id);
+          return;
+        }
+        
+        processedIds.add(doc.id);
+        const convertedList = convertToGroceryList(doc, data);
+        sharedLists.push(convertedList);
+        
+        console.log('Added shared list:', {
+          id: doc.id,
+          name: data.name,
+          ownerId: data.ownerId,
+          isOwner: data.ownerId === user.uid,
+          sharedWith: data.sharedWith
+        });
+      });
+    }
     
-    sharedLists.push(convertToGroceryList(doc, data));
-  });
-  
-  // Process my shared lists (but don't duplicate)
-  mySharedListsSnapshot.forEach(doc => {
-    if (!doc.exists()) return;
+    console.log('Final shared lists count:', sharedLists.length);
+    return sharedLists;
     
-    const data = doc.data() as FirestoreSharedList;
-    
-    // Skip deleted lists
-    if (data['isDeleted']) return;
-    
-    // Skip if we already have this list from the other query
-    if (sharedLists.some(list => list.firebaseId === doc.id)) return;
-    
-    sharedLists.push(convertToGroceryList(doc, data));
-  });
-  
-  console.log('Loaded shared lists:', sharedLists.map(list => ({
-    name: list.name,
-    userId: list.userId,
-    firebaseId: list.firebaseId,
-    isOwner: list.userId === user.uid
-  })));
-  
-  return sharedLists;
+  } catch (error) {
+    console.error('Error fetching shared lists:', error);
+    throw error;
+  }
 };
 
 // Request to leave a shared list

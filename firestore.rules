@@ -35,7 +35,12 @@ service cloud.firestore {
     // Shared Lists collection
     match /sharedLists/{listId} {
       // Allow any authenticated user to query the collection
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && (
+        // Can list if you're the owner
+        request.auth.uid == resource.data.ownerId ||
+        // Or if the list is shared with you (case insensitive)
+        resource.data.sharedWith.hasAny([request.auth.email, request.auth.email.lower()])
+      );
       
       // Allow read if the user is the owner or the list is shared with them
       allow get: if isSignedIn() && (
@@ -53,7 +58,7 @@ service cloud.firestore {
         
         // Case 2: If you're in the sharedWith list, you can update the list content
         (resource.data.sharedWith.hasAny([request.auth.email, request.auth.email.lower()]) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sharedWith']))
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sharedWith', 'ownerId']))
       );
       
       // Allow delete only for the owner
