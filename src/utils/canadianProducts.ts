@@ -52,9 +52,7 @@ export async function addCanadianProduct(
   return docRef.id;
 }
 
-/**
- * Update an existing Canadian product
- */
+/*** Update an existing Canadian product ***/
 export async function updateCanadianProduct(
   productId: string,
   updates: Partial<CanadianProduct>,
