@@ -1,1 +1,12 @@
-export type ViewState = 'list' | 'add' | 'settings' | 'companies' | 'brands' | 'company' | 'admin/users' | 'admin/products' | 'groceries' | 'grocery-preferences';
+export type ViewState = 
+  | 'list' 
+  | 'settings' 
+  | 'shared' 
+  | 'inventory'
+  | 'groceries'
+  | 'grocery-preferences'
+  | 'admin/master-categories'
+  | 'admin/email'
+  | 'admin/submissions'
+  | 'admin/products'
+  | 'admin/users';

@@ -27,10 +27,18 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useAuth } from '../auth/useAuth';
 import { ViewState } from '../types/navigation';
 import { swUpdateEvent } from '../serviceWorker';
+import { InstallInstructions } from './InstallInstructions';
 
 interface NavbarProps {
   onTabChange?: (tab: ViewState) => void;
   activeTab?: ViewState;
+}
+
+// Add type declaration for iOS standalone mode
+declare global {
+  interface Navigator {
+    standalone?: boolean;
+  }
 }
 
 export function Navbar({ onTabChange, activeTab }: NavbarProps) {
@@ -40,12 +48,14 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   const [showAdminMenu, setShowAdminMenu] = React.useState(false);
   const [updateAvailable, setUpdateAvailable] = React.useState(false);
   const [swRegistration, setSwRegistration] = React.useState<ServiceWorkerRegistration | null>(null);
+  const [showIOSInstructions, setShowIOSInstructions] = React.useState(false);
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const scrollContainer = React.useRef<HTMLDivElement | null>(null);
 
   const isAdmin = claims?.role === 'admin' || claims?.role === 'super_admin';
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -62,9 +72,10 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
     // Check if app is already installed
     const checkInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      console.log('Is app in standalone mode?', isStandalone);
-      console.log('Setting isInstallable to:', !isStandalone);
-      setIsInstallable(!isStandalone);
+      const isInStandaloneMode = window.navigator.standalone === true;
+      console.log('Is app in standalone mode?', isStandalone || isInStandaloneMode);
+      console.log('Setting isInstallable to:', !(isStandalone || isInStandaloneMode));
+      setIsInstallable(!(isStandalone || isInStandaloneMode));
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -113,6 +124,11 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
   };
 
   const handleInstallClick = async () => {
+    if (isIOS) {
+      setShowIOSInstructions(true);
+      return;
+    }
+
     if (!deferredPrompt) return;
 
     // Show the install prompt
@@ -290,22 +306,20 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           )}
 
           {isInstallable && (
-            <Box sx={{ marginLeft: 'auto' }}> {/* Ensures it aligns to the right */}
-              <Tooltip title="Install App">
-                <IconButton
-                  onClick={handleInstallClick}
-                  sx={{
-                    color: 'white',
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.common.white, 0.1),
-                    },
-                    marginLeft: '15px',
-                  }}
-                >
-                  <GetAppIcon sx={{ color: 'white' }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
+            <Tooltip title={isIOS ? "Install on iOS" : "Install app"}>
+              <IconButton
+                color="inherit"
+                onClick={handleInstallClick}
+                sx={{
+                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                  '&:hover': {
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.2),
+                  }
+                }}
+              >
+                <GetAppIcon />
+              </IconButton>
+            </Tooltip>
           )}
 
             {/* Admin Menu Toggle - Only show if admin */}
@@ -436,6 +450,10 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
 
         </Toolbar>
       </AppBar>
+      <InstallInstructions 
+        open={showIOSInstructions} 
+        onClose={() => setShowIOSInstructions(false)} 
+      />
     </Box>
   );
 }
