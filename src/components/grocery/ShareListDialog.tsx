@@ -62,18 +62,21 @@ export const ShareListDialog: React.FC<ShareListDialogProps> = ({
   const handleAddEmail = () => {
     if (!email) return;
     
-    // Basic email validation
-    if (!/\S+@\S+\.\S+/.test(email)) {
+    // Trim and ensure email is valid
+    const trimmedEmail = email.trim();
+    
+    // Enhanced email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setError('Please enter a valid email address');
       return;
     }
     
-    if (emailsToShare.includes(email)) {
+    if (emailsToShare.includes(trimmedEmail)) {
       setError('This email is already in the list');
       return;
     }
     
-    setEmailsToShare([...emailsToShare, email]);
+    setEmailsToShare([...emailsToShare, trimmedEmail]);
     setEmail('');
     setError('');
   };
@@ -92,11 +95,22 @@ export const ShareListDialog: React.FC<ShareListDialogProps> = ({
   const handleShare = async () => {
     if (!user) return;
     
+    // Validate emails array one more time before saving
+    const validEmails = emailsToShare.filter(email => 
+      email && typeof email === 'string' && email.trim() !== '' && 
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    );
+    
+    if (validEmails.length !== emailsToShare.length) {
+      console.warn('Removed invalid emails before sharing:', 
+        emailsToShare.filter(e => !validEmails.includes(e)));
+    }
+    
     setIsSubmitting(true);
     setError('');
     
     try {
-      const updatedList = await shareList(list, emailsToShare);
+      const updatedList = await shareList(list, validEmails);
       onListUpdated(updatedList);
       setSuccess('List shared successfully!');
       

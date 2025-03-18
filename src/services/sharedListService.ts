@@ -24,6 +24,16 @@ export const shareList = async (list: GroceryList, emails: string[]) => {
   if (!user) throw new Error("User not authenticated");
   if (!user.email) throw new Error("User email not available");
 
+  // Filter out any undefined or null values from emails array
+  const validEmails = emails.filter(email => email !== undefined && email !== null && email.trim() !== '');
+  
+  console.log('Sharing list with validated emails:', {
+    listName: list.name,
+    originalEmailsCount: emails.length,
+    filteredEmailsCount: validEmails.length,
+    emails: validEmails
+  });
+
   // Create or update the Firestore document
   const listRef = list.firebaseId 
     ? doc(sharedListsCollection, list.firebaseId)
@@ -34,7 +44,7 @@ export const shareList = async (list: GroceryList, emails: string[]) => {
     ownerId: user.uid,
     ownerEmail: user.email,
     ownerName: user.displayName || user.email,
-    sharedWith: emails,
+    sharedWith: validEmails,
     items: list.items,
     lastUpdated: Date.now(),
     lastUpdatedBy: user.uid,
@@ -47,7 +57,7 @@ export const shareList = async (list: GroceryList, emails: string[]) => {
   const updatedList = {
     ...list,
     isShared: true,
-    sharedWith: emails,
+    sharedWith: validEmails,
     firebaseId: listRef.id,
     lastUpdated: Date.now(),
     lastUpdatedBy: user.uid
