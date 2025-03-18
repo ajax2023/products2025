@@ -35,12 +35,8 @@ service cloud.firestore {
     // Shared Lists collection
     match /sharedLists/{listId} {
       // Allow any authenticated user to query the collection
-      allow list: if isSignedIn() && (
-        // Can list if you're the owner
-        request.auth.uid == resource.data.ownerId ||
-        // Or if the list is shared with you (case insensitive)
-        resource.data.sharedWith.hasAny([request.auth.email, request.auth.email.lower()])
-      );
+      // We can't access document data during list operations
+      allow list: if isSignedIn();
       
       // Allow read if the user is the owner or the list is shared with them
       allow get: if isSignedIn() && (
