@@ -1,4 +1,4 @@
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 import { app, db, auth } from "../firebaseConfig";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
@@ -68,14 +68,52 @@ const createUserDocument = async (user: any) => {
   return userRef;
 };
 
+// Detect if we are in a mobile or standalone PWA context where popup auth is unreliable
+const isStandalonePWA = () => {
+  try {
+    const iosStandalone = (() => {
+      const navAny = navigator as any;
+      return typeof navAny !== 'undefined' && navAny && navAny.standalone === true;
+    })();
+    return window.matchMedia('(display-mode: standalone)').matches || iosStandalone;
+  } catch {
+    return false;
+  }
+};
+
+const isMobileUA = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 export const signInWithGoogle = async () => {
   try {
+    if (isStandalonePWA() || isMobileUA()) {
+      // Use redirect flow on mobile / PWA
+      await signInWithRedirect(auth, googleProvider);
+      return null; // flow will continue after redirect
+    }
+    // Desktop browsers: popups are fine
     const result = await signInWithPopup(auth, googleProvider);
     await createUserDocument(result.user);
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google:", error);
     throw error;
+  }
+};
+
+// Call on app start to complete redirect flow and create the user document
+export const handleRedirectResult = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      await createUserDocument(result.user);
+      return result.user;
+    }
+    return null;
+  } catch (error) {
+    // If there is no redirect result, Firebase throws; that's ok, just return null.
+    // Only log other errors.
+    console.debug("No redirect result or error during redirect handling:", error);
+    return null;
   }
 };
 

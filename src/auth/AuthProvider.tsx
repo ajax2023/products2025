@@ -4,6 +4,7 @@ import { auth, db } from '../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { AuthContext } from './AuthContext';
 import { UserClaims } from './types';
+import { handleRedirectResult } from './auth';
 
 interface AuthState {
   user: User | null;
@@ -67,6 +68,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authState.user]);
 
   useEffect(() => {
+    // Complete redirect-based auth flows (mobile/PWA)
+    handleRedirectResult().catch((e) => {
+      console.debug('No redirect result to process or error handled:', e);
+    });
+
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
