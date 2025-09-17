@@ -12,8 +12,9 @@ interface ProductDB extends DBSchema {
     };
   };
   metadata: {
-    key: string;
+    key: [string, string];
     value: {
+      key: string;
       lastUpdated: string;
       cacheKey: string;
     };

@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { Snackbar, Alert, AlertColor } from '@mui/material';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import type { AlertColor } from '@mui/material/Alert';
 
 interface NotificationContextType {
   showMessage: (message: string, severity?: AlertColor) => void;

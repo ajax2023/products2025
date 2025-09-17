@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Button, useTheme } from '@mui/material';
-import { styled, keyframes } from '@mui/material/styles';
+import { Box, Button } from '@mui/material';
+import { useTheme, styled, keyframes } from '@mui/system';
 import { useAuth } from '../auth/useAuth';
 import GoogleIcon from '@mui/icons-material/Google';
 import { signInWithGoogle } from '../auth';

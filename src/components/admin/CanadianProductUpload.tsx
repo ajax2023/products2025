@@ -26,7 +26,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
 import { batchImportCanadianProducts } from '../../utils/canadianProducts';
-import { BatchImportResult, CanadianProduct } from '../../types/product';
+import { CanadianProduct } from '../../types/product';
 import Papa from 'papaparse';
 import { collection, addDoc, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
@@ -43,7 +43,8 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [result, setResult] = useState<BatchImportResult | null>(null);
+  type UploadResult = { success: boolean; message: string };
+  const [result, setResult] = useState<UploadResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpen = () => setOpen(true);
@@ -231,23 +232,23 @@ export default function CanadianProductUpload({ userId, userEmail, userName }: C
       const querySnapshot = await getDocs(collection(db, 'canadian_products'));
       const products = querySnapshot.docs.map(doc => ({
         _id: doc.id,
-        ...doc.data()
+        ...(doc.data() as any)
       }));
 
       // Convert products to CSV format
-      const csvData = products.map(product => ({
+      const csvData = products.map((product: any) => ({
         _id: product._id,
-        name: product.name,
-        description: product.description,
-        brand: product.brand,
-        manufacturer: product.manufacturer,
-        supplier: product.supplier,
-        country_of_origin: product.country_of_origin,
-        production_verified: product.production_verified,
-        notes: product.notes,
-        products: Array.isArray(product.products) ? product.products.join(';') : product.products,
-        categories: Array.isArray(product.categories) ? product.categories.join(';') : product.categories,
-        cdn_prod_tags: Array.isArray(product.cdn_prod_tags) ? product.cdn_prod_tags.join(';') : product.cdn_prod_tags
+        brand_name: product.brand_name || '',
+        website: product.website || '',
+        city: product.city || '',
+        province: product.province || '',
+        country: product.country || 'Canada',
+        production_verified: !!product.production_verified,
+        site_verified: !!product.site_verified,
+        notes: product.notes || '',
+        products: Array.isArray(product.products) ? product.products.join(';') : (product.products || ''),
+        categories: Array.isArray(product.categories) ? product.categories.join(';') : (product.categories || ''),
+        cdn_prod_tags: Array.isArray(product.cdn_prod_tags) ? product.cdn_prod_tags.join(';') : (product.cdn_prod_tags || '')
       }));
 
       // Generate CSV

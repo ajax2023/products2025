@@ -28,11 +28,11 @@ import {
   DialogContentText,
   DialogActions,
   Tooltip,
-  Alert,
   Snackbar,
-  CheckCircleIcon,
-  ErrorIcon,
 } from '@mui/material';
+import Alert from '@mui/material/Alert';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
 // import SearchIcon from '@mui/icons-material/Search';
 // import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -376,6 +376,31 @@ export default function CanadianProductSearch() {
     setProductSelectionDialogOpen(true);
   };
 
+  // Create a default grocery preference for the current user
+  const handleCreateNewPreference = async () => {
+    if (!user) return;
+    try {
+      const id = await groceryDb.groceryPreferences.add({
+        userId: user.uid,
+        title: 'My Preferences',
+        date: Date.now(),
+        items: [] as GroceryItem[],
+        categories: [] as { title: string; items: string[] }[],
+        quickNotes: [] as string[],
+        canadianProducts: [] as string[],
+      });
+      const created = await groceryDb.groceryPreferences.get(id as number);
+      if (created) {
+        setGroceryPreferences([created]);
+        setSelectedPreference(created);
+        setCategoryDialogOpen(true);
+      }
+    } catch (err) {
+      console.error('Error creating new grocery preference:', err);
+      setGroceryNotification({ open: true, message: 'Failed to create preference', severity: 'error' });
+    }
+  };
+
   const handleProductsSelected = (selectedProducts: string[]) => {
     setSelectedProductsForPreference(selectedProducts);
     setProductSelectionDialogOpen(false);
@@ -671,25 +696,25 @@ export default function CanadianProductSearch() {
                 }}
               >
                 <TableRow>
-                  <TableCell width="22%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell sx={{ width: '22%', fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <StoreIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Brand ({filteredProducts.length})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="17%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell sx={{ width: '17%', fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CategoryIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Categories ({countTotalCategories(filteredProducts)})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="8%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell sx={{ width: '8%', fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <VerifiedIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span> ({countTotalStatus(filteredProducts)})</span>
                     </Box>
                   </TableCell>
-                  <TableCell width="12%" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  <TableCell sx={{ width: '12%', fontWeight: 'bold', color: 'white' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LocationOnIcon sx={{ color: 'white', fontSize: '1.2rem' }} />
                       <span>Location</span>

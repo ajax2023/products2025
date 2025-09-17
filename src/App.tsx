@@ -4,7 +4,7 @@ import Login from './components/Login';
 import Settings from './components/Settings';
 import { Navbar } from './components/Navbar';
 import { auth } from './firebaseConfig';
-import { ThemeProvider } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './theme';
 import './App.css';
 import './components/Login.css';

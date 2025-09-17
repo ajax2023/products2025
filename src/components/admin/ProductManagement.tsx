@@ -597,8 +597,8 @@ const ProductManagement: React.FC = () => {
           `"${(product.brand_name || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
           `"${(product.products || []).join(', ').replace(/"/g, '""')}"`,
           `"${(product.categories || []).join(', ').replace(/"/g, '""')}"`,
-          product.canadian_owned ? 'Yes' : 'No',
-          product.canadian_made ? 'Yes' : 'No',
+          product.site_verified ? 'Yes' : 'No',
+          product.production_verified ? 'Yes' : 'No',
           `"${(product.city || '').replace(/"/g, '""')}"`,
           `"${(product.province || '').replace(/"/g, '""')}"`,
           `"${(product.website || '').replace(/"/g, '""')}"`,
@@ -613,7 +613,6 @@ const ProductManagement: React.FC = () => {
     // Create CSV content
     const csvContent = csvRows.join('\n');
 
-    // Create a blob and download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1086,12 +1085,12 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 <TableRow>
                   <TablePagination
                     rowsPerPageOptions={[5, 10, 25, 50, 100]}
-                    colSpan={9}
                     count={filteredProducts.length}
                     rowsPerPage={pageSize}
                     page={page}
                     onPageChange={handleChangePage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
+                    component="div"
                     sx={{
                       bgcolor: 'primary.main',
                       borderTop: '2px solid blue',
@@ -1131,6 +1130,7 @@ Site Verified Date: ${new Date(selectedProduct.site_verified_at || '').toLocaleD
                 fullWidth
                 required
                 sx={{ mt: 2 }}
+                variant="outlined"
                 InputProps={{
                   endAdornment: editedProduct.website && (
                     <InputAdornment position="end">

@@ -29,7 +29,7 @@ const MasterCategoryEditor: React.FC = () => {
     
     setLoading(true);
     try {
-      const results = await searchCanadianProducts('');
+      const results = await searchCanadianProducts({});
       setProducts(results);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -94,7 +94,7 @@ const MasterCategoryEditor: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Product Info</TableCell>
-                <TableCell width="60%">Master Category</TableCell>
+                <TableCell sx={{ width: '60%' }}>Master Category</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

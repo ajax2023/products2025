@@ -1,5 +1,5 @@
 import { Location } from './common';
-import { ProductLikeStats, BrandLikeStats } from './likes';
+import { BrandLikeStats } from './likes';
 
 export const PRODUCT_CATEGORIES = [
   'Automotive',

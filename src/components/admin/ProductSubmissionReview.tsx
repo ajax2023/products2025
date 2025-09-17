@@ -26,8 +26,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { 
   getPendingSubmissions, 
   approveSubmission, 
-  rejectProductSubmission,
-  getSubmissionById
+  rejectProductSubmission
 } from '../../services/productSubmissionService';
 import { ProductSubmission } from '../../types/productSubmission';
 import { useAuth } from '../../auth/useAuth';

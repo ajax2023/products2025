@@ -1,4 +1,4 @@
-import Dexie, { Table } from 'dexie';
+import Dexie from 'dexie';
 
 export interface GroceryItem {
   id: string;
@@ -37,12 +37,13 @@ export interface GroceryPreference {
 }
 
 class GroceryDatabase extends Dexie {
-  groceryLists!: Table<GroceryList, number>;
-  groceryPreferences!: Table<GroceryPreference, number>;
+  // Using loose typing due to missing Dexie v4 .d.ts in current environment
+  groceryLists!: any;
+  groceryPreferences!: any;
 
   constructor() {
     super('groceryDb');
-    this.version(1).stores({
+    (this as any).version(1).stores({
       groceryLists: '++id, userId, name, date',
       groceryPreferences: '++id, userId, title'
     });

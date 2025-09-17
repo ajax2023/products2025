@@ -15,7 +15,7 @@ import {
   DocumentData,
   onSnapshot,
 } from 'firebase/firestore';
-import { CanadianProduct, validateCanadianProduct, createCanadianProduct } from '../types/product';
+import { CanadianProduct, validateCanadianProduct, createCanadianProduct, CanadianProductStats, BatchImportResult, VerificationStatusChange } from '../types/product';
 import { cacheService } from '../services/cacheService';
 
 const COLLECTION_NAME = 'canadian_products';
@@ -188,9 +188,9 @@ export async function searchCanadianProducts(criteria: {
     }
 
     if (criteria.categories && criteria.categories.length > 0) {
-      results = results.filter(product => 
+      results = results.filter(product =>
         product.categories && Array.isArray(product.categories) &&
-        criteria.categories!.some(cat => product.categories.includes(cat))
+        criteria.categories!.some(cat => product.categories.includes(cat as any))
       );
     }
 
@@ -328,6 +328,8 @@ export async function getCanadianProductStats(): Promise<CanadianProductStats> {
       verified: 0,
       unverified: 0,
     },
+    verified: 0,
+    unverified: 0,
     byCategory: {},
     totalBrands: new Set<string>().size,
     totalTags: new Set<string>().size,
@@ -346,8 +348,10 @@ export async function getCanadianProductStats(): Promise<CanadianProductStats> {
     // Count by verification status
     if (product.production_verified) {
       stats.byVerificationStatus.verified++;
+      stats.verified++;
     } else {
       stats.byVerificationStatus.unverified++;
+      stats.unverified++;
     }
 
     // Count by category

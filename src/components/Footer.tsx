@@ -7,8 +7,8 @@ import {
   IconButton,
   Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material';
+import { useTheme } from '@mui/system';
 import InfoIcon from '@mui/icons-material/Info';
 import ContactSupportIcon from '@mui/icons-material/ContactSupport';
 import SecurityIcon from '@mui/icons-material/Security';

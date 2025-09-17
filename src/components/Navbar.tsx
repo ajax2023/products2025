@@ -5,10 +5,9 @@ import {
   Toolbar,
   IconButton,
   Box,
-  useTheme,
-  alpha,
   Tooltip,
 } from '@mui/material';
+import { useTheme, alpha } from '@mui/system';
 
 // Import all required icons
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';

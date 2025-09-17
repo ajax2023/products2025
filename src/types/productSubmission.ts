@@ -31,12 +31,15 @@ export interface CanadianProduct {
 }
 
 export interface ProductSubmission extends CanadianProduct {
+  id?: string;
   status: SubmissionStatus;
   reviewedBy?: string;
   reviewedAt?: Timestamp;
   rejectionReason?: string;
   adminNotes?: string;
   cdn_prod_tags?: string[];
+  submittedBy?: string;
+  submittedAt?: Timestamp;
 }
 
 /**

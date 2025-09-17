@@ -10,7 +10,7 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { styled } from '@mui/system';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
