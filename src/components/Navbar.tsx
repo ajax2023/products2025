@@ -164,7 +164,8 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
           display: 'flex', 
           justifyContent: 'space-between', 
           minHeight: { xs: '48px' },
-          overflow: 'hidden'
+          overflow: 'hidden',
+          flexWrap: 'nowrap'
         }}>
           <Box sx={{ mr: "28px" }}>
           {/* Logo */}
@@ -236,7 +237,7 @@ export function Navbar({ onTabChange, activeTab }: NavbarProps) {
                   }
                 }}
               >
-                <Tooltip title="Grocery Lists">
+                <Tooltip title="Lists">
                   <ListAltIcon />
                 </Tooltip>
               </IconButton>

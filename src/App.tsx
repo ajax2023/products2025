@@ -33,6 +33,8 @@ import AboutCanadianProducts from './components/AboutCanadianProducts';
 function RouteTracker() {
   const location = useLocation();
   useEffect(() => {
+    // Avoid overwriting saved route on the very first mount at '/'
+    if (sessionStorage.getItem('routeRestored') !== '1' && location.pathname === '/') return;
     if (location.pathname !== '/login') {
       localStorage.setItem('lastVisitedRoute', location.pathname);
     }
@@ -40,17 +42,20 @@ function RouteTracker() {
   return null;
 }
 
-function StartupRoute() {
+function InitialRouteRestorer() {
   const navigate = useNavigate();
+  const location = useLocation();
   useEffect(() => {
+    // Only attempt once per page load
+    if (sessionStorage.getItem('routeRestored') === '1') return;
     const saved = localStorage.getItem('lastVisitedRoute');
-    if (saved && saved !== '/' && saved !== '/login') {
+    if (saved && saved !== '/login' && saved !== location.pathname) {
+      sessionStorage.setItem('routeRestored', '1');
       navigate(saved, { replace: true });
-    } else {
-      // default to Canadian products as before
-      navigate('/canadian-products', { replace: true });
     }
-  }, [navigate]);
+  // Run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return null;
 }
 
@@ -81,9 +86,10 @@ function App() {
                     }}>
                       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
                       <Box sx={{ flex: 1, overflowY: 'auto', paddingBottom: '40px' }}>
+                        <InitialRouteRestorer />
                         <RouteTracker />
                         <Routes>
-                          <Route path="/" element={<StartupRoute />} />
+                          <Route path="/" element={<CanadianProductSearch />} />
                           <Route path="/settings" element={<Settings />} />
                          
                           <Route path="/home" element={<Home />} />

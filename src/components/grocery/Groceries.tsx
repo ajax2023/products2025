@@ -388,8 +388,8 @@ export default function Groceries() {
   return (
     <Container maxWidth={false} disableGutters sx={{ height: 'calc(100vh - 100px)',
       position: 'fixed', top: 60, overflowY: 'auto', px: 1 }}>
-      <Typography variant="h5" sx={{ color: 'primary.main', mt: 0, mb: 2 }}>
-        Grocery Lists
+      <Typography variant="h5" sx={{ color: 'primary.main', mt: 0.5, mb: 1 }}>
+        Your Lists
       </Typography>
 
       <Grid container spacing={1}>
@@ -471,16 +471,9 @@ export default function Groceries() {
                           </Box>
                         }
                         secondary={
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Typography variant="body2" component="span">
-                              {`${list.items.length} items`}
-                            </Typography>
-                            {list.lastUpdated && (
-                              <Typography variant="body2" component="span" sx={{ ml: 1, color: 'text.secondary' }}>
-                                · Updated {new Date(list.lastUpdated).toLocaleString()}
-                              </Typography>
-                            )}
-                          </Box>
+                          <Typography variant="body2" component="span">
+                            {`${list.items.length} items`}
+                          </Typography>
                         }
                       />
                       <ShareGroceryButton 
@@ -630,18 +623,7 @@ export default function Groceries() {
                     )}
                   </Droppable>
                 </DragDropContext>
-                <Divider sx={{ mt: 1, mb: 0.5 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Created on {new Date(selectedList.date).toLocaleDateString()}
-                  </Typography>
-                  {selectedList.lastUpdated && (
-                    <Typography variant="caption" color="text.secondary">
-                      Last updated: {new Date(selectedList.lastUpdated).toLocaleString()}
-                      {selectedList.lastUpdatedBy && selectedList.lastUpdatedBy !== user?.uid && " by someone else"}
-                    </Typography>
-                  )}
-                </Box>
+                {/* Metadata removed per design: created/updated not shown */}
               </>
             ) : (
               <Box

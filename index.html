@@ -31,6 +31,22 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('lastVisitedRoute');
+          if (saved && saved !== '/login') {
+            // If launching at root or default products page, go to the saved route first
+            if (location.pathname === '/' || location.pathname === '/canadian-products') {
+              if (saved !== location.pathname) {
+                location.replace(saved);
+                return;
+              }
+            }
+          }
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
