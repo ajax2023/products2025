@@ -80,7 +80,7 @@ export default function AddGroceryDialog({
         setListName(initialValues.name);
         setItems(initialValues.items);
       } else {
-        setListName(`Grocery List ${new Date().toLocaleDateString()}`);
+        setListName(`List ${new Date().toLocaleDateString()}`);
         setItems([]);
       }
       loadCategories();

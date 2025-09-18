@@ -264,6 +264,12 @@ export default function Groceries() {
 
   const handleSelectList = (list: GroceryList) => {
     setSelectedList(list);
+    if (user) {
+      try {
+        const payload = { id: list.id ?? null, firebaseId: (list as any).firebaseId ?? null };
+        localStorage.setItem(`lastSelectedGroceryList:${user.uid}`, JSON.stringify(payload));
+      } catch {}
+    }
   };
 
   const handleToggleItem = async (itemId: string, checked: boolean) => {
@@ -355,14 +361,38 @@ export default function Groceries() {
     list.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Restore last selected list when lists load
+  useEffect(() => {
+    if (!user) return;
+    if (selectedList) return; // do not override active selection
+    try {
+      const saved = localStorage.getItem(`lastSelectedGroceryList:${user.uid}`);
+      if (!saved) return;
+      const { id, firebaseId } = JSON.parse(saved);
+      const found = allLists.find(l => (id && l.id === id) || (firebaseId && (l as any).firebaseId === firebaseId));
+      if (found) {
+        setSelectedList(found);
+      }
+    } catch {}
+  }, [user, lists, sharedLists]);
+
+  // Persist whenever selection changes
+  useEffect(() => {
+    if (!user || !selectedList) return;
+    try {
+      const payload = { id: selectedList.id ?? null, firebaseId: (selectedList as any).firebaseId ?? null };
+      localStorage.setItem(`lastSelectedGroceryList:${user.uid}`, JSON.stringify(payload));
+    } catch {}
+  }, [user, selectedList]);
+
   return (
-    <Container maxWidth="lg" sx={{     height: 'calc(100vh - 100px)',
-      position: 'fixed',   top: 60,  overflowY: 'auto'}}>
+    <Container maxWidth={false} disableGutters sx={{ height: 'calc(100vh - 100px)',
+      position: 'fixed', top: 60, overflowY: 'auto', px: 1 }}>
       <Typography variant="h5" sx={{ color: 'primary.main', mt: 0, mb: 2 }}>
         Grocery Lists
       </Typography>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={1}>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }} elevation={10}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -435,14 +465,7 @@ export default function Groceries() {
                               <Tooltip title={list.userId === user?.uid 
                                 ? `Shared with ${list.sharedWith?.length} people` 
                                 : "Shared with you"}>
-                                <Chip
-                                  icon={<PeopleIcon fontSize="small" />}
-                                  label={list.userId === user?.uid ? "Shared" : "Shared with you"}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                                />
+                                <PeopleIcon fontSize="small" sx={{ ml: 1, color: 'primary.main' }} />
                               </Tooltip>
                             )}
                           </Box>
@@ -453,7 +476,7 @@ export default function Groceries() {
                               {`${list.items.length} items`}
                             </Typography>
                             {list.lastUpdated && (
-                              <Typography variant="caption" component="span" sx={{ ml: 1, color: 'text.secondary' }}>
+                              <Typography variant="body2" component="span" sx={{ ml: 1, color: 'text.secondary' }}>
                                 · Updated {new Date(list.lastUpdated).toLocaleString()}
                               </Typography>
                             )}
@@ -500,61 +523,39 @@ export default function Groceries() {
               <>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="h6">{selectedList.name}</Typography>
-                    {selectedList.isShared && (
-                      <Tooltip title={selectedList.userId === user?.uid 
-                        ? `Shared with ${selectedList.sharedWith?.length} people` 
-                        : "Shared with you"}>
-                        <Chip
-                          icon={<PeopleIcon fontSize="small" />}
-                          label={selectedList.userId === user?.uid ? "Shared" : "Shared with you"}
-                          size="small"
-                          color="primary"
-                          sx={{ ml: 1 }}
-                        />
-                      </Tooltip>
-                    )}
+                    <Typography variant="subtitle1">{selectedList.name}</Typography>
                   </Box>
                   <Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleEditList(selectedList)}
-                      startIcon={<EditIcon />}
-                      sx={{ mr: 1 }}
-                      disabled={selectedList.userId !== user?.uid}
-                    >
-                      Edit
-                    </Button>
+                    <Tooltip title="Edit">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditList(selectedList)}
+                          sx={{ mr: 0.5 }}
+                          disabled={selectedList.userId !== user?.uid}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <ShareGroceryButton 
                       groceryList={selectedList} 
                       onListUpdated={handleListUpdated}
                     />
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleDeleteList(selectedList.id!)}
-                      startIcon={<DeleteIcon />}
-                      sx={{ ml: 1 }}
-                      disabled={!selectedList.id || selectedList.userId !== user?.uid}
-                    >
-                      Delete
-                    </Button>
+                    <Tooltip title="Delete">
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteList(selectedList.id!)}
+                          sx={{ ml: 0.5 }}
+                          disabled={!selectedList.id || selectedList.userId !== user?.uid}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Created on {new Date(selectedList.date).toLocaleDateString()}
-                  </Typography>
-                  
-                  {selectedList.lastUpdated && (
-                    <Typography variant="body2" color="text.secondary">
-                      Last updated: {new Date(selectedList.lastUpdated).toLocaleString()}
-                      {selectedList.lastUpdatedBy && selectedList.lastUpdatedBy !== user?.uid && " by someone else"}
-                    </Typography>
-                  )}
                 </Box>
 
                 <DragDropContext onDragEnd={handleDragEnd}>
@@ -629,6 +630,18 @@ export default function Groceries() {
                     )}
                   </Droppable>
                 </DragDropContext>
+                <Divider sx={{ mt: 1, mb: 0.5 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Created on {new Date(selectedList.date).toLocaleDateString()}
+                  </Typography>
+                  {selectedList.lastUpdated && (
+                    <Typography variant="caption" color="text.secondary">
+                      Last updated: {new Date(selectedList.lastUpdated).toLocaleString()}
+                      {selectedList.lastUpdatedBy && selectedList.lastUpdatedBy !== user?.uid && " by someone else"}
+                    </Typography>
+                  )}
+                </Box>
               </>
             ) : (
               <Box

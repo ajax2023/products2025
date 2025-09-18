@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import { Navbar } from './components/Navbar';
@@ -30,6 +30,30 @@ import Groceries from './components/grocery/Groceries';
 import GroceryPreferences from './components/grocery/GroceryPreferences';
 import AboutCanadianProducts from './components/AboutCanadianProducts';
 
+function RouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.pathname !== '/login') {
+      localStorage.setItem('lastVisitedRoute', location.pathname);
+    }
+  }, [location]);
+  return null;
+}
+
+function StartupRoute() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const saved = localStorage.getItem('lastVisitedRoute');
+    if (saved && saved !== '/' && saved !== '/login') {
+      navigate(saved, { replace: true });
+    } else {
+      // default to Canadian products as before
+      navigate('/canadian-products', { replace: true });
+    }
+  }, [navigate]);
+  return null;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<ViewState>('list');
 
@@ -57,8 +81,9 @@ function App() {
                     }}>
                       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
                       <Box sx={{ flex: 1, overflowY: 'auto', paddingBottom: '40px' }}>
+                        <RouteTracker />
                         <Routes>
-                          <Route path="/" element={<CanadianProductSearch />} />
+                          <Route path="/" element={<StartupRoute />} />
                           <Route path="/settings" element={<Settings />} />
                          
                           <Route path="/home" element={<Home />} />
