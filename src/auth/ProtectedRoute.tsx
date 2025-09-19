@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
+import { auth } from '../firebaseConfig';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,17 +19,22 @@ export function ProtectedRoute({
 
   console.log('ProtectedRoute check:', { user: user?.email, loading, requiredRole, path: location.pathname });
 
-  if (loading) {
+  // If auth is still loading, or a redirect-based login is pending, wait
+  let pending = false;
+  try { pending = sessionStorage.getItem('authRedirectPending') === '1'; } catch {}
+  if (loading || pending) {
     return <div>Loading...</div>;
   }
 
-  if (!user) {
+  // On some mobile flows, context may lag behind firebase auth; trust auth.currentUser as well
+  const effectiveUser = user || auth.currentUser;
+  if (!effectiveUser) {
     console.log('ProtectedRoute: No user, redirecting to', fallback);
     return <Navigate to={fallback} state={{ from: location }} replace />;
   }
 
   // Special case for ajax@online101.ca
-  if (user.email === 'ajax@online101.ca') {
+  if (effectiveUser.email === 'ajax@online101.ca') {
     return <>{children}</>;
   }
 

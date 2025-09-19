@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: 'viewer',
     settings: {}
   });
+  const [redirectHandled, setRedirectHandled] = useState(false);
 
   const refreshClaims = useCallback(async () => {
     if (!authState.user) {
@@ -75,6 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .catch((e) => {
         console.log('Redirect result error:', e);
+      })
+      .finally(() => {
+        setRedirectHandled(true);
       });
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -95,19 +99,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Refresh claims after setting the user
         setTimeout(() => refreshClaims(), 100);
       } else {
-        console.log('No user - setting auth state to logged out');
-        setAuthState({
-          user: null,
-          claims: null,
-          loading: false,
-          role: 'viewer',
-          settings: {}
-        });
+        // Avoid declaring loading complete until redirect handling finished
+        if (!redirectHandled) {
+          console.log('No user yet, waiting for redirect handling...');
+          setAuthState(prev => ({ ...prev, user: null, claims: null, loading: true, role: 'viewer', settings: {} }));
+        } else {
+          console.log('No user - setting auth state to logged out');
+          setAuthState({
+            user: null,
+            claims: null,
+            loading: false,
+            role: 'viewer',
+            settings: {}
+          });
+        }
       }
     });
 
     return () => unsubscribe();
-  }, [refreshClaims]);
+  }, [refreshClaims, redirectHandled]);
 
   const contextValue = {
     ...authState,
