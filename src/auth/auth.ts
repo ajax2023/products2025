@@ -85,19 +85,29 @@ const isMobileUA = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 export const signInWithGoogle = async () => {
   try {
-    if (isStandalonePWA() || isMobileUA()) {
-      // Use redirect flow on mobile / PWA
+    if (isStandalonePWA()) {
+      console.log('[Auth] Standalone PWA detected -> using redirect');
       try { sessionStorage.setItem('authRedirectPending', '1'); } catch {}
       await signInWithRedirect(auth, googleProvider);
       return null; // flow will continue after redirect
     }
-    // Desktop browsers: popups are fine
-    const result = await signInWithPopup(auth, googleProvider);
-    await createUserDocument(result.user);
-    try { sessionStorage.removeItem('authRedirectPending'); } catch {}
-    return result.user;
+
+    // Try popup first (works best on Android Chrome). Fallback to redirect if blocked.
+    try {
+      console.log('[Auth] Trying popup sign-in');
+      const result = await signInWithPopup(auth, googleProvider);
+      await createUserDocument(result.user);
+      try { sessionStorage.removeItem('authRedirectPending'); } catch {}
+      return result.user;
+    } catch (popupError: any) {
+      const code = popupError?.code || '';
+      console.log('[Auth] Popup sign-in failed, code:', code, '-> falling back to redirect');
+      try { sessionStorage.setItem('authRedirectPending', '1'); } catch {}
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
   } catch (error) {
-    console.error("Error signing in with Google:", error);
+    console.error('[Auth] Error in signInWithGoogle:', error);
     throw error;
   }
 };

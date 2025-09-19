@@ -1,7 +1,7 @@
 // src/firebaseConfig.ts
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -29,7 +29,11 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
-export const auth = getAuth(app);
+// Initialize Auth with robust persistence and resolver for popup/redirect flows
+export const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver
+});
 
 // Initialize Firestore with caching settings
 export const db = initializeFirestore(app, {

@@ -12,6 +12,19 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Ensure we are on the canonical host so Firebase redirect sessionStorage survives roundtrip
+  useEffect(() => {
+    const host = window.location.host;
+    // If you prefer apex instead, change this constant to 'canada2025.com'
+    const canonicalHost = 'www.canada2025.com';
+    if (host === 'canada2025.com') {
+      const newUrl = `${window.location.protocol}//${canonicalHost}${window.location.pathname}${window.location.search}${window.location.hash}`;
+      console.log('Switching to canonical host:', newUrl);
+      window.location.replace(newUrl);
+      return;
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       console.log('Login component - auth state changed:', user ? `User: ${user.email}` : 'No user');
