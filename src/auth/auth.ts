@@ -87,12 +87,14 @@ export const signInWithGoogle = async () => {
   try {
     if (isStandalonePWA() || isMobileUA()) {
       // Use redirect flow on mobile / PWA
+      try { sessionStorage.setItem('authRedirectPending', '1'); } catch {}
       await signInWithRedirect(auth, googleProvider);
       return null; // flow will continue after redirect
     }
     // Desktop browsers: popups are fine
     const result = await signInWithPopup(auth, googleProvider);
     await createUserDocument(result.user);
+    try { sessionStorage.removeItem('authRedirectPending'); } catch {}
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google:", error);
@@ -106,13 +108,16 @@ export const handleRedirectResult = async () => {
     const result = await getRedirectResult(auth);
     if (result && result.user) {
       await createUserDocument(result.user);
+      try { sessionStorage.removeItem('authRedirectPending'); } catch {}
       return result.user;
     }
+    try { sessionStorage.removeItem('authRedirectPending'); } catch {}
     return null;
   } catch (error) {
     // If there is no redirect result, Firebase throws; that's ok, just return null.
     // Only log other errors.
     console.debug("No redirect result or error during redirect handling:", error);
+    try { sessionStorage.removeItem('authRedirectPending'); } catch {}
     return null;
   }
 };
