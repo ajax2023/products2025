@@ -45,17 +45,25 @@ function RouteTracker() {
 function InitialRouteRestorer() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading } = useAuth();
   useEffect(() => {
     // Only attempt once per page load
     if (sessionStorage.getItem('routeRestored') === '1') return;
     const saved = localStorage.getItem('lastVisitedRoute');
-    if (saved && saved !== '/login' && saved !== location.pathname) {
-      sessionStorage.setItem('routeRestored', '1');
-      navigate(saved, { replace: true });
+    if (!saved || saved === '/login' || saved === location.pathname) return;
+
+    const isProtected = (path: string) => {
+      return path.startsWith('/groceries') || path.startsWith('/grocery-preferences') || path.startsWith('/admin');
+    };
+
+    // If saved route is protected, wait until auth is ready and user exists
+    if (isProtected(saved)) {
+      if (loading || !user) return; // wait
     }
-  // Run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    sessionStorage.setItem('routeRestored', '1');
+    navigate(saved, { replace: true });
+  }, [navigate, location.pathname, user, loading]);
   return null;
 }
 
