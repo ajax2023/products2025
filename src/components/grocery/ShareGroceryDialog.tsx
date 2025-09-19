@@ -38,14 +38,14 @@ export const ShareGroceryDialog: React.FC<ShareGroceryDialogProps> = ({
       ? `\n\nComment from ${sharedBy}:\n${comment}`
       : '';
 
-    const shareText = `Grocery List: ${groceryList.name}${itemsText}${commentText}\n\nShared by: ${sharedBy}\n\nVisit Canada2025.com`;
+    const shareText = `List: ${groceryList.name}${itemsText}${commentText}\n\nShared by: ${sharedBy}\n\nVisit Canada2025.com`;
 
     try {
       if (navigator.share) {
         // Try sharing with just text first
         try {
           await navigator.share({
-            title: `Grocery List: ${groceryList.name}`,
+            title: `List: ${groceryList.name}`,
             text: shareText
           });
         } catch (textError) {
@@ -55,7 +55,7 @@ export const ShareGroceryDialog: React.FC<ShareGroceryDialogProps> = ({
           const dataUrl = `data:text/plain;charset=utf-8,${encodedText}`;
           
           await navigator.share({
-            title: `Grocery List: ${groceryList.name}`,
+            title: `List: ${groceryList.name}`,
             text: shareText,
             url: dataUrl
           });
@@ -73,11 +73,11 @@ export const ShareGroceryDialog: React.FC<ShareGroceryDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Share Grocery List: {groceryList.name}</DialogTitle>
+      <DialogTitle>Share List: {groceryList.name}</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           <Typography variant="subtitle1" gutterBottom>
-            Share this grocery list with others via text, email, or messaging apps.
+            Share this list with others via text, email, or messaging apps.
           </Typography>
           
           <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
@@ -117,7 +117,7 @@ export const ShareGroceryDialog: React.FC<ShareGroceryDialogProps> = ({
             multiline
             rows={3}
             fullWidth
-            placeholder="Add a note about this grocery list..."
+            placeholder="Add a note about this list..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             variant="outlined"

@@ -242,7 +242,7 @@ export default function AddGroceryDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
-        {initialValues ? 'Edit Grocery List' : 'Create New Grocery List'}
+        {initialValues ? 'Edit List' : 'Create New List'}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>

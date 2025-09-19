@@ -164,11 +164,11 @@ export const ShareListDialog: React.FC<ShareListDialogProps> = ({
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Share Grocery List: {list.name}</DialogTitle>
+      <DialogTitle>Share List: {list.name}</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           <Typography variant="body1" gutterBottom>
-            Share this grocery list with others via their email addresses.
+            Share this list with others via their email addresses.
             They will be able to view and edit the items in real-time.
           </Typography>
           

@@ -86,7 +86,7 @@ export default function Groceries() {
         setSelectedList(userLists[0]);
       }
     } catch (error) {
-      console.error('Error loading grocery lists:', error);
+      console.error('Error loading lists:', error);
     } finally {
       setLoading(false);
     }
@@ -442,7 +442,7 @@ export default function Groceries() {
             ) : filteredLists.length === 0 ? (
               <Box sx={{ p: 1, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No grocery lists found
+                  No lists found
                 </Typography>
               </Box>
             ) : (
@@ -667,10 +667,10 @@ export default function Groceries() {
         open={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
       >
-        <DialogTitle>Delete Grocery List</DialogTitle>
+        <DialogTitle>Delete List</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this grocery list? This action cannot be undone.
+            Are you sure you want to delete this list? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
