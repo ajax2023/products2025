@@ -2,7 +2,7 @@
 
 import { signInWithGoogle, logout, auth } from "../auth";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Box, Button, Typography, Container } from "@mui/material";
 import GoogleIcon from '@mui/icons-material/Google';
 import "./Login.css";
@@ -10,16 +10,21 @@ import "./Login.css";
 export default function Login() {
   const [user, setUser] = useState(auth.currentUser);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
-        navigate("/");
+        // Where to go after login
+        const from = (location.state as any)?.from?.pathname as string | undefined;
+        const last = (() => { try { return localStorage.getItem('lastVisitedRoute') || undefined; } catch { return undefined; } })();
+        const target = from || last || '/canadian-products';
+        navigate(target, { replace: true });
       }
     });
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -30,8 +35,8 @@ export default function Login() {
   };
 
   const handleVisitorSignIn = async () => {
-    // go to canada2025.com
-    window.location.href = 'https://canada2025.com';
+    // Stay inside the app for guest browsing
+    navigate('/canadian-products', { replace: true });
   };
 
   return (

@@ -31,29 +31,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      (function() {
-        try {
-          var pending = false;
-          try { pending = sessionStorage.getItem('authRedirectPending') === '1'; } catch {}
-          // If the URL contains OAuth/redirect params, do not change it before the app initializes
-          var urlBits = (location.search || '') + (location.hash || '');
-          var hasAuthParams = /code=|state=|oauth|redirect/i.test(urlBits);
-          if (pending || hasAuthParams) return;
-
-          var saved = localStorage.getItem('lastVisitedRoute');
-          if (saved && saved !== '/login') {
-            // If launching at root or default products page, go to the saved route first
-            if (location.pathname === '/' || location.pathname === '/canadian-products') {
-              if (saved !== location.pathname) {
-                location.replace(saved);
-                return;
-              }
-            }
-          }
-        } catch (e) { /* no-op */ }
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
