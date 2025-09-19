@@ -16,11 +16,14 @@ export function ProtectedRoute({
   const { user, claims, loading } = useAuth();
   const location = useLocation();
 
+  console.log('ProtectedRoute check:', { user: user?.email, loading, requiredRole, path: location.pathname });
+
   if (loading) {
     return <div>Loading...</div>;
   }
 
   if (!user) {
+    console.log('ProtectedRoute: No user, redirecting to', fallback);
     return <Navigate to={fallback} state={{ from: location }} replace />;
   }
 

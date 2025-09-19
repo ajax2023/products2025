@@ -105,18 +105,21 @@ export const signInWithGoogle = async () => {
 // Call on app start to complete redirect flow and create the user document
 export const handleRedirectResult = async () => {
   try {
+    console.log('Attempting to get redirect result...');
     const result = await getRedirectResult(auth);
     if (result && result.user) {
+      console.log('Redirect result found, user:', result.user.email);
       await createUserDocument(result.user);
       try { sessionStorage.removeItem('authRedirectPending'); } catch {}
       return result.user;
     }
+    console.log('No redirect result found');
     try { sessionStorage.removeItem('authRedirectPending'); } catch {}
     return null;
   } catch (error) {
     // If there is no redirect result, Firebase throws; that's ok, just return null.
     // Only log other errors.
-    console.debug("No redirect result or error during redirect handling:", error);
+    console.log("Redirect result error:", error);
     try { sessionStorage.removeItem('authRedirectPending'); } catch {}
     return null;
   }

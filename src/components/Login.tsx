@@ -14,12 +14,14 @@ export default function Login() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
+      console.log('Login component - auth state changed:', user ? `User: ${user.email}` : 'No user');
       setUser(user);
       if (user) {
         // Where to go after login
         const from = (location.state as any)?.from?.pathname as string | undefined;
         const last = (() => { try { return localStorage.getItem('lastVisitedRoute') || undefined; } catch { return undefined; } })();
         const target = from || last || '/canadian-products';
+        console.log('Login component - navigating to:', target);
         navigate(target, { replace: true });
       }
     });

@@ -69,25 +69,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Complete redirect-based auth flows (mobile/PWA)
-    handleRedirectResult().catch((e) => {
-      console.debug('No redirect result to process or error handled:', e);
-    });
+    handleRedirectResult()
+      .then((user) => {
+        console.log('Redirect result processed:', user ? 'User signed in' : 'No redirect result');
+      })
+      .catch((e) => {
+        console.log('Redirect result error:', e);
+      });
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      console.log('Auth state changed:', user ? `User: ${user.email}` : 'No user');
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const userData = userDoc.data();
+        console.log('User data from Firestore:', userData);
         
         setAuthState({
           user,
           claims: null,
-          loading: false,
+          loading: false, 
           role: userData?.role || 'viewer',
           settings: userData?.settings || {}
         });
         
-        refreshClaims();
+        // Refresh claims after setting the user
+        setTimeout(() => refreshClaims(), 100);
       } else {
+        console.log('No user - setting auth state to logged out');
         setAuthState({
           user: null,
           claims: null,
