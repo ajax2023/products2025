@@ -53,7 +53,8 @@ function InitialRouteRestorer() {
     if (!saved || saved === '/login' || saved === location.pathname) return;
 
     const isProtected = (path: string) => {
-      return path.startsWith('/groceries') || path.startsWith('/grocery-preferences') || path.startsWith('/admin');
+      // Only admin areas are protected now
+      return path.startsWith('/admin');
     };
 
     // If saved route is protected, wait until auth is ready and user exists
@@ -107,16 +108,8 @@ function App() {
                           <Route path="/about-canadian-products" element={<AboutCanadianProducts />} />
                           <Route path="/privacy" element={<PrivacyPolicy />} />
                           <Route path="/terms" element={<Terms />} />
-                          <Route path="/groceries" element={
-                            <ProtectedRoute fallback="/login">
-                              <Groceries />
-                            </ProtectedRoute>
-                          } />
-                          <Route path="/grocery-preferences" element={
-                            <ProtectedRoute fallback="/login">
-                              <GroceryPreferences />
-                            </ProtectedRoute>
-                          } />
+                          <Route path="/groceries" element={<Groceries />} />
+                          <Route path="/grocery-preferences" element={<GroceryPreferences />} />
                           <Route
                             path="/admin/products"
                             element={
